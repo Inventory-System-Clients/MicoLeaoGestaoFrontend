@@ -2533,6 +2533,24 @@ export function Dashboard() {
               </div>
             </>
           )}
+          {/* Visão das Lojas */}
+          <div
+            className="stat-card bg-linear-to-br from-orange-600 to-red-700 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
+            onClick={() => navigate("/visao-lojas")}
+          >
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium opacity-90">
+                  Visão das Lojas
+                </h3>
+                <span className="text-2xl">🏪</span>
+              </div>
+              <p className="text-3xl font-bold">{lojas.length}</p>
+              <p className="text-xs opacity-75 mt-1">
+                Operação, estoque e pendências
+              </p>
+            </div>
+          </div>
           {/* Veículos */}
           <div
             className="stat-card bg-linear-to-br from-gray-700 to-gray-900 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"

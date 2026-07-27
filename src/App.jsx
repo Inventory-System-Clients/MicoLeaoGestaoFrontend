@@ -11,6 +11,7 @@ import { UsuarioForm } from "./pages/UsuarioForm";
 import { Lojas } from "./pages/Lojas";
 import { LojaForm } from "./pages/LojaForm";
 import { LojaDetalhes } from "./pages/LojaDetalhes";
+import { VisaoLojas } from "./pages/VisaoLojas";
 import { Maquinas } from "./pages/Maquinas";
 import { MaquinaForm } from "./pages/MaquinaForm";
 import { MaquinaDetalhes } from "./pages/MaquinaDetalhes";
@@ -89,6 +90,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Lojas />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/visao-lojas"
+            element={
+              <PrivateRoute>
+                <VisaoLojas />
               </PrivateRoute>
             }
           />
