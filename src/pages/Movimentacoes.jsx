@@ -102,6 +102,13 @@ export function Movimentacoes() {
     ignoreInOut: false,
   });
 
+  const buscarUltimaMovimentacaoDaMaquina = async (maquinaId) => {
+    if (!maquinaId) return null;
+
+    const response = await api.get(`/movimentacoes/maquina/${maquinaId}/ultima`);
+    return response.data || null;
+  };
+
   // Estados auxiliares
   const [estoqueAnterior, setEstoqueAnterior] = useState(0);
   const [alertaDivergencia, setAlertaDivergencia] = useState(null);
@@ -216,14 +223,11 @@ export function Movimentacoes() {
       }
 
       try {
-        // Buscar Ãºltima movimentaÃ§Ã£o da mÃ¡quina
-        const response = await api.get(
-          `/movimentacoes?maquinaId=${formData.maquina_id}&limite=1`,
+        const ultimaMov = await buscarUltimaMovimentacaoDaMaquina(
+          formData.maquina_id,
         );
-        const movimentacoes = response.data;
 
-        if (movimentacoes && movimentacoes.length > 0) {
-          const ultimaMov = movimentacoes[0];
+        if (ultimaMov) {
           const contadorOutAnterior = ultimaMov.contadorOut || 0;
           const totalPosAnterior = ultimaMov.totalPos || 0;
 
@@ -513,24 +517,10 @@ export function Movimentacoes() {
       const retiradaProduto = parseInt(formData.retiradaProduto) || 0;
       const totalPos = totalPre + quantidadeAdicionada - retiradaProduto;
 
-      // Buscar a Ãºltima movimentaÃ§Ã£o da mÃ¡quina selecionada para pegar o totalPos anterior
-      let ultimoTotalPos = 0;
-      let movimentacoesMaquina = movimentacoes
-        .filter((m) => {
-          // Considera tanto maquinaId quanto maquina_id
-          return (
-            m.maquinaId === formData.maquina_id ||
-            m.maquina_id === formData.maquina_id
-          );
-        })
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-      if (movimentacoesMaquina.length > 0) {
-        ultimoTotalPos =
-          movimentacoesMaquina[0].totalPos ||
-          movimentacoesMaquina[0].totalPos ||
-          0;
-      }
+      const ultimaMovimentacaoMaquina = await buscarUltimaMovimentacaoDaMaquina(
+        formData.maquina_id,
+      );
+      const ultimoTotalPos = ultimaMovimentacaoMaquina?.totalPos || 0;
 
       // sairam = totalPos da movimentaÃ§Ã£o anterior - totalPre da atual
       // retiradaProduto NÃƒO conta em quantidadeSaiu nem no financeiro
@@ -619,39 +609,6 @@ export function Movimentacoes() {
           });
         }
       }
-
-      // Logs para depuraÃ§Ã£o do filtro
-      console.log("Todas movimentaÃ§Ãµes:", movimentacoes);
-      console.log(
-        "ID da mÃ¡quina selecionada:",
-        formData.maquina_id,
-        "(tipo:",
-        typeof formData.maquina_id,
-        ")",
-      );
-      movimentacoesMaquina = movimentacoes
-        .filter((m) => {
-          const id1 = m.maquinaId !== undefined ? m.maquinaId : m.maquina_id;
-          console.log(
-            "Comparando:",
-            id1,
-            "(tipo:",
-            typeof id1,
-            ") com",
-            formData.retiradaProdutoDevolverEstoque === true,
-            "(tipo:",
-            typeof formData.maquina_id,
-            ")",
-          );
-          return id1 === formData.maquina_id;
-        })
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      console.log("MovimentaÃ§Ãµes filtradas:", movimentacoesMaquina);
-      ultimoTotalPos = 0;
-      if (movimentacoesMaquina.length > 0) {
-        ultimoTotalPos = movimentacoesMaquina[0].totalPos || 0;
-      }
-      console.log("Ãšltimo totalPos encontrado:", ultimoTotalPos);
 
       setFormData({
         maquina_id: "",
