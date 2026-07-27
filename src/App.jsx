@@ -25,9 +25,6 @@ import { Sangrias } from "./pages/Sangrias";
 import { GastosVariaveis } from "./pages/GastosVariaveis";
 import { StyleGuide } from "./pages/StyleGuide";
 import { AnaliseEstoque } from "./pages/AnaliseEstoque";
-import { SuporteTecnico } from "./pages/suporteTecnico/SuporteTecnico";
-import { SuporteTecnicoHistorico } from "./pages/suporteTecnico/SuporteTecnicoHistorico";
-import { SuporteTecnicoDevolucoesPendentes } from "./pages/suporteTecnico/SuporteTecnicoDevolucoesPendentes";
 import "./App.css";
 
 function App() {
@@ -236,30 +233,6 @@ function App() {
             element={
               <PrivateRoute>
                 <GastosVariaveis />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/suporte-tecnico"
-            element={
-              <PrivateRoute>
-                <SuporteTecnico />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/suporte-tecnico/historico"
-            element={
-              <PrivateRoute adminOnly>
-                <SuporteTecnicoHistorico />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/suporte-tecnico/devolucoes-pendentes"
-            element={
-              <PrivateRoute adminOnly>
-                <SuporteTecnicoDevolucoesPendentes />
               </PrivateRoute>
             }
           />
