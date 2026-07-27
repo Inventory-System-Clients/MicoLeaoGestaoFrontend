@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import mascoteMicoLeao from "../assets/MascoteMicoLeao.png";
 
 export function IAgarraAssistente() {
   const navigate = useNavigate();
@@ -390,20 +391,13 @@ export function IAgarraAssistente() {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-linear-to-br from-yellow-400 to-orange-500 text-white shadow-sm">
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 3l1.7 5.1L19 10l-5.3 1.9L12 17l-1.7-5.1L5 10l5.3-1.9L12 3zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z"
-                  />
-                </svg>
+              <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-orange-100 bg-white shadow-sm">
+                <img
+                  src={mascoteMicoLeao}
+                  alt=""
+                  className="h-12 w-12 object-cover object-top"
+                  aria-hidden="true"
+                />
               </span>
               <h2 className="text-xl font-bold text-gray-900">
                 {assistenteNome}
