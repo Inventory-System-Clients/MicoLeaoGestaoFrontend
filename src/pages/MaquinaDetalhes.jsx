@@ -261,12 +261,6 @@ export function MaquinaDetalhes() {
                 {maquina.capacidadePadrao || maquina.capacidade || "-"}
               </p>
               <p>
-                <strong>Média de Saída Esperada:</strong>{" "}
-                {maquina.mediaSaidaEsperada || maquina.media_saida_esperada
-                  ? `${maquina.mediaSaidaEsperada || maquina.media_saida_esperada} pelúcias`
-                  : "-"}
-              </p>
-              <p>
                 <strong>Estoque Atual:</strong>{" "}
                 {estoqueAtual !== null && estoqueAtual !== undefined
                   ? estoqueAtual

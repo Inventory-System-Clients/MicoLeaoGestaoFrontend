@@ -22,7 +22,6 @@ export function MaquinaForm() {
     valorFicha: "",
     fichasNecessarias: "",
     jogadasBoasPorPelucia: "",
-    mediaSaidaEsperada: "",
     forcaForte: "",
     forcaFraca: "",
     forcaPremium: "",
@@ -77,10 +76,6 @@ export function MaquinaForm() {
         valorFicha: response.data.valorFicha || "",
         fichasNecessarias: response.data.fichasNecessarias || "",
         jogadasBoasPorPelucia: response.data.jogadasBoasPorPelucia || "",
-        mediaSaidaEsperada:
-          response.data.mediaSaidaEsperada ||
-          response.data.media_saida_esperada ||
-          "",
         forcaForte: response.data.forcaForte || "",
         forcaFraca: response.data.forcaFraca || "",
         forcaPremium: response.data.forcaPremium || "",
@@ -147,10 +142,6 @@ export function MaquinaForm() {
         jogadasBoasPorPelucia:
           formData.jogadasBoasPorPelucia !== ""
             ? parseFloat(formData.jogadasBoasPorPelucia)
-            : null,
-        mediaSaidaEsperada:
-          formData.mediaSaidaEsperada !== ""
-            ? parseFloat(formData.mediaSaidaEsperada)
             : null,
         forcaForte: parseInt(formData.forcaForte, 10) || null,
         forcaFraca: parseInt(formData.forcaFraca, 10) || null,
@@ -382,26 +373,7 @@ export function MaquinaForm() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Média de saída esperada
-                  </label>
-                  <input
-                    type="number"
-                    name="mediaSaidaEsperada"
-                    value={formData.mediaSaidaEsperada}
-                    onChange={handleChange}
-                    className="input-field"
-                    placeholder="Ex: 12"
-                    min="0"
-                    step="0.01"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Média esperada de pelúcias saindo por movimentação
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Jogadas boas por pelúcia
+                    Jogadas por pelúcia
                   </label>
                   <input
                     type="number"
@@ -414,7 +386,7 @@ export function MaquinaForm() {
                     step="0.01"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Quantas jogadas é esperado para sair uma pelúcia
+                    Regulagem técnica: quantas jogadas, em média, geram 1 pelúcia
                   </p>
                 </div>
 

@@ -175,18 +175,6 @@ export function Maquinas() {
       render: (maquina) => maquina.tipo || "-",
     },
     {
-      key: "mediaSaidaEsperada",
-      label: "Média Saída",
-      render: (maquina) => {
-        const valor = Number(
-          maquina.mediaSaidaEsperada ?? maquina.media_saida_esperada,
-        );
-        return Number.isFinite(valor) && valor > 0
-          ? `${valor.toFixed(1)} pelúcias`
-          : "-";
-      },
-    },
-    {
       key: "capacidadePadrao",
       label: "Capacidade",
       render: (maquina) => maquina.capacidadePadrao || 0,

@@ -174,26 +174,12 @@ export function VisaoLojas() {
               movimentacoes.length > 0
                 ? totalSairam / movimentacoes.length
                 : 0;
-            const mediaEsperadaMaquinas =
-              maquinasDaLoja.length > 0
-                ? maquinasDaLoja.reduce(
-                    (total, maquina) =>
-                      total +
-                      numero(
-                        maquina.mediaSaidaEsperada ||
-                          maquina.media_saida_esperada,
-                      ),
-                    0,
-                  ) / maquinasDaLoja.length
-                : 0;
             const ultimaSaida = numero(ultimaMovimentacao?.sairam);
             const abaixoDaMedia =
               ultimaMovimentacao &&
-              ((mediaEsperadaMaquinas > 0 &&
-                ultimaSaida < mediaEsperadaMaquinas * 0.75) ||
-                (movimentacoes.length >= 3 &&
-                  mediaPelucias > 0 &&
-                  ultimaSaida < mediaPelucias * 0.75));
+              movimentacoes.length >= 3 &&
+              mediaPelucias > 0 &&
+              ultimaSaida < mediaPelucias * 0.75;
 
             const dataExtintor = obterDataExtintor(loja);
             const diasExtintor = dataExtintor
@@ -232,7 +218,6 @@ export function VisaoLojas() {
               dataExtintor,
               diasExtintor,
               mediaPelucias,
-              mediaEsperadaMaquinas,
               ultimaSaida,
               abaixoDaMedia,
               pendencias,
@@ -438,11 +423,6 @@ export function VisaoLojas() {
                     {item.mediaPelucias.toFixed(1)}
                   </p>
                   <p className="text-xs text-gray-500">pelúcias por visita</p>
-                  {item.mediaEsperadaMaquinas > 0 && (
-                    <p className="text-xs text-gray-500">
-                      Meta cad.: {item.mediaEsperadaMaquinas.toFixed(1)}
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -481,9 +461,6 @@ export function VisaoLojas() {
                   <p className="mt-1 text-xs text-gray-500">
                     Última saída: {item.ultimaSaida} · Média:{" "}
                     {item.mediaPelucias.toFixed(1)}
-                    {item.mediaEsperadaMaquinas > 0
-                      ? ` · Meta: ${item.mediaEsperadaMaquinas.toFixed(1)}`
-                      : ""}
                   </p>
                 </div>
               </div>
