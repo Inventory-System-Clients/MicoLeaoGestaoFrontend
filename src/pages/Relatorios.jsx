@@ -844,7 +844,7 @@ export function Relatorios() {
           : [];
       } catch (erroProdutos) {
         console.warn(
-          "NÃ£o foi possÃ­vel buscar produtos cadastrados para completar preÃ§os no relatÃ³rio:",
+          "Não foi possível buscar produtos cadastrados para completar preços no relatório:",
           erroProdutos,
         );
       }

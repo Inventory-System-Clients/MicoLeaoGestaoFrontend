@@ -17,21 +17,21 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [mostrarTodosAlertasMaquinas, setMostrarTodosAlertasMaquinas] =
     useState(false);
-  // Estado para modal de movimentaÃ§Ã£o de estoque
+  // Estado para modal de movimentação de estoque
   const [mostrarModalMovimentacao, setMostrarModalMovimentacao] =
     useState(false);
-  // Estados para busca e navegaÃ§Ã£o (deve vir antes do uso em modais)
+  // Estados para busca e navegação (deve vir antes do uso em modais)
   const [searchTerm, setSearchTerm] = useState("");
   const [lojas, setLojas] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [alertasBomDesempenho, setAlertasBomDesempenho] = useState([]);
-  // Estado para modal de movimentaÃ§Ã£o de estoque de loja
+  // Estado para modal de movimentação de estoque de loja
   const [movimentacaoLojaId, setMovimentacaoLojaId] = useState("");
   const [movimentacaoEnviando, setMovimentacaoEnviando] = useState(false);
   const [movimentacaoErro, setMovimentacaoErro] = useState("");
-  // Removido movimentacaoSucesso, feedback sÃ³ via alert externo
-  // Estado para lista de produtos da movimentaÃ§Ã£o
+  // Removido movimentacaoSucesso, feedback só via alert externo
+  // Estado para lista de produtos da movimentação
   const [produtosMovimentacao, setProdutosMovimentacao] = useState([
     { produtoId: "", quantidade: "", tipoMovimentacao: "entrada" },
   ]);
@@ -47,7 +47,7 @@ export function Dashboard() {
   const handleRemoveProduto = (index) => {
     setProdutosMovimentacao((prev) => {
       if (prev.length === 1) {
-        // NÃ£o permite remover o Ãºltimo produto
+        // Não permite remover o último produto
         return prev;
       }
       const novos = [...prev];
@@ -60,7 +60,7 @@ export function Dashboard() {
     setProdutosMovimentacao((prev) => {
       const novos = [...prev];
       if (field === "quantidade") {
-        // Garante que sÃ³ aceita nÃºmeros inteiros positivos
+        // Garante que só aceita números inteiros positivos
         const val = value.replace(/\D/g, "");
         novos[index][field] = val;
       } else {
@@ -69,8 +69,8 @@ export function Dashboard() {
       return novos;
     });
   };
-  // ...jÃ¡ declarado acima...
-  // removido reloadAfterModal/setReloadAfterModal pois nÃ£o sÃ£o usados
+  // ...já declarado acima...
+  // removido reloadAfterModal/setReloadAfterModal pois não são usados
   const enviarMovimentacaoEstoqueLoja = async (e) => {
     if (e) e.preventDefault();
     setMovimentacaoEnviando(true);
@@ -82,7 +82,7 @@ export function Dashboard() {
       );
       if (!movimentacaoLojaId || produtosValidos.length === 0) {
         setMovimentacaoErro(
-          "Preencha todos os campos obrigatÃ³rios e adicione pelo menos um produto vÃ¡lido.",
+          "Preencha todos os campos obrigatórios e adicione pelo menos um produto válido.",
         );
         setMovimentacaoEnviando(false);
         return;
@@ -102,7 +102,7 @@ export function Dashboard() {
       Swal.fire({
         icon: "success",
         title: "Sucesso",
-        text: "MovimentaÃ§Ã£o registrada com sucesso!",
+        text: "Movimentação registrada com sucesso!",
         confirmButtonColor: "#fbbf24",
       });
       setMostrarModalMovimentacao(false);
@@ -113,33 +113,33 @@ export function Dashboard() {
       setTimeout(() => {
         if (typeof carregarDados === "function") carregarDados();
       }, 200);
-      // ...atualize dados se necessÃ¡rio
+      // ...atualize dados se necessário
     } catch (error) {
       Swal.fire({
         icon: "error",
         title: "Erro",
-        text: "Erro ao registrar movimentaÃ§Ã£o!",
+        text: "Erro ao registrar movimentação!",
         confirmButtonColor: "#ef4444",
       });
-      console.error("Erro ao enviar movimentaÃ§Ã£o de estoque de loja:", error);
+      console.error("Erro ao enviar movimentação de estoque de loja:", error);
     } finally {
       setMovimentacaoEnviando(false);
     }
   };
 
-  // Faz o reload sÃ³ depois que o modal sumiu
-  // (removido reloadAfterModal/useEffect pois reload Ã© imediato)
-  // BotÃ£o no topo do dashboard para abrir o modal
-  // Adicione ao JSX principal, ao lado do botÃ£o de impressÃ£o:
-  // <button onClick={() => setMostrarModalMovimentacao(true)} className="btn-primary">MovimentaÃ§Ã£o de Estoque</button>
+  // Faz o reload só depois que o modal sumiu
+  // (removido reloadAfterModal/useEffect pois reload é imediato)
+  // Botão no topo do dashboard para abrir o modal
+  // Adicione ao JSX principal, ao lado do botão de impressão:
+  // <button onClick={() => setMostrarModalMovimentacao(true)} className="btn-primary">Movimentação de Estoque</button>
 
-  // Modal de movimentaÃ§Ã£o de estoque de loja
+  // Modal de movimentação de estoque de loja
   {
     mostrarModalMovimentacao && (
       <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
         <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
           <h2 className="text-xl font-bold mb-4">
-            MovimentaÃ§Ã£o de Estoque de Loja
+            Movimentação de Estoque de Loja
           </h2>
           <div className="mb-4">
             <label className="block text-sm font-semibold mb-2">
@@ -195,7 +195,7 @@ export function Dashboard() {
                   }
                   className="input-field w-28"
                 >
-                  <option value="saida">SaÃ­da</option>
+                  <option value="saida">Saída</option>
                   <option value="entrada">Entrada</option>
                 </select>
                 {produtosMovimentacao.length > 1 && (
@@ -245,14 +245,14 @@ export function Dashboard() {
                     d="M5 13l4 4L19 7"
                   ></path>
                 </svg>
-                Registrar MovimentaÃ§Ã£o
+                Registrar Movimentação
               </button>
             </div>
           </form>
           {movimentacaoErro && (
             <div className="text-red-600 mt-2">{movimentacaoErro}</div>
           )}
-          {/* Mensagem de sucesso removida, feedback sÃ³ via alert externo */}
+          {/* Mensagem de sucesso removida, feedback só via alert externo */}
         </div>
       </div>
     );
@@ -271,14 +271,14 @@ export function Dashboard() {
   const [veiculos, setVeiculos] = useState([]);
   const [modalGastoVariavel, setModalGastoVariavel] = useState(false);
 
-  // Estados para busca e navegaÃ§Ã£o
+  // Estados para busca e navegação
 
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [lojaSelecionada, setLojaSelecionada] = useState(null);
   const [maquinaSelecionada, setMaquinaSelecionada] = useState(null);
-  // Estoque por mÃ¡quina na lista: { [maquinaId]: number }
+  // Estoque por máquina na lista: { [maquinaId]: number }
   const [estoqueMaquinas, setEstoqueMaquinas] = useState({});
-  // Produto atual por mÃ¡quina na lista: { [maquinaId]: produto | null }
+  // Produto atual por máquina na lista: { [maquinaId]: produto | null }
   const [produtoAtualMaquinas, setProdutoAtualMaquinas] = useState({});
   const [loadingMaquina, setLoadingMaquina] = useState(false);
   const [mostrarDetalhesProdutos, setMostrarDetalhesProdutos] = useState(false);
@@ -294,7 +294,7 @@ export function Dashboard() {
   const [lojaEstoqueExpanded, setLojaEstoqueExpanded] = useState({});
   const [enviandoSaidaTotal, setEnviandoSaidaTotal] = useState({});
 
-  // Estados para ediÃ§Ã£o de estoque
+  // Estados para edição de estoque
   const [estoqueEditando, setEstoqueEditando] = useState(null); // { lojaId, estoque: [...] }
   const [salvandoEstoque, setSalvandoEstoque] = useState(false);
   const [movimentacaoEditandoId, setMovimentacaoEditandoId] = useState(null);
@@ -741,7 +741,7 @@ export function Dashboard() {
     };
   }, []);
 
-  // FunÃ§Ã£o para remover produto do estoque da loja (usando o id do registro)
+  // Função para remover produto do estoque da loja (usando o id do registro)
 
   const carregarDados = useCallback(async () => {
     try {
@@ -754,14 +754,14 @@ export function Dashboard() {
       };
       let periodoComparacaoMensal = null;
 
-      // Buscar lojas e mÃ¡quinas (acessÃ­vel para todos)
+      // Buscar lojas e máquinas (acessível para todos)
       const requisicoes = [
         api.get("/lojas").catch((err) => {
           console.error("Erro ao carregar lojas:", err.message);
           return { data: [] };
         }),
         api.get("/maquinas").catch((err) => {
-          console.error("Erro ao carregar mÃ¡quinas:", err.message);
+          console.error("Erro ao carregar máquinas:", err.message);
           return { data: [] };
         }),
         api.get("/produtos").catch((err) => {
@@ -770,7 +770,7 @@ export function Dashboard() {
         }),
       ];
 
-      // Adicionar requisiÃ§Ãµes de relatÃ³rios apenas para ADMIN
+      // Adicionar requisições de relatórios apenas para ADMIN
       if (isAdmin) {
         const hoje = new Date();
         const inicioMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
@@ -821,7 +821,7 @@ export function Dashboard() {
             })
             .catch((err) => {
               console.error(
-                "Erro ao carregar faturamento do mÃªs atual para comparaÃ§Ã£o:",
+                "Erro ao carregar faturamento do mês atual para comparação:",
                 err.message,
               );
               return { data: null };
@@ -835,13 +835,13 @@ export function Dashboard() {
             })
             .catch((err) => {
               console.error(
-                "Erro ao carregar faturamento do mÃªs anterior para comparaÃ§Ã£o:",
+                "Erro ao carregar faturamento do mês anterior para comparação:",
                 err.message,
               );
               return { data: null };
             }),
           api.get("/relatorios/alertas-estoque").catch((err) => {
-            console.error("Erro ao carregar alertas de mÃ¡quinas:", err.message);
+            console.error("Erro ao carregar alertas de máquinas:", err.message);
             return { data: { alertas: [] } };
           }),
           api.get("/relatorios/alertas-bom-desempenho").catch((err) => {
@@ -852,7 +852,7 @@ export function Dashboard() {
             return { data: { alertas: [] } };
           }),
           api.get("/relatorios/balanco-semanal").catch((err) => {
-            console.error("Erro ao carregar balanÃ§o:", err.message);
+            console.error("Erro ao carregar balanço:", err.message);
             return { data: null };
           }),
           api
@@ -864,7 +864,7 @@ export function Dashboard() {
             })
             .catch((err) => {
               console.error(
-                "Erro ao carregar gastos variÃ¡veis do mÃªs:",
+                "Erro ao carregar gastos variáveis do mês:",
                 err.message,
               );
               return { data: [] };
@@ -934,10 +934,10 @@ export function Dashboard() {
       }
 
       console.log("Lojas carregadas:", lojasRes.data);
-      console.log("MÃ¡quinas carregadas:", maquinasRes.data);
+      console.log("Máquinas carregadas:", maquinasRes.data);
       console.log("Produtos carregados:", produtosRes.data);
       if (isAdmin) {
-        console.log("BalanÃ§o Mensal:", balancoRes.data);
+        console.log("Balanço Mensal:", balancoRes.data);
         console.log("Estrutura completa de totais:", balancoRes.data?.totais);
         console.log("Total de Fichas:", balancoRes.data?.totais?.totalFichas);
         console.log(
@@ -957,7 +957,7 @@ export function Dashboard() {
       setMaquinas(maquinasRes.data || []);
       setProdutos(produtosRes.data || []);
       setAlertasBomDesempenho(alertasBomDesempenhoRes.data?.alertas || []);
-      // Carregar alertas de estoque de lojas (para todos os usuÃ¡rios)
+      // Carregar alertas de estoque de lojas (para todos os usuários)
       if (lojasRes.data && lojasRes.data.length > 0) {
         carregarAlertasEstoqueLoja(lojasRes.data);
       }
@@ -997,7 +997,7 @@ export function Dashboard() {
         lista.filter((item) => item.status === "PENDENTE"),
       );
     } catch (error) {
-      console.error("Erro ao carregar manutenÃ§Ãµes pendentes:", error);
+      console.error("Erro ao carregar manutenções pendentes:", error);
       setManutencoesPendentes([]);
     } finally {
       setLoadingManutencoesPendentes(false);
@@ -1013,7 +1013,7 @@ export function Dashboard() {
       .get("/veiculos")
       .then((response) => setVeiculos(response.data || []))
       .catch((error) => {
-        console.error("Erro ao carregar veÃ­culos:", error);
+        console.error("Erro ao carregar veículos:", error);
         setVeiculos([]);
       });
   }, []);
@@ -1110,7 +1110,7 @@ export function Dashboard() {
     carregarEstoqueDasLojas();
   }, []);
 
-  // Carregar itens de suporte tÃ©cnico (peÃ§as/produtos) com estoque abaixo do mÃ­nimo
+  // Carregar itens de suporte técnico (peças/produtos) com estoque abaixo do mínimo
   useEffect(() => {
     const carregarAlertasSuporteTecnico = async () => {
       try {
@@ -1121,7 +1121,7 @@ export function Dashboard() {
         );
       } catch (error) {
         console.error(
-          "Erro ao carregar alertas de estoque de suporte tÃ©cnico:",
+          "Erro ao carregar alertas de estoque de suporte técnico:",
           error,
         );
         setItensSuporteBaixoEstoque([]);
@@ -1137,7 +1137,7 @@ export function Dashboard() {
       const movRes = await api.get(`/movimentacoes?maquinaId=${maquinaId}`);
       setMovimentacoes(movRes.data || []);
     } catch (error) {
-      console.error("Erro ao carregar movimentaÃ§Ãµes:", error);
+      console.error("Erro ao carregar movimentações:", error);
       setMovimentacoes([]);
     } finally {
       setLoadingMaquina(false);
@@ -1146,7 +1146,7 @@ export function Dashboard() {
 
   const carregarVendasPorProduto = async () => {
     try {
-      // Buscar todos os dados necessÃ¡rios
+      // Buscar todos os dados necessários
       const [movRes, produtosRes, lojasRes, maquinasRes] = await Promise.all([
         api.get("/movimentacoes"),
         api.get("/produtos"),
@@ -1159,10 +1159,10 @@ export function Dashboard() {
       const lojasData = lojasRes.data || [];
       const maquinasData = maquinasRes.data || [];
 
-      console.log("MovimentaÃ§Ãµes:", movimentacoes);
+      console.log("Movimentações:", movimentacoes);
       console.log("Produtos:", produtosData);
       console.log("Lojas:", lojasData);
-      console.log("MÃ¡quinas:", maquinasData);
+      console.log("Máquinas:", maquinasData);
 
       // Agrupar vendas por produto
       const produtosMap = {};
@@ -1181,7 +1181,7 @@ export function Dashboard() {
               produtosMap[produtoId] = {
                 id: produtoId,
                 nome: produtoNome,
-                emoji: produto?.emoji || "ðŸ§¸",
+                emoji: produto?.emoji || "🧸",
                 totalVendido: 0,
                 vendasPorLoja: {},
               };
@@ -1189,17 +1189,17 @@ export function Dashboard() {
 
             produtosMap[produtoId].totalVendido += quantidadeSaiu;
 
-            // Buscar a mÃ¡quina e depois a loja
+            // Buscar a máquina e depois a loja
             const maquina =
               maquinasData.find((m) => m.id === mov.maquinaId) || mov.maquina;
-            let lojaNome = "Loja nÃ£o identificada";
+            let lojaNome = "Loja não identificada";
 
             if (maquina) {
-              // Se a mÃ¡quina tem loja como objeto
+              // Se a máquina tem loja como objeto
               if (maquina.loja?.nome) {
                 lojaNome = maquina.loja.nome;
               }
-              // Se a mÃ¡quina tem lojaId
+              // Se a máquina tem lojaId
               else if (maquina.lojaId) {
                 const loja = lojasData.find((l) => l.id === maquina.lojaId);
                 lojaNome = loja?.nome || lojaNome;
@@ -1242,7 +1242,7 @@ export function Dashboard() {
   };
 
   const abrirEdicaoEstoque = (loja) => {
-    // Criar um mapa dos produtos jÃ¡ cadastrados no estoque
+    // Criar um mapa dos produtos já cadastrados no estoque
     const estoqueMap = new Map(
       loja.estoque.map((item) => [item.produtoId, item]),
     );
@@ -1277,8 +1277,8 @@ export function Dashboard() {
     if (produtosComEstoque.length === 0) {
       Swal.fire({
         icon: "info",
-        title: "Estoque jÃ¡ vazio",
-        text: "Esta loja nÃ£o possui produtos com quantidade em estoque.",
+        title: "Estoque já vazio",
+        text: "Esta loja não possui produtos com quantidade em estoque.",
         confirmButtonColor: "#fbbf24",
       });
       return;
@@ -1286,10 +1286,10 @@ export function Dashboard() {
 
     const confirmacao = await Swal.fire({
       icon: "warning",
-      title: "Dar saÃ­da em todo o estoque?",
-      html: `Isso vai zerar as <b>${produtosComEstoque.length}</b> produtos em estoque da loja <b>${loja.nome}</b> e registrar uma saÃ­da para cada um nas movimentaÃ§Ãµes de estoque. Essa aÃ§Ã£o nÃ£o pode ser desfeita automaticamente.`,
+      title: "Dar saída em todo o estoque?",
+      html: `Isso vai zerar as <b>${produtosComEstoque.length}</b> produtos em estoque da loja <b>${loja.nome}</b> e registrar uma saída para cada um nas movimentações de estoque. Essa ação não pode ser desfeita automaticamente.`,
       showCancelButton: true,
-      confirmButtonText: "Sim, dar saÃ­da em tudo",
+      confirmButtonText: "Sim, dar saída em tudo",
       cancelButtonText: "Cancelar",
       confirmButtonColor: "#dc2626",
     });
@@ -1307,24 +1307,24 @@ export function Dashboard() {
           quantidade: item.quantidade,
           tipoMovimentacao: "saida",
         })),
-        observacao: "SaÃ­da em massa - zerar estoque",
+        observacao: "Saída em massa - zerar estoque",
         dataMovimentacao: new Date().toISOString(),
       });
 
       Swal.fire({
         icon: "success",
         title: "Sucesso",
-        text: "SaÃ­da registrada e estoque zerado com sucesso!",
+        text: "Saída registrada e estoque zerado com sucesso!",
         confirmButtonColor: "#fbbf24",
       });
 
       await carregarEstoqueDasLojas();
     } catch (error) {
-      console.error("Erro ao dar saÃ­da em todo o estoque:", error);
+      console.error("Erro ao dar saída em todo o estoque:", error);
       Swal.fire({
         icon: "error",
         title: "Erro",
-        text: "Erro ao registrar a saÃ­da em massa do estoque!",
+        text: "Erro ao registrar a saída em massa do estoque!",
         confirmButtonColor: "#ef4444",
       });
     } finally {
@@ -1333,7 +1333,7 @@ export function Dashboard() {
   };
 
   // ...
-  // Exemplo de uso no JSX (dentro do modal de ediÃ§Ã£o de estoque):
+  // Exemplo de uso no JSX (dentro do modal de edição de estoque):
   // <button onClick={() => removerProdutoEstoque(item)}>Remover</button>
 
   const fecharEdicaoEstoque = () => {
@@ -1378,7 +1378,7 @@ export function Dashboard() {
     }));
   };
 
-  // FunÃ§Ã£o para imprimir relatÃ³rio individual de uma loja
+  // Função para imprimir relatório individual de uma loja
   const imprimirRelatorioLoja = (loja) => {
     const itensParaComprar = loja.estoque.filter(
       (item) => item.quantidade < item.estoqueMinimo,
@@ -1389,7 +1389,7 @@ export function Dashboard() {
       <html>
         <head>
           <meta charset="utf-8">
-          <title>RelatÃ³rio de Estoque - ${loja.nome}</title>
+          <title>Relatório de Estoque - ${loja.nome}</title>
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -1465,32 +1465,32 @@ export function Dashboard() {
         </head>
         <body>
           <div class="header">
-            <h1>ðŸ“¦ RelatÃ³rio de Estoque</h1>
+            <h1>📦 Relatório de Estoque</h1>
             <p><strong>Loja:</strong> ${loja.nome}</p>
-            <p><strong>EndereÃ§o:</strong> ${
-              loja.endereco || "NÃ£o informado"
+            <p><strong>Endereço:</strong> ${
+              loja.endereco || "Não informado"
             }</p>
             <p><strong>Data:</strong> ${new Date().toLocaleDateString(
               "pt-BR",
-            )} Ã s ${new Date().toLocaleTimeString("pt-BR")}</p>
+            )} às ${new Date().toLocaleTimeString("pt-BR")}</p>
           </div>
 
           <div class="info-box">
             <p><strong>Total de Produtos:</strong> ${loja.totalProdutos}</p>
             <p><strong>Total de Unidades:</strong> ${loja.totalUnidades}</p>
-            <p><strong>Produtos Abaixo do MÃ­nimo:</strong> ${
+            <p><strong>Produtos Abaixo do Mínimo:</strong> ${
               itensParaComprar.length
             }</p>
           </div>
 
-          <h2 class="section-title">ðŸ“‹ Estoque Atual</h2>
+          <h2 class="section-title">📋 Estoque Atual</h2>
           <table>
             <thead>
               <tr>
                 <th>Produto</th>
-                <th>CÃ³digo</th>
+                <th>Código</th>
                 <th>Qtd Atual</th>
-                <th>Qtd MÃ­nima</th>
+                <th>Qtd Mínima</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -1500,13 +1500,13 @@ export function Dashboard() {
                   const abaixo = item.quantidade < item.estoqueMinimo;
                   return `
                     <tr ${abaixo ? 'class="alerta"' : ""}>
-                      <td>${item.produto.emoji || "ðŸ“¦"} ${
+                      <td>${item.produto.emoji || "📦"} ${
                         item.produto.nome
                       }</td>
                       <td>${item.produto.codigo || "-"}</td>
                       <td>${item.quantidade}</td>
                       <td>${item.estoqueMinimo}</td>
-                      <td>${abaixo ? "âš ï¸ ABAIXO DO MÃNIMO" : "âœ… OK"}</td>
+                      <td>${abaixo ? "⚠️ ABAIXO DO MÍNIMO" : "✅ OK"}</td>
                     </tr>
                   `;
                 })
@@ -1517,13 +1517,13 @@ export function Dashboard() {
           ${
             itensParaComprar.length > 0
               ? `
-            <h2 class="section-title">ðŸ›’ Produtos para Comprar</h2>
+            <h2 class="section-title">🛒 Produtos para Comprar</h2>
             <table>
               <thead>
                 <tr>
                   <th>Produto</th>
                   <th>Qtd Atual</th>
-                  <th>Qtd MÃ­nima</th>
+                  <th>Qtd Mínima</th>
                   <th>Quantidade Sugerida</th>
                 </tr>
               </thead>
@@ -1533,7 +1533,7 @@ export function Dashboard() {
                     const sugestao = item.estoqueMinimo - item.quantidade;
                     return `
                       <tr>
-                        <td>${item.produto.emoji || "ðŸ“¦"} ${
+                        <td>${item.produto.emoji || "📦"} ${
                           item.produto.nome
                         }</td>
                         <td>${item.quantidade}</td>
@@ -1546,7 +1546,7 @@ export function Dashboard() {
               </tbody>
             </table>
           `
-              : '<p style="text-align: center; color: #28a745; font-size: 18px; padding: 20px;">âœ… Todos os produtos estÃ£o com estoque adequado!</p>'
+              : '<p style="text-align: center; color: #28a745; font-size: 18px; padding: 20px;">✅ Todos os produtos estão com estoque adequado!</p>'
           }
 
           <div class="footer">
@@ -1565,7 +1565,7 @@ export function Dashboard() {
     }, 250);
   };
 
-  // FunÃ§Ã£o para imprimir relatÃ³rio consolidado de todas as lojas
+  // Função para imprimir relatório consolidado de todas as lojas
   const imprimirRelatorioConsolidado = () => {
     // Consolidar necessidades por produto
     const necessidadesPorProduto = {};
@@ -1603,7 +1603,7 @@ export function Dashboard() {
       <html>
         <head>
           <meta charset="utf-8">
-          <title>RelatÃ³rio Consolidado de Compras</title>
+          <title>Relatório Consolidado de Compras</title>
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -1692,14 +1692,14 @@ export function Dashboard() {
         </head>
         <body>
           <div class="header">
-            <h1>ðŸ›’ RelatÃ³rio Consolidado de Compras</h1>
+            <h1>🛒 Relatório Consolidado de Compras</h1>
             <p><strong>Data:</strong> ${new Date().toLocaleDateString(
               "pt-BR",
-            )} Ã s ${new Date().toLocaleTimeString("pt-BR")}</p>
+            )} às ${new Date().toLocaleTimeString("pt-BR")}</p>
           </div>
 
           <div class="info-box">
-            <h3>ðŸ“¦ Total de Unidades a Comprar: ${totalItensComprar}</h3>
+            <h3>📦 Total de Unidades a Comprar: ${totalItensComprar}</h3>
             <p><strong>Tipos de Produtos:</strong> ${
               produtosNecessarios.length
             }</p>
@@ -1709,13 +1709,13 @@ export function Dashboard() {
           ${
             produtosNecessarios.length > 0
               ? `
-            <h2 class="section-title">ðŸ“‹ Lista de Compras por Produto</h2>
+            <h2 class="section-title">📋 Lista de Compras por Produto</h2>
             <table>
               <thead>
                 <tr>
                   <th>Produto</th>
                   <th>Total a Comprar</th>
-                  <th>DistribuiÃ§Ã£o por Loja</th>
+                  <th>Distribuição por Loja</th>
                 </tr>
               </thead>
               <tbody>
@@ -1724,10 +1724,10 @@ export function Dashboard() {
                     (item) => `
                       <tr>
                         <td>
-                          <strong>${item.produto.emoji || "ðŸ“¦"} ${
+                          <strong>${item.produto.emoji || "📦"} ${
                             item.produto.nome
                           }</strong><br>
-                          <small>CÃ³d: ${item.produto.codigo || "-"}</small>
+                          <small>Cód: ${item.produto.codigo || "-"}</small>
                         </td>
                         <td style="font-size: 18px; font-weight: bold; color: #FF69B4;">
                           ${item.totalNecessario} unidades
@@ -1738,7 +1738,7 @@ export function Dashboard() {
                               <tr>
                                 <th>Loja</th>
                                 <th>Atual</th>
-                                <th>MÃ­nimo</th>
+                                <th>Mínimo</th>
                                 <th>Enviar</th>
                               </tr>
                             </thead>
@@ -1769,7 +1769,7 @@ export function Dashboard() {
               </tbody>
             </table>
           `
-              : '<p style="text-align: center; color: #28a745; font-size: 18px; padding: 20px;">âœ… Todas as lojas estÃ£o com estoque adequado!</p>'
+              : '<p style="text-align: center; color: #28a745; font-size: 18px; padding: 20px;">✅ Todas as lojas estão com estoque adequado!</p>'
           }
 
           <div class="footer">
@@ -1798,17 +1798,17 @@ export function Dashboard() {
       );
 
       console.log(
-        `ðŸ“Š Salvando ${produtosAtivos.length} produtos ativos no estoque`,
+        `📊 Salvando ${produtosAtivos.length} produtos ativos no estoque`,
       );
 
       // Salvar produtos ativos
       for (const item of produtosAtivos) {
         try {
-          // Se o item jÃ¡ tem ID, usar PUT para atualizar
-          // Se nÃ£o tem ID, usar POST para criar
+          // Se o item já tem ID, usar PUT para atualizar
+          // Se não tem ID, usar POST para criar
           if (item.id) {
             console.log(
-              `âœï¸ Atualizando produto ${item.produtoNome} (ID: ${item.id})`,
+              `✏️ Atualizando produto ${item.produtoNome} (ID: ${item.id})`,
             );
             await api.put(
               `/estoque-lojas/${estoqueEditando.lojaId}/${item.produtoId}`,
@@ -1831,7 +1831,7 @@ export function Dashboard() {
           }
         } catch (itemError) {
           console.error(
-            `âŒ Erro ao salvar produto ${item.produtoId}:`,
+            `❌ Erro ao salvar produto ${item.produtoId}:`,
             itemError.response?.data || itemError.message,
           );
         }
@@ -1854,10 +1854,10 @@ export function Dashboard() {
           await api.delete(
             `/estoque-lojas/${estoqueEditando.lojaId}/${item.produtoId}`,
           );
-          console.log(`ðŸ—‘ï¸ Removido produto ${item.produtoNome} do estoque`);
+          console.log(`🗑️ Removido produto ${item.produtoNome} do estoque`);
         } catch (deleteError) {
           console.error(
-            `âŒ Erro ao remover produto ${item.produtoId}:`,
+            `❌ Erro ao remover produto ${item.produtoId}:`,
             deleteError.response?.data || deleteError.message,
           );
         }
@@ -1888,7 +1888,7 @@ export function Dashboard() {
 
   const handleSelecionarMaquina = async (maquina) => {
     try {
-      // Buscar dados completos da mÃ¡quina (inclui fichasNecessarias e forcaGarra)
+      // Buscar dados completos da máquina (inclui fichasNecessarias e forcaGarra)
       const maquinaRes = await api.get(`/maquinas/${maquina.id}`);
       const maquinaCompleta = maquinaRes.data;
 
@@ -1896,7 +1896,7 @@ export function Dashboard() {
       const estoqueRes = await api.get(`/maquinas/${maquina.id}/estoque`);
       const estoqueAtual = estoqueRes.data.estoqueAtual || 0;
 
-      // Buscar movimentaÃ§Ãµes para obter Ãºltimo produto
+      // Buscar movimentações para obter último produto
       const movRes = await api.get(`/movimentacoes?maquinaId=${maquina.id}`);
       const movimentacoes = movRes.data || [];
 
@@ -1925,7 +1925,7 @@ export function Dashboard() {
       setMovimentacaoForm(null);
       carregarDetalhesMaquina(maquina.id);
     } catch (error) {
-      console.error("Erro ao carregar detalhes da mÃ¡quina:", error);
+      console.error("Erro ao carregar detalhes da máquina:", error);
       setMaquinaSelecionada(maquina);
       setMovimentacaoEditandoId(null);
       setMovimentacaoForm(null);
@@ -2064,8 +2064,8 @@ export function Dashboard() {
 
       Swal.fire({
         icon: "success",
-        title: "MovimentaÃ§Ã£o atualizada",
-        text: "As alteraÃ§Ãµes foram salvas com sucesso.",
+        title: "Movimentação atualizada",
+        text: "As alterações foram salvas com sucesso.",
         confirmButtonColor: "#fbbf24",
       });
 
@@ -2075,13 +2075,13 @@ export function Dashboard() {
 
       cancelarEdicaoMovimentacao();
     } catch (error) {
-      console.error("Erro ao salvar ediÃ§Ã£o da movimentaÃ§Ã£o:", error);
+      console.error("Erro ao salvar edição da movimentação:", error);
       Swal.fire({
         icon: "error",
         title: "Erro ao salvar",
         text:
           error?.response?.data?.error ||
-          "NÃ£o foi possÃ­vel salvar a movimentaÃ§Ã£o.",
+          "Não foi possível salvar a movimentação.",
         confirmButtonColor: "#ef4444",
       });
     } finally {
@@ -2096,16 +2096,16 @@ export function Dashboard() {
       loja.endereco?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  // MÃ¡quinas da loja selecionada
+  // Máquinas da loja selecionada
   const maquinasDaLoja = lojaSelecionada
     ? (() => {
         const result = maquinas.filter((m) => m.lojaId === lojaSelecionada.id);
-        console.log("MÃ¡quinas da loja selecionada:", result);
+        console.log("Máquinas da loja selecionada:", result);
         return result;
       })()
     : [];
 
-  // Busca estoques das mÃ¡quinas da loja selecionada
+  // Busca estoques das máquinas da loja selecionada
   useEffect(() => {
     if (!lojaSelecionada || maquinasDaLoja.length === 0) {
       setEstoqueMaquinas({});
@@ -2218,7 +2218,7 @@ export function Dashboard() {
           .replace(".", ",");
 
   const mesAnteriorComparacao =
-    comparativoLucroMensal?.nomeMesAnterior || "mÃªs anterior";
+    comparativoLucroMensal?.nomeMesAnterior || "mês anterior";
 
   const textoPercentualComparativoLucro =
     statusComparativoLucro === "acima"
@@ -2292,25 +2292,25 @@ export function Dashboard() {
           <div>
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <h1 className="text-4xl font-bold">
-                <span className="text-gradient">Dashboard</span> ðŸ§¸
+                <span className="text-gradient">Dashboard</span> 🧸
               </h1>
               <button
                 onClick={() => navigate("/produtos-a-comprar")}
                 className="btn-primary flex items-center gap-2"
                 title="Abrir lista de compra"
               >
-                <span className="text-base">ðŸ›’</span>
+                <span className="text-base">🛒</span>
                 Lista de compra
               </button>
               {itensSuporteBaixoEstoque.length > 0 && (
                 <button
                   onClick={() => navigate("/suporte-tecnico")}
                   className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-3 py-2 rounded-xl shadow-lg animate-pulse"
-                  title={`Estoque baixo no suporte tÃ©cnico: ${itensSuporteBaixoEstoque
+                  title={`Estoque baixo no suporte técnico: ${itensSuporteBaixoEstoque
                     .map((item) => item.nome)
                     .join(", ")}`}
                 >
-                  <span className="text-base">âš ï¸</span>
+                  <span className="text-base">⚠️</span>
                   <span className="truncate max-w-[160px]">
                     {itensSuporteBaixoEstoque[0].nome}
                   </span>
@@ -2323,7 +2323,7 @@ export function Dashboard() {
               )}
             </div>
             <p className="text-gray-600">
-              VisÃ£o geral do seu sistema de pelÃºcias
+              Visão geral do seu sistema de pelúcias
             </p>
           </div>
           <button
@@ -2352,7 +2352,7 @@ export function Dashboard() {
 
         {/* Cards de Resumo com design moderno - Apenas para ADMIN */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6 mb-8">
-          {/* Faturamento Mensal, Fichas Inseridas, PrÃªmios SaÃ­dos, Alertas de Estoque: sÃ³ para ADMIN */}
+          {/* Faturamento Mensal, Fichas Inseridas, Prêmios Saídos, Alertas de Estoque: só para ADMIN */}
           {usuario?.role === "ADMIN" && (
             <>
               {/* Faturamento Mensal */}
@@ -2397,7 +2397,7 @@ export function Dashboard() {
                         <span>{textoPercentualComparativoLucro}</span>
                       </span>
                       <p className="text-xs opacity-90 mt-2">
-                        AtÃ© o dia {comparativoLucroMensal.diaComparacao}:
+                        Até o dia {comparativoLucroMensal.diaComparacao}:
                         faturamento atual R${" "}
                         {formatarMoeda(comparativoLucroMensal.valorMesAtual)} vs
                         R${" "}
@@ -2407,11 +2407,11 @@ export function Dashboard() {
                       <p
                         className={`text-xs font-semibold mt-1 ${classeTextoDiferencaLucro}`}
                       >
-                        DiferenÃ§a acumulada: {textoDiferencaLucro}
+                        Diferença acumulada: {textoDiferencaLucro}
                       </p>
                     </>
                   ) : (
-                    <p className="text-xs opacity-75 mt-1">ðŸ’° MÃªs atual</p>
+                    <p className="text-xs opacity-75 mt-1">💰 Mês atual</p>
                   )}
                 </div>
               </div>
@@ -2440,16 +2440,16 @@ export function Dashboard() {
                     {stats.balanco?.totais?.totalFichas || 0}
                   </p>
                   <p className="text-xs opacity-75 mt-1">
-                    ðŸŽ« Fichas que entraram
+                    🎫 Fichas que entraram
                   </p>
                 </div>
               </div>
-              {/* PrÃªmios SaÃ­dos */}
+              {/* Prêmios Saídos */}
               <div className="stat-card bg-linear-to-br from-green-500 to-green-600 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30">
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-medium opacity-90">
-                      PrÃªmios SaÃ­dos
+                      Prêmios Saídos
                     </h3>
                     <svg
                       className="w-8 h-8 opacity-80"
@@ -2469,11 +2469,11 @@ export function Dashboard() {
                     {stats.balanco?.totais?.totalSairam || 0}
                   </p>
                   <p className="text-xs opacity-75 mt-1">
-                    ðŸŽ PelÃºcias entregues
+                    🎁 Pelúcias entregues
                   </p>
                 </div>
               </div>
-              {/* Gastos VariÃ¡veis */}
+              {/* Gastos Variáveis */}
               <div
                 className="stat-card bg-linear-to-br from-orange-500 to-red-600 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
                 onClick={() => navigate("/gastos-variaveis")}
@@ -2481,15 +2481,15 @@ export function Dashboard() {
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-medium opacity-90">
-                      Gastos VariÃ¡veis
+                      Gastos Variáveis
                     </h3>
-                    <span className="text-2xl">ðŸ§¾</span>
+                    <span className="text-2xl">🧾</span>
                   </div>
                   <p className="text-3xl font-bold">
                     R$ {formatarMoeda(stats.gastoVariavelMes)}
                   </p>
                   <p className="text-xs opacity-75 mt-1">
-                    Gasolina, estacionamento e outros no mÃªs
+                    Gasolina, estacionamento e outros no mês
                   </p>
                 </div>
               </div>
@@ -2528,7 +2528,7 @@ export function Dashboard() {
                     {stats.alertas.length + alertasEstoqueLoja.length}
                   </p>
                   <p className="text-xs opacity-75 mt-1">
-                    âš ï¸ {stats.alertas.length} mÃ¡quinas Â· ðŸª{" "}
+                    ⚠️ {stats.alertas.length} máquinas · 🏪{" "}
                     {alertasEstoqueLoja.length} lojas
                   </p>
                 </div>
@@ -2568,20 +2568,20 @@ export function Dashboard() {
                     {alertasBomDesempenho.length}
                   </p>
                   <p className="text-xs opacity-75 mt-1">
-                    âš ï¸ PelÃºcias fora do esperado
+                    ⚠️ Pelúcias fora do esperado
                   </p>
                 </div>
               </div>
             </>
           )}
-          {/* VeÃ­culos */}
+          {/* Veículos */}
           <div
             className="stat-card bg-linear-to-br from-gray-700 to-gray-900 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
             onClick={() => navigate("/veiculos")}
           >
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium opacity-90">VeÃ­culos</h3>
+                <h3 className="text-sm font-medium opacity-90">Veículos</h3>
                 <svg
                   className="w-8 h-8 opacity-80"
                   fill="none"
@@ -2596,13 +2596,13 @@ export function Dashboard() {
                   />
                 </svg>
               </div>
-              <p className="text-3xl font-bold">ðŸš—ðŸï¸</p>
+              <p className="text-3xl font-bold">🚗🏍️</p>
               <p className="text-xs opacity-75 mt-1">
-                Acessar controle de veÃ­culos
+                Acessar controle de veículos
               </p>
             </div>
           </div>
-          {/* Suporte TÃ©cnico */}
+          {/* Suporte Técnico */}
           <div
             className="stat-card bg-linear-to-br from-cyan-700 to-slate-900 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
             onClick={() => navigate("/suporte-tecnico")}
@@ -2610,7 +2610,7 @@ export function Dashboard() {
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-medium opacity-90">
-                  Suporte TÃ©cnico
+                  Suporte Técnico
                 </h3>
                 <svg
                   className="w-8 h-8 opacity-80"
@@ -2632,9 +2632,9 @@ export function Dashboard() {
                   />
                 </svg>
               </div>
-              <p className="text-3xl font-bold">ðŸ”§ðŸ“¦</p>
+              <p className="text-3xl font-bold">🔧📦</p>
               <p className="text-xs opacity-75 mt-1">
-                Estoque de peÃ§as e produtos tÃ©cnicos
+                Estoque de peças e produtos técnicos
               </p>
             </div>
           </div>
@@ -2651,9 +2651,9 @@ export function Dashboard() {
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-medium opacity-90">
-                    ManutenÃ§Ãµes Pendentes
+                    Manutenções Pendentes
                   </h3>
-                  <span className="text-2xl">ðŸ› ï¸</span>
+                  <span className="text-2xl">🛠️</span>
                 </div>
                 <p className="text-3xl font-bold">
                   {loadingManutencoesPendentes
@@ -2662,8 +2662,8 @@ export function Dashboard() {
                 </p>
                 <p className="text-xs opacity-75 mt-1">
                   {manutencoesPendentes.length > 0
-                    ? "âš ï¸ VocÃª possui manutenÃ§Ãµes para resolver"
-                    : "Sem pendÃªncias no momento"}
+                    ? "⚠️ Você possui manutenções para resolver"
+                    : "Sem pendências no momento"}
                 </p>
               </div>
             </div>
@@ -2676,11 +2676,11 @@ export function Dashboard() {
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-medium opacity-90">
-                    LanÃ§ar Gasto VariÃ¡vel
+                    Lançar Gasto Variável
                   </h3>
-                  <span className="text-2xl">ðŸ§¾</span>
+                  <span className="text-2xl">🧾</span>
                 </div>
-                <p className="text-3xl font-bold">ðŸ’°</p>
+                <p className="text-3xl font-bold">💰</p>
                 <p className="text-xs opacity-75 mt-1">
                   Gasolina, estacionamento e outros
                 </p>
@@ -2706,7 +2706,7 @@ export function Dashboard() {
                 }}
                 aria-label="Fechar"
               >
-                Ã—
+                ×
               </button>
               <LancarGastoVariavel
                 lojas={lojas}
@@ -2718,18 +2718,18 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* Alerta de MovimentaÃ§Ã£o Inconsistente - ADMIN */}
+        {/* Alerta de Movimentação Inconsistente - ADMIN */}
         {usuario?.role === "ADMIN" && (
           <div className="card-gradient mb-8 border-l-4 border-yellow-500 p-4 sm:p-8 rounded-xl shadow-md  sm:flex-row items-center justify-between gap-6">
             <div className="flex-1 min-w-0">
               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
                 <span className="bg-linear-to-br from-yellow-400 to-yellow-600 p-2 sm:p-3 rounded-xl text-white">
-                  âš ï¸
+                  ⚠️
                 </span>
-                Alertas de MovimentaÃ§Ã£o Inconsistente
+                Alertas de Movimentação Inconsistente
               </h2>
               <p className="text-gray-600 text-sm sm:text-base">
-                Avisos de inconsistÃªncia entre OUT, IN e fichas nas mÃ¡quinas.
+                Avisos de inconsistência entre OUT, IN e fichas nas máquinas.
                 Clique para ver detalhes e corrigir.
               </p>
             </div>
@@ -2738,13 +2738,13 @@ export function Dashboard() {
                 className="btn-warning font-bold text-yellow-900 px-6 py-2 rounded-lg shadow hover:bg-yellow-400 transition-colors flex items-center gap-2"
                 onClick={() => navigate("/alertas")}
               >
-                <span className="text-2xl">âš ï¸</span> Ver Alertas
+                <span className="text-2xl">⚠️</span> Ver Alertas
               </button>
             </div>
           </div>
         )}
 
-        {/* EstatÃ­sticas de Produtos Totais - Apenas para ADMIN */}
+        {/* Estatísticas de Produtos Totais - Apenas para ADMIN */}
         {usuario?.role === "ADMIN" &&
           stats.balanco?.distribuicaoLojas?.length > 0 && (
             <div className="card-gradient mb-8 border-l-4 border-pink-500 p-4 sm:p-8 rounded-xl shadow-md">
@@ -2755,12 +2755,12 @@ export function Dashboard() {
                 <div className="flex-1 min-w-0">
                   <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
                     <span className="bg-linear-to-br from-pink-500 to-pink-600 p-2 sm:p-3 rounded-xl text-white">
-                      ðŸŽ
+                      🎁
                     </span>
                     Total de Produtos Vendidos
                   </h2>
                   <p className="text-gray-600 text-sm sm:text-base">
-                    Soma de todas as lojas no perÃ­odo
+                    Soma de todas as lojas no período
                   </p>
                 </div>
                 <div className="text-left sm:text-right mt-4 sm:mt-0">
@@ -2777,7 +2777,7 @@ export function Dashboard() {
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-gray-500 mt-2">
-                    ðŸ“Š {stats.balanco.distribuicaoLojas.length}{" "}
+                    📊 {stats.balanco.distribuicaoLojas.length}{" "}
                     {stats.balanco.distribuicaoLojas.length === 1
                       ? "loja"
                       : "lojas"}{" "}
@@ -2793,7 +2793,7 @@ export function Dashboard() {
               {mostrarDetalhesProdutos && (
                 <div className="mt-6 pt-6 border-t-2 border-pink-200">
                   <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="text-2xl">ðŸ“¦</span>
+                    <span className="text-2xl">📦</span>
                     Vendas Detalhadas por Produto
                   </h3>
 
@@ -2823,7 +2823,7 @@ export function Dashboard() {
                           {/* Vendas por Loja */}
                           <div className="mt-3 pl-10">
                             <p className="text-sm font-semibold text-gray-700 mb-2">
-                              ðŸ“ Vendas por loja:
+                              📍 Vendas por loja:
                             </p>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                               {Object.entries(produto.vendasPorLoja).map(
@@ -2859,10 +2859,10 @@ export function Dashboard() {
             </div>
           )}
 
-        {/* Estoque dos DepÃ³sitos - Apenas para ADMIN */}
+        {/* Estoque dos Depósitos - Apenas para ADMIN */}
         {usuario?.role === "ADMIN" && lojasComEstoque.length > 0 && (
           <>
-            {/* Modal de MovimentaÃ§Ã£o de Estoque */}
+            {/* Modal de Movimentação de Estoque */}
             {mostrarModalMovimentacao && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
                 <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-8 relative">
@@ -2871,11 +2871,11 @@ export function Dashboard() {
                     onClick={() => setMostrarModalMovimentacao(false)}
                     aria-label="Fechar"
                   >
-                    Ã—
+                    ×
                   </button>
                   <h2 className="text-2xl font-bold mb-4 text-gray-900 flex items-center gap-2">
-                    <span className="text-3xl">ðŸ”„</span>
-                    MovimentaÃ§Ã£o de Estoque
+                    <span className="text-3xl">🔄</span>
+                    Movimentação de Estoque
                   </h2>
                   <form
                     className="space-y-6"
@@ -2883,7 +2883,7 @@ export function Dashboard() {
                       e.preventDefault();
                       setMovimentacaoEnviando(true);
                       setMovimentacaoErro("");
-                      // Removido setMovimentacaoSucesso (nÃ£o existe mais)
+                      // Removido setMovimentacaoSucesso (não existe mais)
                       try {
                         await api.post("/movimentacao-estoque-loja", {
                           lojaId: movimentacaoLojaId,
@@ -2894,7 +2894,7 @@ export function Dashboard() {
                             quantidade: Number(p.quantidade),
                           })),
                         });
-                        alert("MovimentaÃ§Ã£o registrada com sucesso!");
+                        alert("Movimentação registrada com sucesso!");
                         setMostrarModalMovimentacao(false);
                         setMovimentacaoLojaId("");
                         setProdutosMovimentacao([
@@ -2906,7 +2906,7 @@ export function Dashboard() {
                         ]);
                       } catch (erro) {
                         setMovimentacaoErro(
-                          "Erro ao registrar movimentaÃ§Ã£o. Tente novamente.",
+                          "Erro ao registrar movimentação. Tente novamente.",
                           erro.response?.data?.error || erro.message,
                         );
                       } finally {
@@ -2933,7 +2933,7 @@ export function Dashboard() {
                         ))}
                       </select>
                     </div>
-                    {/* O reset dos campos jÃ¡ estÃ¡ dentro do try/catch do onSubmit. */}
+                    {/* O reset dos campos já está dentro do try/catch do onSubmit. */}
                     {/* Loop dos Produtos */}
                     {produtosMovimentacao.map((p, idx) => (
                       <div key={idx} className="flex gap-2 mb-2 items-center">
@@ -2976,7 +2976,7 @@ export function Dashboard() {
                           onWheel={(e) => e.target.blur()}
                         />
 
-                        {/* Select de Tipo (Entrada/SaÃ­da) */}
+                        {/* Select de Tipo (Entrada/Saída) */}
                         <select
                           value={p.tipoMovimentacao || "saida"}
                           onChange={(e) =>
@@ -2989,11 +2989,11 @@ export function Dashboard() {
                           className="input-field w-28"
                           required
                         >
-                          <option value="saida">SaÃ­da</option>
+                          <option value="saida">Saída</option>
                           <option value="entrada">Entrada</option>
                         </select>
 
-                        {/* BotÃ£o Remover (X) */}
+                        {/* Botão Remover (X) */}
                         {produtosMovimentacao.length > 1 && (
                           <button
                             type="button"
@@ -3001,13 +3001,13 @@ export function Dashboard() {
                             onClick={() => handleRemoveProduto(idx)}
                             title="Remover item"
                           >
-                            âœ•
+                            ✕
                           </button>
                         )}
                       </div>
                     ))}
 
-                    {/* BotÃ£o Adicionar Mais Produtos */}
+                    {/* Botão Adicionar Mais Produtos */}
                     <button
                       type="button"
                       className="text-sm text-primary hover:text-primary-dark font-semibold flex items-center gap-1 mt-2"
@@ -3022,9 +3022,9 @@ export function Dashboard() {
                         {movimentacaoErro}
                       </div>
                     )}
-                    {/* Removido renderizaÃ§Ã£o condicional de movimentacaoSucesso */}
+                    {/* Removido renderização condicional de movimentacaoSucesso */}
 
-                    {/* BotÃµes de AÃ§Ã£o (Cancelar e Registrar) */}
+                    {/* Botões de Ação (Cancelar e Registrar) */}
                     <div className="flex gap-4 justify-end pt-4 border-t border-gray-200 mt-4">
                       <button
                         type="button"
@@ -3059,7 +3059,7 @@ export function Dashboard() {
                                 d="M5 13l4 4L19 7"
                               />
                             </svg>
-                            Registrar MovimentaÃ§Ã£o
+                            Registrar Movimentação
                           </>
                         )}
                       </button>
@@ -3072,11 +3072,11 @@ export function Dashboard() {
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                    <span className="text-3xl">ðŸ“¦</span>
-                    Estoque dos DepÃ³sitos
+                    <span className="text-3xl">📦</span>
+                    Estoque dos Depósitos
                   </h2>
                   <p className="text-gray-600 mt-1">
-                    VisualizaÃ§Ã£o rÃ¡pida do estoque em cada loja
+                    Visualização rápida do estoque em cada loja
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -3098,7 +3098,7 @@ export function Dashboard() {
                         d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
                       />
                     </svg>
-                    Imprimir RelatÃ³rio Consolidado
+                    Imprimir Relatório Consolidado
                   </button>
                   <button
                     onClick={() => setMostrarModalMovimentacao(true)}
@@ -3117,7 +3117,7 @@ export function Dashboard() {
                         d="M12 4v16m8-8H4"
                       />
                     </svg>
-                    MovimentaÃ§Ã£o de Estoque
+                    Movimentação de Estoque
                   </button>
                   {loadingEstoque && (
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -3131,14 +3131,14 @@ export function Dashboard() {
                     key={loja.id}
                     className="border-2 border-gray-200 rounded-xl overflow-hidden hover:border-gray-300 transition-colors"
                   >
-                    {/* Header - sempre visÃ­vel */}
+                    {/* Header - sempre visível */}
                     <div className="p-5 bg-gray-50">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div
                           className="flex items-center gap-4 flex-1 cursor-pointer hover:opacity-80 transition-opacity"
                           onClick={() => toggleLojaEstoque(loja.id)}
                         >
-                          <span className="text-3xl">ðŸª</span>
+                          <span className="text-3xl">🏪</span>
                           <div>
                             <h3 className="font-bold text-gray-900 text-lg">
                               {loja.nome}
@@ -3150,7 +3150,7 @@ export function Dashboard() {
                               {loja.totalProdutos === 1
                                 ? "produto"
                                 : "produtos"}{" "}
-                              Â·{" "}
+                              ·{" "}
                               <span className="font-semibold">
                                 {loja.totalUnidades}
                               </span>{" "}
@@ -3158,7 +3158,7 @@ export function Dashboard() {
                             </p>
                             {loja.endereco && (
                               <p className="text-xs text-gray-500 mt-1">
-                                ðŸ“ {loja.endereco}
+                                📍 {loja.endereco}
                               </p>
                             )}
                           </div>
@@ -3195,7 +3195,7 @@ export function Dashboard() {
                               }}
                               className="w-full sm:w-auto px-4 py-2 bg-primary text-black rounded-lg hover:bg-primary/90 transition-colors font-medium text-sm flex items-center justify-center gap-2"
                             >
-                              âœï¸ Editar Estoque
+                              ✏️ Editar Estoque
                             </button>
                             <button
                               onClick={(e) => {
@@ -3207,7 +3207,7 @@ export function Dashboard() {
                             >
                               {enviandoSaidaTotal[loja.id]
                                 ? "Enviando..."
-                                : "ðŸ“¤ Dar SaÃ­da em Todo Estoque"}
+                                : "📤 Dar Saída em Todo Estoque"}
                             </button>
                           </div>
                           <svg
@@ -3229,7 +3229,7 @@ export function Dashboard() {
                       </div>
                     </div>
 
-                    {/* ConteÃºdo - expansÃ­vel */}
+                    {/* Conteúdo - expansível */}
                     {lojaEstoqueExpanded[loja.id] && (
                       <div className="p-5 bg-white border-t-2 border-gray-100">
                         {loja.estoque.length > 0 ? (
@@ -3252,7 +3252,7 @@ export function Dashboard() {
                                   >
                                     <div className="flex items-start gap-3 mb-3">
                                       <span className="text-3xl">
-                                        {item.produto.emoji || "ðŸ“¦"}
+                                        {item.produto.emoji || "📦"}
                                       </span>
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
@@ -3261,13 +3261,13 @@ export function Dashboard() {
                                           </p>
                                           {abaixoDoMinimo && (
                                             <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
-                                              âš ï¸
+                                              ⚠️
                                             </span>
                                           )}
                                         </div>
                                         {item.produto.codigo && (
                                           <p className="text-xs text-gray-500 mt-1">
-                                            CÃ³d: {item.produto.codigo}
+                                            Cód: {item.produto.codigo}
                                           </p>
                                         )}
                                       </div>
@@ -3307,7 +3307,7 @@ export function Dashboard() {
                                               : "text-gray-600"
                                           }`}
                                         >
-                                          Estoque mÃ­n.
+                                          Estoque mín.
                                         </p>
                                         <span
                                           className={`text-lg font-semibold ${
@@ -3334,7 +3334,7 @@ export function Dashboard() {
                                               clipRule="evenodd"
                                             />
                                           </svg>
-                                          Estoque abaixo do mÃ­nimo!
+                                          Estoque abaixo do mínimo!
                                         </p>
                                       </div>
                                     )}
@@ -3344,7 +3344,7 @@ export function Dashboard() {
                           </div>
                         ) : (
                           <div className="text-center py-12">
-                            <p className="text-5xl mb-3">ðŸ“­</p>
+                            <p className="text-5xl mb-3">📭</p>
                             <p className="text-gray-500 font-medium">
                               Nenhum produto no estoque
                             </p>
@@ -3363,21 +3363,21 @@ export function Dashboard() {
           </>
         )}
 
-        {/* Busca de Lojas e MÃ¡quinas */}
+        {/* Busca de Lojas e Máquinas */}
         <div className="card-gradient mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-            <span className="text-3xl">ðŸ”</span>
-            Buscar Lojas e MÃ¡quinas
+            <span className="text-3xl">🔍</span>
+            Buscar Lojas e Máquinas
           </h2>
 
-          {/* Breadcrumb de NavegaÃ§Ã£o */}
+          {/* Breadcrumb de Navegação */}
           {(lojaSelecionada || maquinaSelecionada) && (
             <div className="mb-6 flex items-center gap-2 text-sm">
               <button
                 onClick={handleVoltar}
                 className="text-primary hover:text-primary/80 font-semibold flex items-center gap-1"
               >
-                â† Voltar
+                ← Voltar
               </button>
               <span className="text-gray-400">/</span>
               {lojaSelecionada && (
@@ -3398,14 +3398,14 @@ export function Dashboard() {
             </div>
           )}
 
-          {/* Barra de Pesquisa - VisÃ­vel apenas quando nÃ£o hÃ¡ seleÃ§Ã£o */}
+          {/* Barra de Pesquisa - Visível apenas quando não há seleção */}
           {!lojaSelecionada && !maquinaSelecionada && (
             <div className="relative mb-6">
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Digite o nome da loja ou endereÃ§o..."
+                placeholder="Digite o nome da loja ou endereço..."
                 className="w-full input-field pl-12 text-lg"
               />
               <svg
@@ -3441,15 +3441,15 @@ export function Dashboard() {
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <h3 className="text-lg font-bold text-gray-900 mb-1">
-                            ðŸª {loja.nome}
+                            🏪 {loja.nome}
                           </h3>
                           <p className="text-sm text-gray-600">
-                            ðŸ“ {loja.endereco || "EndereÃ§o nÃ£o cadastrado"}
+                            📍 {loja.endereco || "Endereço não cadastrado"}
                           </p>
                           <div className="flex items-center gap-4 mt-2">
                             <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-semibold">
                               {qtdMaquinas}{" "}
-                              {qtdMaquinas === 1 ? "mÃ¡quina" : "mÃ¡quinas"}
+                              {qtdMaquinas === 1 ? "máquina" : "máquinas"}
                             </span>
                             {loja.ativo && (
                               <Badge variant="success">Ativa</Badge>
@@ -3475,7 +3475,7 @@ export function Dashboard() {
                 })
               ) : (
                 <div className="text-center py-12">
-                  <p className="text-6xl mb-4">ðŸ”</p>
+                  <p className="text-6xl mb-4">🔍</p>
                   <p className="text-gray-600">
                     {searchTerm
                       ? "Nenhuma loja encontrada"
@@ -3486,22 +3486,22 @@ export function Dashboard() {
             </div>
           )}
 
-          {/* Lista de MÃ¡quinas da Loja */}
+          {/* Lista de Máquinas da Loja */}
           {lojaSelecionada && !maquinaSelecionada && (
             <div className="space-y-3">
               {maquinasDaLoja.length > 0 ? (
                 maquinasDaLoja.map((maquina) => {
                   const produtoAtual = produtoAtualMaquinas[maquina.id];
-                  console.log("Dados da mÃ¡quina:", maquina);
+                  console.log("Dados da máquina:", maquina);
                   if (maquina.movimentacoes) {
                     console.log(
-                      `MovimentaÃ§Ãµes da mÃ¡quina ${maquina.codigo}:`,
+                      `Movimentações da máquina ${maquina.codigo}:`,
                       maquina.movimentacoes,
                     );
                   }
                   if (maquina.sairam !== undefined) {
                     console.log(
-                      `SaÃ­ram da mÃ¡quina ${maquina.codigo}:`,
+                      `Saíram da máquina ${maquina.codigo}:`,
                       maquina.sairam,
                     );
                   }
@@ -3514,7 +3514,7 @@ export function Dashboard() {
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <h3 className="text-lg font-bold text-gray-900 mb-1">
-                            ðŸŽ° {maquina.codigo} - {maquina.nome}
+                            🎰 {maquina.codigo} - {maquina.nome}
                           </h3>
                           <div className="flex items-center gap-4 mt-2">
                             {maquina.tipo && (
@@ -3524,7 +3524,7 @@ export function Dashboard() {
                             )}
                             {produtoAtual && (
                               <span className="text-xs bg-amber-100 text-amber-800 px-3 py-1 rounded-full font-semibold flex items-center gap-1">
-                                <span>{produtoAtual.emoji || "ðŸ§¸"}</span>
+                                <span>{produtoAtual.emoji || "🧸"}</span>
                                 <span>{produtoAtual.nome}</span>
                               </span>
                             )}
@@ -3562,26 +3562,26 @@ export function Dashboard() {
                 })
               ) : (
                 <div className="text-center py-12">
-                  <p className="text-6xl mb-4">ðŸŽ°</p>
+                  <p className="text-6xl mb-4">🎰</p>
                   <p className="text-gray-600">
-                    Nenhuma mÃ¡quina cadastrada nesta loja
+                    Nenhuma máquina cadastrada nesta loja
                   </p>
                 </div>
               )}
             </div>
           )}
 
-          {/* Detalhes da MÃ¡quina Selecionada */}
+          {/* Detalhes da Máquina Selecionada */}
           {maquinaSelecionada && (
             <div className="space-y-6">
-              {/* InformaÃ§Ãµes da MÃ¡quina */}
+              {/* Informações da Máquina */}
               <div className="bg-linear-to-br from-primary/10 to-secondary/10 p-6 rounded-xl">
                 <h3 className="text-xl font-bold text-gray-900 mb-4">
-                  ðŸ“Š InformaÃ§Ãµes da MÃ¡quina
+                  📊 Informações da Máquina
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600">CÃ³digo</p>
+                    <p className="text-sm text-gray-600">Código</p>
                     <p className="text-lg font-semibold">
                       {maquinaSelecionada.codigo}
                     </p>
@@ -3598,7 +3598,7 @@ export function Dashboard() {
                       {maquinaSelecionada.ultimoProduto ? (
                         <span className="flex items-center gap-2">
                           <span>
-                            {maquinaSelecionada.ultimoProduto.emoji || "ðŸ§¸"}
+                            {maquinaSelecionada.ultimoProduto.emoji || "🧸"}
                           </span>
                           <span>{maquinaSelecionada.ultimoProduto.nome}</span>
                         </span>
@@ -3633,7 +3633,7 @@ export function Dashboard() {
                   {maquinaSelecionada.fichasNecessarias && (
                     <div>
                       <p className="text-sm text-gray-600">
-                        ðŸŽ« Fichas para Jogar
+                        🎫 Fichas para Jogar
                       </p>
                       <p className="text-lg font-semibold">
                         {maquinaSelecionada.fichasNecessarias}{" "}
@@ -3646,7 +3646,7 @@ export function Dashboard() {
                   {maquinaSelecionada.forcaForte !== null &&
                     maquinaSelecionada.forcaForte !== undefined && (
                       <div>
-                        <p className="text-sm text-gray-600">ðŸ’ª ForÃ§a Forte</p>
+                        <p className="text-sm text-gray-600">💪 Força Forte</p>
                         <p className="text-lg font-semibold">
                           {maquinaSelecionada.forcaForte}%
                         </p>
@@ -3655,7 +3655,7 @@ export function Dashboard() {
                   {maquinaSelecionada.forcaFraca !== null &&
                     maquinaSelecionada.forcaFraca !== undefined && (
                       <div>
-                        <p className="text-sm text-gray-600">ðŸ¤ ForÃ§a Fraca</p>
+                        <p className="text-sm text-gray-600">🤏 Força Fraca</p>
                         <p className="text-lg font-semibold">
                           {maquinaSelecionada.forcaFraca}%
                         </p>
@@ -3665,7 +3665,7 @@ export function Dashboard() {
                     maquinaSelecionada.forcaPremium !== undefined && (
                       <div>
                         <p className="text-sm text-gray-600">
-                          â­ ForÃ§a Premium
+                          ⭐ Força Premium
                         </p>
                         <p className="text-lg font-semibold">
                           {maquinaSelecionada.forcaPremium}%
@@ -3675,7 +3675,7 @@ export function Dashboard() {
                   {maquinaSelecionada.jogadasPremium && (
                     <div>
                       <p className="text-sm text-gray-600">
-                        ðŸŽ® Jogadas Premium
+                        🎮 Jogadas Premium
                       </p>
                       <p className="text-lg font-semibold">
                         {maquinaSelecionada.jogadasPremium}{" "}
@@ -3698,7 +3698,7 @@ export function Dashboard() {
                 </div>
                 {maquinaSelecionada.localizacao && (
                   <div className="mt-4">
-                    <p className="text-sm text-gray-600">LocalizaÃ§Ã£o</p>
+                    <p className="text-sm text-gray-600">Localização</p>
                     <p className="text-base text-gray-800">
                       {maquinaSelecionada.localizacao}
                     </p>
@@ -3706,12 +3706,12 @@ export function Dashboard() {
                 )}
               </div>
 
-              {/* MovimentaÃ§Ãµes - Apenas para ADMIN */}
+              {/* Movimentações - Apenas para ADMIN */}
               {usuario?.role === "ADMIN" && (
                 <div>
                   <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="text-2xl">ðŸ”„</span>
-                    HistÃ³rico de MovimentaÃ§Ãµes
+                    <span className="text-2xl">🔄</span>
+                    Histórico de Movimentações
                   </h3>
 
                   {/* Filtros de Data */}
@@ -3719,7 +3719,7 @@ export function Dashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          ðŸ“… Data Inicial
+                          📅 Data Inicial
                         </label>
                         <input
                           type="date"
@@ -3730,7 +3730,7 @@ export function Dashboard() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          ðŸ“… Data Final
+                          📅 Data Final
                         </label>
                         <input
                           type="date"
@@ -3748,7 +3748,7 @@ export function Dashboard() {
                         }}
                         className="mt-2 text-sm text-primary hover:text-primary-dark flex items-center gap-1"
                       >
-                        âœ• Limpar filtros
+                        ✕ Limpar filtros
                       </button>
                     )}
                   </div>
@@ -3756,7 +3756,7 @@ export function Dashboard() {
                     <div className="text-center py-8">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
                       <p className="text-gray-600 mt-4">
-                        Carregando movimentaÃ§Ãµes...
+                        Carregando movimentações...
                       </p>
                     </div>
                   ) : movimentacoes.length > 0 ? (
@@ -3787,15 +3787,15 @@ export function Dashboard() {
                                 }
                               >
                                 {mov.tipo === "entrada"
-                                  ? "ðŸ“¥ Entrada"
-                                  : "ðŸ“¤ SaÃ­da"}
+                                  ? "📥 Entrada"
+                                  : "📤 Saída"}
                               </Badge>
                               <div className="flex items-center gap-3">
                                 <span className="text-sm text-gray-600">
                                   {new Date(
                                     mov.dataColeta || mov.createdAt,
                                   ).toLocaleDateString("pt-BR")}{" "}
-                                  Ã s{" "}
+                                  às{" "}
                                   {new Date(
                                     mov.dataColeta || mov.createdAt,
                                   ).toLocaleTimeString("pt-BR")}
@@ -3824,13 +3824,13 @@ export function Dashboard() {
                             </div>
                             <div className="grid grid-cols-6 gap-4 mt-3 text-sm">
                               <div>
-                                <p className="text-gray-600">Total PrÃ©</p>
+                                <p className="text-gray-600">Total Pré</p>
                                 <p className="font-semibold">
                                   {mov.totalPre || 0}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-gray-600">SaÃ­ram</p>
+                                <p className="text-gray-600">Saíram</p>
                                 <p className="font-semibold text-red-600">
                                   {mov.sairam || 0}
                                 </p>
@@ -3857,7 +3857,7 @@ export function Dashboard() {
                               </div>
                               <div>
                                 <p className="text-gray-600 flex items-center gap-1">
-                                  <span>ðŸ“¦</span> Total Atual
+                                  <span>📦</span> Total Atual
                                 </p>
                                 <p className="font-semibold text-purple-600">
                                   {mov.totalPos ?? 0}
@@ -3865,7 +3865,7 @@ export function Dashboard() {
                               </div>
                               <div>
                                 <p className="text-gray-600 flex items-center gap-1">
-                                  <span>ðŸŽ«</span> Fichas
+                                  <span>🎫</span> Fichas
                                 </p>
                                 <p className="font-semibold text-blue-600">
                                   {mov.fichas || 0}
@@ -3873,11 +3873,11 @@ export function Dashboard() {
                               </div>
                             </div>
 
-                            {/* Contadores da MÃ¡quina */}
+                            {/* Contadores da Máquina */}
                             {(mov.contadorIn || mov.contadorOut) && (
                               <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-200">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-lg">ðŸ“¥</span>
+                                  <span className="text-lg">📥</span>
                                   <div>
                                     <p className="text-xs text-gray-600">
                                       Contador IN
@@ -3888,7 +3888,7 @@ export function Dashboard() {
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-lg">ðŸ“¤</span>
+                                  <span className="text-lg">📤</span>
                                   <div>
                                     <p className="text-xs text-gray-600">
                                       Contador OUT
@@ -3903,7 +3903,7 @@ export function Dashboard() {
 
                             {mov.observacoes && (
                               <p className="text-sm text-gray-600 mt-3 italic">
-                                ðŸ’¬ {mov.observacoes}
+                                💬 {mov.observacoes}
                               </p>
                             )}
 
@@ -3929,7 +3929,7 @@ export function Dashboard() {
                                     </div>
                                     <div>
                                       <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                        Total PrÃ©
+                                        Total Pré
                                       </label>
                                       <input
                                         type="number"
@@ -3961,7 +3961,7 @@ export function Dashboard() {
                                     </div>
                                     <div>
                                       <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                        SaÃ­ram
+                                        Saíram
                                       </label>
                                       <input
                                         type="number"
@@ -4043,7 +4043,7 @@ export function Dashboard() {
 
                                   <div>
                                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                      ObservaÃ§Ãµes
+                                      Observações
                                     </label>
                                     <textarea
                                       value={movimentacaoForm.observacoes}
@@ -4061,7 +4061,7 @@ export function Dashboard() {
                                   <div>
                                     <div className="flex items-center justify-between mb-2">
                                       <p className="text-xs font-semibold text-gray-700">
-                                        Produtos da MovimentaÃ§Ã£o
+                                        Produtos da Movimentação
                                       </p>
                                       <button
                                         type="button"
@@ -4179,7 +4179,7 @@ export function Dashboard() {
                                     >
                                       {salvandoMovimentacaoId === mov.id
                                         ? "Salvando..."
-                                        : "Salvar ediÃ§Ã£o"}
+                                        : "Salvar edição"}
                                     </button>
                                   </div>
                                 </div>
@@ -4189,9 +4189,9 @@ export function Dashboard() {
                     </div>
                   ) : (
                     <div className="text-center py-12">
-                      <p className="text-6xl mb-4">ðŸ“­</p>
+                      <p className="text-6xl mb-4">📭</p>
                       <p className="text-gray-600">
-                        Nenhuma movimentaÃ§Ã£o registrada para esta mÃ¡quina
+                        Nenhuma movimentação registrada para esta máquina
                       </p>
                     </div>
                   )}
@@ -4208,8 +4208,8 @@ export function Dashboard() {
           >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <span className="bg-red-100 p-2 rounded-lg">âš ï¸</span>
-                PelÃºcias saindo fora do esperado
+                <span className="bg-red-100 p-2 rounded-lg">⚠️</span>
+                Pelúcias saindo fora do esperado
               </h2>
               <span className="badge bg-red-100 text-red-700 border-red-300">
                 {alertasBomDesempenho.length}{" "}
@@ -4236,7 +4236,7 @@ export function Dashboard() {
                       <div className="flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-2">
                           <span className="font-bold text-lg text-gray-900">
-                            ðŸŽ® {alerta.maquinaNome || "MÃ¡quina"}
+                            🎮 {alerta.maquinaNome || "Máquina"}
                           </span>
                           {alerta.lojaNome && (
                             <span
@@ -4246,14 +4246,14 @@ export function Dashboard() {
                                   : "text-red-700 border border-red-200"
                               }`}
                             >
-                              ðŸª {alerta.lojaNome}
+                              🏪 {alerta.lojaNome}
                             </span>
                           )}
                         </div>
                         <p className="text-sm text-gray-700">
-                          SaÃ­ram <strong>{alerta.sairam}</strong> pelÃºcia(s). O
+                          Saíram <strong>{alerta.sairam}</strong> pelúcia(s). O
                           contador IN subiu <strong>{alerta.diffIn}</strong> no
-                          perÃ­odo, equivalente a{" "}
+                          período, equivalente a{" "}
                           <strong>{alerta.jogadasPeriodo}</strong> jogada(s).
                         </p>
                         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -4269,7 +4269,7 @@ export function Dashboard() {
                               {Number(alerta.jogadasPorPelucia || 0).toFixed(2)}
                             </p>
                             <p className="text-xs text-gray-500">
-                              jogadas por pelÃºcia
+                              jogadas por pelúcia
                             </p>
                           </div>
                           <div className="rounded-xl bg-white p-3 border border-red-100">
@@ -4282,7 +4282,7 @@ export function Dashboard() {
                               ).toFixed(2)}
                             </p>
                             <p className="text-xs text-gray-500">
-                              jogadas por pelÃºcia
+                              jogadas por pelúcia
                             </p>
                           </div>
                           <div className="rounded-xl bg-white p-3 border border-red-100">
@@ -4293,7 +4293,7 @@ export function Dashboard() {
                               R$ {Number(alerta.valorPorJogada || 0).toFixed(2)}
                             </p>
                             <p className="text-xs text-gray-500">
-                              ficha Ã— fichas para jogar
+                              ficha × fichas para jogar
                             </p>
                           </div>
                         </div>
@@ -4336,8 +4336,8 @@ export function Dashboard() {
           >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <span className="bg-red-100 p-2 rounded-lg">âš ï¸</span>
-                Alertas de Estoque em MÃ¡quinas
+                <span className="bg-red-100 p-2 rounded-lg">⚠️</span>
+                Alertas de Estoque em Máquinas
               </h2>
               <span className="badge badge-danger">
                 {stats.alertas.length}{" "}
@@ -4349,7 +4349,7 @@ export function Dashboard() {
                 <div
                   key={index}
                   className={`p-5 rounded-xl border-l-4 transition-all duration-200 hover:scale-[1.02] ${
-                    alerta.nivelAlerta === "CRÃTICO"
+                    alerta.nivelAlerta === "CRÍTICO"
                       ? "bg-linear-to-r from-red-50 to-red-100/50 border-red-500 shadow-red-100 shadow-md"
                       : alerta.nivelAlerta === "ALTO"
                         ? "bg-linear-to-r from-orange-50 to-orange-100/50 border-orange-500 shadow-orange-100 shadow-md"
@@ -4424,7 +4424,7 @@ export function Dashboard() {
                   <div
                     key={index}
                     className={`p-5 rounded-xl border-l-4 transition-all duration-200 hover:scale-[1.02] ${
-                      alerta.nivelAlerta === "CRÃTICO"
+                      alerta.nivelAlerta === "CRÍTICO"
                         ? "bg-linear-to-r from-red-50 to-red-100/50 border-red-500 shadow-red-100 shadow-md"
                         : alerta.nivelAlerta === "ALTO"
                           ? "bg-linear-to-r from-orange-50 to-orange-100/50 border-orange-500 shadow-orange-100 shadow-md"
@@ -4501,7 +4501,7 @@ export function Dashboard() {
           <div className="card mb-8 border-l-4 border-orange-500">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <span className="bg-orange-100 p-2 rounded-lg">ðŸª</span>
+                <span className="bg-orange-100 p-2 rounded-lg">🏪</span>
                 Alertas de Estoque nas Lojas
               </h2>
               <span className="badge bg-orange-100 text-orange-700 border-orange-300">
@@ -4519,16 +4519,16 @@ export function Dashboard() {
                     : 0;
                 const nivelAlerta =
                   percentualAtual <= 25
-                    ? "CRÃTICO"
+                    ? "CRÍTICO"
                     : percentualAtual <= 50
                       ? "ALTO"
-                      : "MÃ‰DIO";
+                      : "MÉDIO";
 
                 return (
                   <div
                     key={`${alerta.lojaId}-${alerta.produtoId}-${index}`}
                     className={`p-5 rounded-xl border-l-4 transition-all duration-200 hover:scale-[1.02] ${
-                      nivelAlerta === "CRÃTICO"
+                      nivelAlerta === "CRÍTICO"
                         ? "bg-linear-to-r from-red-50 to-red-100/50 border-red-500 shadow-red-100 shadow-md"
                         : nivelAlerta === "ALTO"
                           ? "bg-linear-to-r from-orange-50 to-orange-100/50 border-orange-500 shadow-orange-100 shadow-md"
@@ -4539,7 +4539,7 @@ export function Dashboard() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-2xl">
-                            {alerta.produto.emoji || "ðŸ“¦"}
+                            {alerta.produto.emoji || "📦"}
                           </span>
                           <span className="font-bold text-lg text-gray-900">
                             {alerta.produto.nome}
@@ -4561,7 +4561,7 @@ export function Dashboard() {
                         </p>
                         {alerta.produto.codigo && (
                           <p className="text-xs text-gray-500 mt-1">
-                            CÃ³digo: {alerta.produto.codigo}
+                            Código: {alerta.produto.codigo}
                           </p>
                         )}
                       </div>
@@ -4573,7 +4573,7 @@ export function Dashboard() {
                           <span className="text-lg text-gray-600">un</span>
                         </div>
                         <p className="text-xs text-gray-600 mt-1 bg-white/60 px-2 py-1 rounded-full">
-                          Min: {alerta.estoqueMinimo} Â· {percentualAtual}%
+                          Min: {alerta.estoqueMinimo} · {percentualAtual}%
                         </p>
                       </div>
                     </div>
@@ -4592,7 +4592,7 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* DistribuiÃ§Ã£o por Loja */}
+        {/* Distribuição por Loja */}
         {stats.balanco?.distribuicaoLojas?.length > 0 && (
           <div className="card">
             <div className="flex items-center justify-between mb-6">
@@ -4665,7 +4665,7 @@ export function Dashboard() {
                         >
                           <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
                         </svg>
-                        PrÃªmios
+                        Prêmios
                       </div>
                     </th>
                     <th>
@@ -4694,7 +4694,7 @@ export function Dashboard() {
                         >
                           <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
                         </svg>
-                        MÃ©dia F/P
+                        Média F/P
                       </div>
                     </th>
                     <th>
@@ -4753,7 +4753,7 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* AÃ§Ã£o RÃ¡pida com design destacado */}
+        {/* Ação Rápida com design destacado */}
         <div className="mt-8 flex justify-center">
           <Link
             to="/movimentacoes?nova=true"
@@ -4772,12 +4772,12 @@ export function Dashboard() {
                 d="M12 6v6m0 0v6m0-6h6m-6 0H6"
               />
             </svg>
-            Registrar Nova MovimentaÃ§Ã£o
+            Registrar Nova Movimentação
           </Link>
         </div>
       </div>
 
-      {/* Modal de EdiÃ§Ã£o de Estoque */}
+      {/* Modal de Edição de Estoque */}
       {estoqueEditando && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
@@ -4786,11 +4786,11 @@ export function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold flex items-center gap-3">
-                    <span className="text-3xl">âœï¸</span>
-                    Editar Estoque do DepÃ³sito
+                    <span className="text-3xl">✏️</span>
+                    Editar Estoque do Depósito
                   </h2>
                   <p className="text-white/90 mt-1">
-                    ðŸª {estoqueEditando.lojaNome}
+                    🏪 {estoqueEditando.lojaNome}
                   </p>
                 </div>
                 <button
@@ -4815,12 +4815,12 @@ export function Dashboard() {
               </div>
             </div>
 
-            {/* ConteÃºdo do Modal */}
+            {/* Conteúdo do Modal */}
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              {/* InformaÃ§Ãµes e Filtros */}
+              {/* Informações e Filtros */}
               <div className="mb-6 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
                 <div className="flex items-start gap-3">
-                  <span className="text-2xl">ðŸ’¡</span>
+                  <span className="text-2xl">💡</span>
                   <div className="flex-1">
                     <p className="text-sm text-blue-900 font-semibold mb-2">
                       Como usar este painel:
@@ -4828,23 +4828,23 @@ export function Dashboard() {
                     <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
                       <li>
                         Use o <strong>checkbox</strong> para selecionar quais
-                        produtos aparecerÃ£o no estoque desta loja
+                        produtos aparecerão no estoque desta loja
                       </li>
                       <li>
-                        Produtos com estoque <strong>abaixo do mÃ­nimo</strong>{" "}
+                        Produtos com estoque <strong>abaixo do mínimo</strong>{" "}
                         aparecem com{" "}
                         <span className="text-red-600">fundo vermelho</span>
                       </li>
                       <li>
                         Edite as quantidades e configure alertas de estoque
-                        mÃ­nimo
+                        mínimo
                       </li>
                     </ul>
                   </div>
                 </div>
               </div>
 
-              {/* BotÃµes de AÃ§Ã£o RÃ¡pida */}
+              {/* Botões de Ação Rápida */}
               <div className="mb-6 flex gap-3">
                 <button
                   onClick={() => marcarTodosProdutos(true)}
@@ -4888,11 +4888,11 @@ export function Dashboard() {
                 </button>
               </div>
 
-              {/* EstatÃ­sticas */}
+              {/* Estatísticas */}
               <div className="mb-6 grid grid-cols-2 gap-4">
                 <div className="p-4 bg-linear-to-br from-green-50 to-emerald-50 rounded-lg border-2 border-green-200">
                   <p className="text-sm text-green-700 font-semibold mb-1">
-                    âœ… Produtos Ativos
+                    ✅ Produtos Ativos
                   </p>
                   <p className="text-3xl font-bold text-green-600">
                     {estoqueEditando.estoque.filter((i) => i.ativo).length}
@@ -4900,7 +4900,7 @@ export function Dashboard() {
                 </div>
                 <div className="p-4 bg-linear-to-br from-orange-50 to-amber-50 rounded-lg border-2 border-orange-200">
                   <p className="text-sm text-orange-700 font-semibold mb-1">
-                    âš ï¸ Abaixo do MÃ­nimo
+                    ⚠️ Abaixo do Mínimo
                   </p>
                   <p className="text-3xl font-bold text-orange-600">
                     {
@@ -4950,7 +4950,7 @@ export function Dashboard() {
                           </div>
 
                           <span className="text-4xl">
-                            {item.produtoEmoji || "ðŸ“¦"}
+                            {item.produtoEmoji || "📦"}
                           </span>
 
                           <div className="flex-1">
@@ -4961,13 +4961,13 @@ export function Dashboard() {
                                 </h4>
                                 {item.produtoCodigo && (
                                   <p className="text-xs text-gray-500 mt-1">
-                                    CÃ³d: {item.produtoCodigo}
+                                    Cód: {item.produtoCodigo}
                                   </p>
                                 )}
                               </div>
                               {abaixoDoMinimo && (
                                 <span className="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
-                                  âš ï¸ ESTOQUE BAIXO
+                                  ⚠️ ESTOQUE BAIXO
                                 </span>
                               )}
                             </div>
@@ -4997,7 +4997,7 @@ export function Dashboard() {
                               </div>
                               <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                  Estoque MÃ­nimo
+                                  Estoque Mínimo
                                 </label>
                                 <input
                                   type="number"
@@ -5029,8 +5029,8 @@ export function Dashboard() {
                                       clipRule="evenodd"
                                     />
                                   </svg>
-                                  Este produto nÃ£o aparecerÃ¡ no estoque. Marque
-                                  o checkbox para ativÃ¡-lo.
+                                  Este produto não aparecerá no estoque. Marque
+                                  o checkbox para ativá-lo.
                                 </p>
                               </div>
                             )}
@@ -5042,7 +5042,7 @@ export function Dashboard() {
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <p className="text-5xl mb-3">ðŸ“­</p>
+                  <p className="text-5xl mb-3">📭</p>
                   <p className="text-gray-500 font-medium">
                     Nenhum produto cadastrado no sistema
                   </p>
@@ -5084,7 +5084,7 @@ export function Dashboard() {
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
-                    Salvar AlteraÃ§Ãµes
+                    Salvar Alterações
                   </>
                 )}
               </button>

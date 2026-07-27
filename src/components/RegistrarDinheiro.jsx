@@ -95,9 +95,9 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
     e.preventDefault();
     const periodoSelecionado = obterPeriodoDoMes(mesReferencia);
 
-    // Garantir que campos obrigatÃ³rios estejam preenchidos corretamente
+    // Garantir que campos obrigatórios estejam preenchidos corretamente
     if (!lojaSelecionada || !periodoSelecionado) {
-      alert("Preencha todos os campos obrigatÃ³rios: loja e mÃªs de fechamento.");
+      alert("Preencha todos os campos obrigatórios: loja e mês de fechamento.");
       return;
     }
 
@@ -106,17 +106,17 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
     const taxaMediaNumero = parseLocaleNumber(percentualTaxaCartaoMedia);
 
     if (valorDinheiro !== "" && dinheiroNumero === null) {
-      alert("Valor de dinheiro invÃ¡lido.");
+      alert("Valor de dinheiro inválido.");
       return;
     }
 
     if (valorCartaoPix !== "" && cartaoPixNumero === null) {
-      alert("Valor de cartÃ£o/pix invÃ¡lido.");
+      alert("Valor de cartão/pix inválido.");
       return;
     }
 
     if (percentualTaxaCartaoMedia !== "" && taxaMediaNumero === null) {
-      alert("Taxa mÃ©dia de cartÃ£o invÃ¡lida.");
+      alert("Taxa média de cartão inválida.");
       return;
     }
 
@@ -128,7 +128,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       : [];
 
     if (gastosNormalizados.some((gasto) => gasto.valor === null)) {
-      alert("Preencha os valores dos gastos variÃ¡veis corretamente.");
+      alert("Preencha os valores dos gastos variáveis corretamente.");
       return;
     }
 
@@ -162,7 +162,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
         maxHeight: "90vh",
       }}
     >
-      {/* BotÃ£o Voltar no topo Ã  esquerda */}
+      {/* Botão Voltar no topo à esquerda */}
       <button
         type="button"
         onClick={() => window.history.back()}
@@ -180,20 +180,20 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
           cursor: "pointer",
         }}
       >
-        â† Voltar
+        ← Voltar
       </button>
-      {/* PelÃºcia decorativa topo */}
+      {/* Pelúcia decorativa topo */}
       <div style={{ position: "absolute", left: -38, top: -38 }}>
         <img
           src="/public/pelucia-urso.png"
-          alt="PelÃºcia"
+          alt="Pelúcia"
           style={{ width: 64, height: 64 }}
         />
       </div>
       <div style={{ position: "absolute", right: -38, top: -38 }}>
         <img
           src="/public/pelucia-coelho.png"
-          alt="PelÃºcia"
+          alt="Pelúcia"
           style={{ width: 64, height: 64 }}
         />
       </div>
@@ -207,11 +207,11 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
         }}
       >
         <span role="img" aria-label="dinheiro" style={{ marginRight: 8 }}>
-          ðŸ’°
+          💰
         </span>
         Registrar Dinheiro
       </h2>
-      {/* Gastos VariÃ¡veis - sÃ³ aparece se registrarTotalLoja estiver marcado */}
+      {/* Gastos Variáveis - só aparece se registrarTotalLoja estiver marcado */}
       {registrarTotalLoja && (
         <div
           style={{
@@ -231,7 +231,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
             }}
           >
             <label style={{ fontWeight: 600, color: "#a67c52", fontSize: 17 }}>
-              Gastos VariÃ¡veis:
+              Gastos Variáveis:
             </label>
             <button
               type="button"
@@ -313,7 +313,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
               </div>
               <div style={{ flex: 2, minWidth: 120 }}>
                 <label style={{ fontSize: 14, color: "#a67c52" }}>
-                  ObservaÃ§Ã£o
+                  Observação
                 </label>
                 <input
                   type="text"
@@ -398,11 +398,11 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
           htmlFor="registrarTotalLoja"
           style={{ fontSize: 15, color: "#a67c52" }}
         >
-          Registrar valor total da loja (nÃ£o selecionar mÃ¡quina)
+          Registrar valor total da loja (não selecionar máquina)
         </label>
       </div>
       <div style={{ marginBottom: 18 }}>
-        <label style={{ fontWeight: 600, color: "#a67c52" }}>MÃ¡quina:</label>
+        <label style={{ fontWeight: 600, color: "#a67c52" }}>Máquina:</label>
         <select
           value={maquinaSelecionada}
           onChange={(e) => setMaquinaSelecionada(e.target.value)}
@@ -420,12 +420,12 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
           }}
           disabled={registrarTotalLoja}
         >
-          <option value="">Selecione a mÃ¡quina</option>
+          <option value="">Selecione a máquina</option>
           {maquinas &&
             (() => {
               // Encontrar a loja selecionada pelo id
               const lojaObj = lojas?.find((l) => l.id === lojaSelecionada);
-              // Se for Agarramais Aeroporto, mostrar todas as mÃ¡quinas da loja
+              // Se for Agarramais Aeroporto, mostrar todas as máquinas da loja
               if (
                 lojaObj &&
                 lojaObj.nome &&
@@ -439,7 +439,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
                     </option>
                   ));
               } else {
-                // LÃ³gica padrÃ£o: sÃ³ takeball e poltrona
+                // Lógica padrão: só takeball e poltrona
                 return maquinas
                   .filter(
                     (m) =>
@@ -461,7 +461,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>Fechamento:</label>
         <div style={{ marginTop: 6 }}>
-          <label style={{ fontSize: 14, color: "#a67c52" }}>MÃªs</label>
+          <label style={{ fontSize: 14, color: "#a67c52" }}>Mês</label>
           <input
             type="month"
             value={mesReferencia}
@@ -505,7 +505,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       </div>
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>
-          CartÃ£o / Pix (R$):
+          Cartão / Pix (R$):
         </label>
         <input
           type="text"
@@ -528,7 +528,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       </div>
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>
-          Taxa mÃ©dia de cartÃ£o (%):
+          Taxa média de cartão (%):
         </label>
         <input
           type="text"
@@ -551,7 +551,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       </div>
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>
-          ObservaÃ§Ãµes:
+          Observações:
         </label>
         <textarea
           value={observacoes}
@@ -582,12 +582,12 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
         }}
       >
         <ul style={{ paddingLeft: 18, margin: 0 }}>
-          <li>Se marcar valor total da loja, nÃ£o selecione mÃ¡quina.</li>
+          <li>Se marcar valor total da loja, não selecione máquina.</li>
           <li>
-            O lanÃ§amento do dinheiro de cada mÃ¡quina nÃ£o soma no dinheiro total
+            O lançamento do dinheiro de cada máquina não soma no dinheiro total
             da loja.
           </li>
-          <li>O dinheiro das fichas nÃ£o soma mais no valor inteiro da loja.</li>
+          <li>O dinheiro das fichas não soma mais no valor inteiro da loja.</li>
         </ul>
       </div>
       <button
@@ -606,8 +606,8 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
           marginTop: 8,
         }}
       >
-        <span role="img" aria-label="pelÃºcia" style={{ marginRight: 8 }}>
-          ðŸ§¸
+        <span role="img" aria-label="pelúcia" style={{ marginRight: 8 }}>
+          🧸
         </span>
         Registrar
       </button>

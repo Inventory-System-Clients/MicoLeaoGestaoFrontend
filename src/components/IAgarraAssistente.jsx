@@ -148,7 +148,7 @@ export function IAgarraAssistente() {
       const padrao =
         tipo === "in"
           ? /(?:contador\s*)?(?:entrada|in)\s*(\d+)/i
-          : /(?:contador\s*)?(?:saida|saÃ­da|out)\s*(\d+)/i;
+          : /(?:contador\s*)?(?:saida|saída|out)\s*(\d+)/i;
       return textoNormalizado.match(padrao)?.[1] || "";
     },
     [normalizarTexto],

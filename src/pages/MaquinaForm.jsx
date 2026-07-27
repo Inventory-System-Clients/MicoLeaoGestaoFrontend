@@ -81,7 +81,7 @@ export function MaquinaForm() {
       });
     } catch (error) {
       setError(
-        "Erro ao carregar mÃ¡quina: " +
+        "Erro ao carregar máquina: " +
           (error.response?.data?.error || error.message)
       );
     } finally {
@@ -104,7 +104,7 @@ export function MaquinaForm() {
     setLoading(true);
 
     try {
-      // ValidaÃ§Ã£o adicional
+      // Validação adicional
       console.log("FormData completo:", formData); // Debug
       console.log(
         "loja_id:",
@@ -120,7 +120,7 @@ export function MaquinaForm() {
       }
 
       if (!formData.codigo || formData.codigo.trim() === "") {
-        setError("Por favor, informe o cÃ³digo da mÃ¡quina");
+        setError("Por favor, informe o código da máquina");
         setLoading(false);
         return;
       }
@@ -151,15 +151,15 @@ export function MaquinaForm() {
 
       if (isEdit) {
         await api.put(`/maquinas/${id}`, data);
-        setSuccess("MÃ¡quina atualizada com sucesso!");
+        setSuccess("Máquina atualizada com sucesso!");
       } else {
         await api.post("/maquinas", data);
-        setSuccess("MÃ¡quina criada com sucesso!");
+        setSuccess("Máquina criada com sucesso!");
       }
 
       setTimeout(() => navigate("/maquinas"), 1500);
     } catch (error) {
-      setError(error.response?.data?.error || "Erro ao salvar mÃ¡quina");
+      setError(error.response?.data?.error || "Erro ao salvar máquina");
     } finally {
       setLoading(false);
     }
@@ -173,13 +173,13 @@ export function MaquinaForm() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <PageHeader
-          title={isEdit ? "Editar MÃ¡quina" : "Nova MÃ¡quina"}
+          title={isEdit ? "Editar Máquina" : "Nova Máquina"}
           subtitle={
             isEdit
-              ? "Atualize as informaÃ§Ãµes da mÃ¡quina"
-              : "Cadastre uma nova mÃ¡quina no sistema"
+              ? "Atualize as informações da máquina"
+              : "Cadastre uma nova máquina no sistema"
           }
-          icon="ðŸŽ°"
+          icon="🎰"
         />
 
         {error && (
@@ -189,7 +189,7 @@ export function MaquinaForm() {
 
         <div className="card-gradient">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* InformaÃ§Ãµes BÃ¡sicas */}
+            {/* Informações Básicas */}
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <svg
@@ -203,13 +203,13 @@ export function MaquinaForm() {
                     clipRule="evenodd"
                   />
                 </svg>
-                InformaÃ§Ãµes BÃ¡sicas
+                Informações Básicas
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    CÃ³digo da MÃ¡quina *
+                    Código da Máquina *
                   </label>
                   <input
                     type="text"
@@ -235,7 +235,7 @@ export function MaquinaForm() {
                     value={formData.nome}
                     onChange={handleChange}
                     className="input-field"
-                    placeholder="Ex: MÃ¡quina Principal"
+                    placeholder="Ex: Máquina Principal"
                     required
                   />
                 </div>
@@ -270,14 +270,14 @@ export function MaquinaForm() {
                       className="w-5 h-5 text-primary rounded focus:ring-2 focus:ring-primary"
                     />
                     <span className="text-sm font-semibold text-gray-700">
-                      MÃ¡quina Ativa
+                      Máquina Ativa
                     </span>
                   </label>
                 </div>
               </div>
             </div>
 
-            {/* ConfiguraÃ§Ãµes */}
+            {/* Configurações */}
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <svg
@@ -287,13 +287,13 @@ export function MaquinaForm() {
                 >
                   <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
                 </svg>
-                ConfiguraÃ§Ãµes
+                Configurações
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Tipo de MÃ¡quina
+                    Tipo de Máquina
                   </label>
                   <input
                     type="text"
@@ -304,13 +304,13 @@ export function MaquinaForm() {
                     placeholder="Ex: Garra, Empurrador, etc."
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Tipo ou modelo da mÃ¡quina
+                    Tipo ou modelo da máquina
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Capacidade PadrÃ£o *
+                    Capacidade Padrão *
                   </label>
                   <input
                     type="number"
@@ -323,7 +323,7 @@ export function MaquinaForm() {
                     required
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Capacidade mÃ¡xima de produtos
+                    Capacidade máxima de produtos
                   </p>
                 </div>
 
@@ -348,7 +348,7 @@ export function MaquinaForm() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸŽ« Fichas para Jogar
+                    🎫 Fichas para Jogar
                   </label>
                   <input
                     type="number"
@@ -360,13 +360,13 @@ export function MaquinaForm() {
                     min="1"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Quantas fichas sÃ£o necessÃ¡rias para liberar uma jogada
+                    Quantas fichas são necessárias para liberar uma jogada
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸ’ª ForÃ§a Forte (%)
+                    💪 Força Forte (%)
                   </label>
                   <input
                     type="number"
@@ -398,13 +398,13 @@ export function MaquinaForm() {
                     max="100"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    ParÃ¢metro de forÃ§a forte da garra (0-100%)
+                    Parâmetro de força forte da garra (0-100%)
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸ¤ ForÃ§a Fraca (%)
+                    🤏 Força Fraca (%)
                   </label>
                   <input
                     type="number"
@@ -417,13 +417,13 @@ export function MaquinaForm() {
                     max="100"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    ParÃ¢metro de forÃ§a fraca da garra (0-100%)
+                    Parâmetro de força fraca da garra (0-100%)
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    â­ ForÃ§a Premium (%)
+                    ⭐ Força Premium (%)
                   </label>
                   <input
                     type="number"
@@ -436,13 +436,13 @@ export function MaquinaForm() {
                     max="100"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    ParÃ¢metro de forÃ§a premium da garra (0-100%)
+                    Parâmetro de força premium da garra (0-100%)
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸŽ® Jogadas para ForÃ§a Premium
+                    🎮 Jogadas para Força Premium
                   </label>
                   <input
                     type="number"
@@ -454,7 +454,7 @@ export function MaquinaForm() {
                     min="1"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Quantidade de jogadas com forÃ§a premium
+                    Quantidade de jogadas com força premium
                   </p>
                 </div>
 
@@ -473,13 +473,13 @@ export function MaquinaForm() {
                     max="100"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Percentual mÃ­nimo para alerta (padrÃ£o: 20%)
+                    Percentual mínimo para alerta (padrão: 20%)
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* InformaÃ§Ãµes Adicionais */}
+            {/* Informações Adicionais */}
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <svg
@@ -493,13 +493,13 @@ export function MaquinaForm() {
                     clipRule="evenodd"
                   />
                 </svg>
-                LocalizaÃ§Ã£o
+                Localização
               </h3>
 
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    LocalizaÃ§Ã£o na Loja
+                    Localização na Loja
                   </label>
                   <textarea
                     name="localizacao"
@@ -507,16 +507,16 @@ export function MaquinaForm() {
                     onChange={handleChange}
                     className="input-field"
                     rows="3"
-                    placeholder="Ex: Entrada principal, lado direito prÃ³ximo ao balcÃ£o..."
+                    placeholder="Ex: Entrada principal, lado direito próximo ao balcão..."
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    DescriÃ§Ã£o da localizaÃ§Ã£o da mÃ¡quina na loja
+                    Descrição da localização da máquina na loja
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* BotÃµes */}
+            {/* Botões */}
             <div className="flex gap-4 justify-end pt-6 border-t border-gray-200">
               <button
                 type="button"
@@ -565,7 +565,7 @@ export function MaquinaForm() {
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
-                    {isEdit ? "Atualizar MÃ¡quina" : "Criar MÃ¡quina"}
+                    {isEdit ? "Atualizar Máquina" : "Criar Máquina"}
                   </span>
                 )}
               </button>

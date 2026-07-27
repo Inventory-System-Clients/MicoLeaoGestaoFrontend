@@ -41,7 +41,7 @@ export function Movimentacoes() {
   const [filtroDataFimEstoque, setFiltroDataFimEstoque] = useState("");
   const [filtroResponsavelEstoque, setFiltroResponsavelEstoque] = useState("");
 
-  // AÃ§Ãµes Estoque Loja
+  // Ações Estoque Loja
   const [editandoEstoqueLoja, setEditandoEstoqueLoja] = useState(null);
   const [excluindoEstoqueLoja, setExcluindoEstoqueLoja] = useState(null);
 
@@ -72,11 +72,11 @@ export function Movimentacoes() {
     () => !!localStorage.getItem(CHAVE_ULTIMA_MENSAGEM_WHATSAPP),
   );
 
-  // Filtros MovimentaÃ§Ãµes
+  // Filtros Movimentações
   const [filtroLojaForm, setFiltroLojaForm] = useState("");
   const [filtroLojaListagem, setFiltroLojaListagem] = useState("");
 
-  // EdiÃ§Ã£o
+  // Edição
   const [editandoMovimentacao, setEditandoMovimentacao] = useState(null);
   const [formEdicao, setFormEdicao] = useState({
     fichas: "",
@@ -85,7 +85,7 @@ export function Movimentacoes() {
     valor_entrada_maquininha_pix: "",
   });
 
-  // FormulÃ¡rio Nova MovimentaÃ§Ã£o
+  // Formulário Nova Movimentação
   const [formData, setFormData] = useState({
     maquina_id: "",
     produto_id: "",
@@ -188,7 +188,7 @@ export function Movimentacoes() {
     });
   }, [movimentacaoAssistentePendente, loading]);
 
-  // Atualizar estoque anterior quando seleciona mÃ¡quina
+  // Atualizar estoque anterior quando seleciona máquina
   useEffect(() => {
     if (formData.maquina_id) {
       const maquina = maquinas.find(
@@ -200,10 +200,10 @@ export function Movimentacoes() {
     }
   }, [formData.maquina_id, maquinas]);
 
-  // Verificar divergÃªncia entre contador OUT e total pre informado
+  // Verificar divergência entre contador OUT e total pre informado
   useEffect(() => {
     const verificarDivergencia = async () => {
-      // SÃ³ verificar se temos mÃ¡quina selecionada, contador OUT e total pre preenchidos
+      // Só verificar se temos máquina selecionada, contador OUT e total pre preenchidos
       if (
         !formData.maquina_id ||
         !formData.contadorOut ||
@@ -216,7 +216,7 @@ export function Movimentacoes() {
       const contadorOutAtual = parseInt(formData.contadorOut);
       const totalPreInformado = parseInt(formData.quantidadeAtualMaquina);
 
-      // Validar se sÃ£o nÃºmeros vÃ¡lidos
+      // Validar se são números válidos
       if (isNaN(contadorOutAtual) || isNaN(totalPreInformado)) {
         setAlertaDivergencia(null);
         return;
@@ -231,13 +231,13 @@ export function Movimentacoes() {
           const contadorOutAnterior = ultimaMov.contadorOut || 0;
           const totalPosAnterior = ultimaMov.totalPos || 0;
 
-          // Calcular quantos produtos saÃ­ram baseado no contador OUT
+          // Calcular quantos produtos saíram baseado no contador OUT
           const saidaCalculada = contadorOutAtual - contadorOutAnterior;
 
           // Calcular qual deveria ser o total pre esperado
           const totalPreEsperado = totalPosAnterior - saidaCalculada;
 
-          // Se houver divergÃªncia, mostrar alerta
+          // Se houver divergência, mostrar alerta
           const diferenca = Math.abs(totalPreInformado - totalPreEsperado);
           if (diferenca > 0) {
             setAlertaDivergencia({
@@ -253,11 +253,11 @@ export function Movimentacoes() {
             setAlertaDivergencia(null);
           }
         } else {
-          // NÃ£o hÃ¡ movimentaÃ§Ã£o anterior, nÃ£o hÃ¡ como comparar
+          // Não há movimentação anterior, não há como comparar
           setAlertaDivergencia(null);
         }
       } catch (error) {
-        console.error("Erro ao verificar divergÃªncia:", error);
+        console.error("Erro ao verificar divergência:", error);
         setAlertaDivergencia(null);
       }
     };
@@ -269,8 +269,8 @@ export function Movimentacoes() {
     formData.quantidadeAtualMaquina,
   ]);
 
-  // Sugere produto automaticamente ao escolher mÃ¡quina, mas permite troca manual
-  // Sugere produto via backend ao escolher mÃ¡quina
+  // Sugere produto automaticamente ao escolher máquina, mas permite troca manual
+  // Sugere produto via backend ao escolher máquina
   useEffect(() => {
     if (!formData.maquina_id) return;
     if (formData.produto_id) return;
@@ -291,13 +291,13 @@ export function Movimentacoes() {
           }));
         }
       } catch {
-        // Silencia erro, nÃ£o sugere nada
+        // Silencia erro, não sugere nada
       }
     };
     fetchProdutoSugerido();
   }, [formData.maquina_id, formData.produto_id]);
 
-  // --- FUNÃ‡Ã•ES DE CARREGAMENTO ---
+  // --- FUNÇÕES DE CARREGAMENTO ---
   const carregarDados = async () => {
     try {
       setLoading(true);
@@ -329,7 +329,7 @@ export function Movimentacoes() {
       setMovimentacoesEstoqueLoja(res.data || []);
     } catch (error) {
       console.error(
-        "Erro ao carregar movimentaÃ§Ãµes de estoque de loja:",
+        "Erro ao carregar movimentações de estoque de loja:",
         error,
       );
       setMovimentacoesEstoqueLoja([]);
@@ -470,11 +470,11 @@ export function Movimentacoes() {
       return Number(estoqueProduto?.quantidade || 0);
     } catch (err) {
       console.error("Erro ao consultar estoque da loja:", err);
-      throw new Error("NÃ£o foi possÃ­vel validar o estoque da loja.");
+      throw new Error("Não foi possível validar o estoque da loja.");
     }
   };
 
-  // --- CORREÃ‡ÃƒO AQUI: FunÃ§Ã£o handleSubmit recriada com o TRY ---
+  // --- CORREÇÃO AQUI: Função handleSubmit recriada com o TRY ---
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -501,7 +501,7 @@ export function Movimentacoes() {
             (p) => p.id === formData.produto_id,
           );
           setError(
-            `NÃ£o hÃ¡ estoque suficiente na loja para abastecer ${produtoSelecionado?.nome || "este produto"}. DisponÃ­vel: ${estoqueDisponivel}, solicitado: ${quantidadeAdicionada}.`,
+            `Não há estoque suficiente na loja para abastecer ${produtoSelecionado?.nome || "este produto"}. Disponível: ${estoqueDisponivel}, solicitado: ${quantidadeAdicionada}.`,
           );
           return;
         }
@@ -509,8 +509,8 @@ export function Movimentacoes() {
 
       setSalvandoMovimentacao(true);
 
-      // Converter valores do formulÃ¡rio
-      const totalPre = parseInt(formData.quantidadeAtualMaquina) || 0; // valor digitado pelo usuÃ¡rio
+      // Converter valores do formulário
+      const totalPre = parseInt(formData.quantidadeAtualMaquina) || 0; // valor digitado pelo usuário
       const fichas = parseInt(formData.fichas) || 0;
 
       // totalPos = totalPre + abastecidas - retiradaProduto
@@ -522,24 +522,24 @@ export function Movimentacoes() {
       );
       const ultimoTotalPos = ultimaMovimentacaoMaquina?.totalPos || 0;
 
-      // sairam = totalPos da movimentaÃ§Ã£o anterior - totalPre da atual
-      // retiradaProduto NÃƒO conta em quantidadeSaiu nem no financeiro
+      // sairam = totalPos da movimentação anterior - totalPre da atual
+      // retiradaProduto NÃO conta em quantidadeSaiu nem no financeiro
       const quantidadeSaiu = Math.max(0, ultimoTotalPos - totalPre);
 
-      console.log("ðŸ“Š [handleSubmit] CÃ¡lculos da movimentaÃ§Ã£o:");
-      console.log("   ðŸ“Œ totalPos anterior:", ultimoTotalPos);
-      console.log("   ðŸ“Œ Quantidade atual informada (totalPre):", totalPre);
+      console.log("📊 [handleSubmit] Cálculos da movimentação:");
+      console.log("   📌 totalPos anterior:", ultimoTotalPos);
+      console.log("   📌 Quantidade atual informada (totalPre):", totalPre);
       console.log(
-        "   ðŸ“Œ Quantidade adicionada (abastecidas):",
+        "   📌 Quantidade adicionada (abastecidas):",
         quantidadeAdicionada,
       );
-      console.log("   ðŸ“Œ Calculado que saiu (sairam):", quantidadeSaiu);
-      console.log("   ðŸ“Œ Novo total (totalPos):", totalPos);
+      console.log("   📌 Calculado que saiu (sairam):", quantidadeSaiu);
+      console.log("   📌 Novo total (totalPos):", totalPos);
 
-      // Preparar observaÃ§Ã£o
+      // Preparar observação
       let observacaoFinal = formData.observacao?.trim() || "";
       if (formData.retiradaEstoque) {
-        const notaRetirada = "âš ï¸ RETIRADA DE ESTOQUE - NÃƒO Ã‰ VENDA";
+        const notaRetirada = "⚠️ RETIRADA DE ESTOQUE - NÃO É VENDA";
         observacaoFinal = observacaoFinal
           ? `${notaRetirada}. ${observacaoFinal}`
           : notaRetirada;
@@ -577,7 +577,7 @@ export function Movimentacoes() {
 
       await api.post("/movimentacoes", data);
 
-      // MovimentaÃ§Ã£o registrada com sucesso: envia automaticamente para o WhatsApp
+      // Movimentação registrada com sucesso: envia automaticamente para o WhatsApp
       await enviarParaWhatsapp();
       resetFluxoWhatsappBypass();
 
@@ -588,7 +588,7 @@ export function Movimentacoes() {
         formData.produto_id &&
         formData.maquina_id
       ) {
-        // Encontrar a loja da mÃ¡quina selecionada
+        // Encontrar a loja da máquina selecionada
         const maquinaSelecionada = maquinas.find(
           (m) => m.id === formData.maquina_id,
         );
@@ -605,7 +605,7 @@ export function Movimentacoes() {
             ],
             usuarioId: usuario.id,
             observacao:
-              "DevoluÃ§Ã£o automÃ¡tica de retirada de produto da mÃ¡quina",
+              "Devolução automática de retirada de produto da máquina",
           });
         }
       }
@@ -633,11 +633,11 @@ export function Movimentacoes() {
       // Recarregar dados
       carregarDados();
     } catch (error) {
-      console.error("âŒ [handleSubmit] Erro:", error);
+      console.error("❌ [handleSubmit] Erro:", error);
       setError(
         error.response?.data?.error ||
           error.response?.data?.message ||
-          "Erro ao registrar movimentaÃ§Ã£o",
+          "Erro ao registrar movimentação",
       );
     } finally {
       movimentacaoEmEnvioRef.current = false;
@@ -680,12 +680,12 @@ export function Movimentacoes() {
             ? parseFloat(formEdicao.valor_entrada_maquininha_pix)
             : null,
       });
-      setSuccess("MovimentaÃ§Ã£o atualizada com sucesso!");
+      setSuccess("Movimentação atualizada com sucesso!");
       cancelarEdicao();
       carregarDados();
     } catch (error) {
       console.error("Erro ao atualizar:", error);
-      setError("Erro ao atualizar movimentaÃ§Ã£o");
+      setError("Erro ao atualizar movimentação");
     }
   };
   const confirmarExclusaoLoja = async () => {
@@ -693,17 +693,17 @@ export function Movimentacoes() {
 
     try {
       await api.delete(`/movimentacao-estoque-loja/${excluindoEstoqueLoja.id}`);
-      setSuccess("MovimentaÃ§Ã£o de estoque de loja excluÃ­da com sucesso!");
+      setSuccess("Movimentação de estoque de loja excluída com sucesso!");
       carregarMovimentacoesEstoqueLoja(); // Recarrega a lista
     } catch (err) {
       console.error("Erro ao excluir:", err);
-      setError("Erro ao excluir movimentaÃ§Ã£o de loja.");
+      setError("Erro ao excluir movimentação de loja.");
     } finally {
       setExcluindoEstoqueLoja(null); // Fecha o modal
     }
   };
 
-  // FunÃ§Ã£o para salvar ediÃ§Ã£o de loja (Exemplo editando o ResponsÃ¡vel)
+  // Função para salvar edição de loja (Exemplo editando o Responsável)
   const salvarEdicaoLoja = async (e) => {
     e.preventDefault();
     if (!editandoEstoqueLoja) return;
@@ -719,13 +719,13 @@ export function Movimentacoes() {
         })),
       });
 
-      setSuccess("MovimentaÃ§Ã£o de loja atualizada!");
+      setSuccess("Movimentação de loja atualizada!");
       carregarMovimentacoesEstoqueLoja();
       if (typeof carregarDados === "function") carregarDados();
       setEditandoEstoqueLoja(null);
     } catch (err) {
       console.error("Erro ao editar:", err);
-      setError("Erro ao atualizar movimentaÃ§Ã£o de loja.");
+      setError("Erro ao atualizar movimentação de loja.");
     }
   };
 
@@ -742,12 +742,12 @@ export function Movimentacoes() {
     const retiradaProduto = parseInt(formData.retiradaProduto) || 0;
     const totalPos = totalPre + quantidadeAdicionada - retiradaProduto;
 
-    let mensagem = ` *MovimentaÃ§Ã£o de MÃ¡quina*\n`;
+    let mensagem = ` *Movimentação de Máquina*\n`;
     mensagem += `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n`;
-    mensagem += `->  *Loja:* ${loja?.nome || "NÃ£o informada"}\n`;
-    mensagem += `->  *MÃ¡quina:* ${maquina ? `${maquina.nome} - ${maquina.codigo}` : "NÃ£o informada"}\n`;
-    mensagem += `->  *Produto:* ${produto ? `${produto.emoji || ""} ${produto.nome}` : "NÃ£o informado"}\n`;
-    mensagem += `->  *Capacidade da mÃ¡quina:* ${capacidadeMaquina ?? "NÃ£o informada"}\n`;
+    mensagem += `->  *Loja:* ${loja?.nome || "Não informada"}\n`;
+    mensagem += `->  *Máquina:* ${maquina ? `${maquina.nome} - ${maquina.codigo}` : "Não informada"}\n`;
+    mensagem += `->  *Produto:* ${produto ? `${produto.emoji || ""} ${produto.nome}` : "Não informado"}\n`;
+    mensagem += `->  *Capacidade da máquina:* ${capacidadeMaquina ?? "Não informada"}\n`;
 
     if (!formData.ignoreInOut) {
       mensagem += `\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n`;
@@ -756,25 +756,25 @@ export function Movimentacoes() {
     }
 
     mensagem += `\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n`;
-    mensagem += `->  *Quantidade atual na mÃ¡quina:* ${totalPre}\n`;
+    mensagem += `->  *Quantidade atual na máquina:* ${totalPre}\n`;
     mensagem += `->  *Quantidade adicionada:* ${quantidadeAdicionada}\n`;
-    mensagem += `->  *Total apÃ³s abastecimento:* ${totalPos}\n`;
+    mensagem += `->  *Total após abastecimento:* ${totalPos}\n`;
     mensagem += `->  *Fichas:* ${formData.fichas || "0"}\n`;
 
     if (retiradaProduto > 0) {
       mensagem += `\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n`;
       mensagem += `->  *Retirada de produto:* ${retiradaProduto}\n`;
-      mensagem += `->  *Devolvido ao estoque:* ${formData.retiradaProdutoDevolverEstoque ? "Sim âœ…" : "NÃ£o âŒ"}\n`;
+      mensagem += `->  *Devolvido ao estoque:* ${formData.retiradaProdutoDevolverEstoque ? "Sim ✅" : "Não ❌"}\n`;
     }
 
     if (formData.retiradaEstoque) {
       mensagem += `\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n`;
-      mensagem += `-> *Retirada de estoque (nÃ£o Ã© venda)*\n`;
+      mensagem += `-> *Retirada de estoque (não é venda)*\n`;
     }
 
     if (formData.observacao?.trim()) {
       mensagem += `\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n`;
-      mensagem += `->  *ObservaÃ§Ã£o:* ${formData.observacao.trim()}\n`;
+      mensagem += `->  *Observação:* ${formData.observacao.trim()}\n`;
     }
 
     if (fotoContadores) {
@@ -790,7 +790,7 @@ export function Movimentacoes() {
         await limparFotoUltimaMovimentacao();
       }
     } catch (err) {
-      console.error("Erro ao salvar foto da Ãºltima movimentaÃ§Ã£o:", err);
+      console.error("Erro ao salvar foto da última movimentação:", err);
     }
 
     if (
@@ -827,12 +827,12 @@ export function Movimentacoes() {
   const enviarUltimaMensagemSalva = async () => {
     const mensagem = localStorage.getItem(CHAVE_ULTIMA_MENSAGEM_WHATSAPP);
     if (!mensagem) {
-      setError("Nenhuma mensagem de movimentaÃ§Ã£o salva para reenviar.");
+      setError("Nenhuma mensagem de movimentação salva para reenviar.");
       return;
     }
 
     const foto = await obterFotoUltimaMovimentacao().catch((err) => {
-      console.error("Erro ao ler foto salva da Ãºltima movimentaÃ§Ã£o:", err);
+      console.error("Erro ao ler foto salva da última movimentação:", err);
       return null;
     });
 
@@ -859,7 +859,7 @@ export function Movimentacoes() {
 
     if (foto) {
       setError(
-        "Este navegador nÃ£o permite anexar a foto automaticamente pelo WhatsApp. O texto foi aberto; anexe a foto manualmente na conversa.",
+        "Este navegador não permite anexar a foto automaticamente pelo WhatsApp. O texto foi aberto; anexe a foto manualmente na conversa.",
       );
     }
 
@@ -876,7 +876,7 @@ export function Movimentacoes() {
   const handleClickEnviarWhatsapp = () => {
     if (!naoVaiRegistrar) return;
     if (!formData.maquina_id) {
-      setError("Selecione a mÃ¡quina antes de enviar para o WhatsApp.");
+      setError("Selecione a máquina antes de enviar para o WhatsApp.");
       return;
     }
     setMostrarObsAlerta(true);
@@ -895,17 +895,17 @@ export function Movimentacoes() {
       await enviarParaWhatsapp();
       resetFluxoWhatsappBypass();
     } catch (err) {
-      console.error("Erro ao registrar alerta de movimentaÃ§Ã£o:", err);
+      console.error("Erro ao registrar alerta de movimentação:", err);
       setError(
         err?.response?.data?.error ||
-          "NÃ£o foi possÃ­vel registrar o alerta. O WhatsApp nÃ£o foi aberto.",
+          "Não foi possível registrar o alerta. O WhatsApp não foi aberto.",
       );
     } finally {
       setEnviandoAlerta(false);
     }
   };
 
-  // --- CÃLCULOS DE ESTATÃSTICAS ---
+  // --- CÁLCULOS DE ESTATÍSTICAS ---
   const entradas = movimentacoes.filter((m) => m.abastecidas > 0);
   const saidas = movimentacoes.filter((m) => m.sairam > 0);
   const totalEntradas = entradas.reduce(
@@ -925,28 +925,28 @@ export function Movimentacoes() {
     {
       label: "Total de Entradas",
       value: totalEntradas,
-      icon: "ðŸ“¥",
+      icon: "📥",
       gradient: "bg-gradient-to-br from-green-500 to-green-600",
       subtitle: "Produtos abastecidos",
     },
     {
-      label: "Total de SaÃ­das",
+      label: "Total de Saídas",
       value: totalSaidas,
-      icon: "ðŸ“¤",
+      icon: "📤",
       gradient: "bg-gradient-to-br from-red-500 to-red-600",
       subtitle: "Produtos vendidos",
     },
     {
       label: "Saldo",
       value: totalEntradas - totalSaidas,
-      icon: "ðŸ“Š",
+      icon: "📊",
       gradient: "bg-gradient-to-br from-blue-500 to-blue-600",
-      subtitle: "DiferenÃ§a entrada/saÃ­da",
+      subtitle: "Diferença entrada/saída",
     },
     {
-      label: "MovimentaÃ§Ãµes",
+      label: "Movimentações",
       value: movimentacoes.length,
-      icon: "ðŸ”„",
+      icon: "🔄",
       gradient: "bg-gradient-to-br from-purple-500 to-purple-600",
       subtitle: "Total de registros",
     },
@@ -972,12 +972,12 @@ export function Movimentacoes() {
     },
     {
       key: "usuario",
-      label: "UsuÃ¡rio",
+      label: "Usuário",
       render: (mov) => (
         <div className="flex items-center gap-1">
-          <span className="text-lg">ðŸ‘¤</span>
+          <span className="text-lg">👤</span>
           <span className="text-sm font-medium text-gray-700">
-            {mov.usuario?.nome || "NÃ£o informado"}
+            {mov.usuario?.nome || "Não informado"}
           </span>
         </div>
       ),
@@ -989,7 +989,7 @@ export function Movimentacoes() {
         const isEntrada = mov.abastecidas > 0;
         return (
           <Badge variant={isEntrada ? "success" : "danger"}>
-            {isEntrada ? "ðŸ“¥ Entrada" : "ðŸ“¤ SaÃ­da"}
+            {isEntrada ? "📥 Entrada" : "📤 Saída"}
           </Badge>
         );
       },
@@ -1002,7 +1002,7 @@ export function Movimentacoes() {
         const produto = produtos.find((p) => p.id === produtoId);
         return produto ? (
           <div className="flex items-center gap-2">
-            <span className="text-xl">{produto.emoji || "ðŸ§¸"}</span>
+            <span className="text-xl">{produto.emoji || "🧸"}</span>
             <span>{produto.nome}</span>
           </div>
         ) : (
@@ -1012,7 +1012,7 @@ export function Movimentacoes() {
     },
     {
       key: "maquina",
-      label: "MÃ¡quina",
+      label: "Máquina",
       render: (mov) => {
         const maquina =
           mov.maquina || maquinas.find((m) => m.id === mov.maquinaId);
@@ -1033,10 +1033,10 @@ export function Movimentacoes() {
     },
     {
       key: "saida",
-      label: "SaÃ­da",
+      label: "Saída",
       render: (mov) => (
         <div className="flex items-center gap-1">
-          <span className="text-lg">ðŸ“¤</span>
+          <span className="text-lg">📤</span>
           <span className="font-bold text-red-600">
             {mov.sairam > 0 ? `-${mov.sairam}` : "-"}
           </span>
@@ -1048,7 +1048,7 @@ export function Movimentacoes() {
       label: "Entrada",
       render: (mov) => (
         <div className="flex items-center gap-1">
-          <span className="text-lg">ðŸ“¥</span>
+          <span className="text-lg">📥</span>
           <span className="font-bold text-green-600">
             {mov.abastecidas > 0 ? `+${mov.abastecidas}` : "-"}
           </span>
@@ -1060,14 +1060,14 @@ export function Movimentacoes() {
       label: "Fichas",
       render: (mov) => (
         <div className="flex items-center gap-1">
-          <span className="text-lg">ðŸŽ«</span>
+          <span className="text-lg">🎫</span>
           <span className="font-semibold text-blue-600">{mov.fichas || 0}</span>
         </div>
       ),
     },
     {
       key: "observacao",
-      label: "ObservaÃ§Ã£o",
+      label: "Observação",
       render: (mov) => (
         <span className="text-sm text-gray-600">{mov.observacoes || "-"}</span>
       ),
@@ -1077,7 +1077,7 @@ export function Movimentacoes() {
   if (usuario?.role === "ADMIN") {
     columns.push({
       key: "acoes",
-      label: "AÃ§Ãµes",
+      label: "Ações",
       render: (mov) => (
         <button
           onClick={() => iniciarEdicao(mov)}
@@ -1109,12 +1109,12 @@ export function Movimentacoes() {
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header com dois botÃµes lado a lado */}
+        {/* Header com dois botões lado a lado */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <PageHeader
-            title="MovimentaÃ§Ãµes"
-            subtitle="Registre entradas e saÃ­das de produtos nas mÃ¡quinas"
-            icon="ðŸ”„"
+            title="Movimentações"
+            subtitle="Registre entradas e saídas de produtos nas máquinas"
+            icon="🔄"
             action={null}
           />
           <div className="flex flex-wrap gap-3">
@@ -1122,7 +1122,7 @@ export function Movimentacoes() {
               className="px-6 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 font-bold shadow text-base"
               onClick={() => setShowForm((v) => !v)}
             >
-              {showForm ? "Cancelar" : "Nova MovimentaÃ§Ã£o"}
+              {showForm ? "Cancelar" : "Nova Movimentação"}
             </button>
             <button
               className="px-6 py-2 bg-rose-600 text-white rounded hover:bg-rose-700 font-bold shadow text-base"
@@ -1142,7 +1142,7 @@ export function Movimentacoes() {
               className="px-6 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 font-bold shadow text-base"
               onClick={() => setModalGastoVariavel(true)}
             >
-              LanÃ§ar Gasto VariÃ¡vel
+              Lançar Gasto Variável
             </button>
             <button
               className="px-6 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 font-bold shadow text-base disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-700"
@@ -1150,16 +1150,16 @@ export function Movimentacoes() {
               disabled={!temMensagemSalva}
               title={
                 temMensagemSalva
-                  ? "Reenviar a mensagem da Ãºltima movimentaÃ§Ã£o lanÃ§ada"
+                  ? "Reenviar a mensagem da última movimentação lançada"
                   : "Nenhuma mensagem salva ainda"
               }
             >
-              Enviar Ãšltima Mensagem
+              Enviar Última Mensagem
             </button>
           </div>
         </div>
 
-        {/* Modal LanÃ§ar Gasto VariÃ¡vel */}
+        {/* Modal Lançar Gasto Variável */}
         {modalGastoVariavel && (
           <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 shadow-lg relative">
@@ -1177,14 +1177,14 @@ export function Movimentacoes() {
                 }}
                 aria-label="Fechar"
               >
-                Ã—
+                ×
               </button>
               <LancarGastoVariavel
                 lojas={lojas}
                 veiculos={veiculos}
                 onClose={() => setModalGastoVariavel(false)}
                 onSuccess={() => {
-                  setSuccess("Gasto variÃ¡vel lanÃ§ado com sucesso!");
+                  setSuccess("Gasto variável lançado com sucesso!");
                   carregarDados();
                 }}
               />
@@ -1212,7 +1212,7 @@ export function Movimentacoes() {
                 }}
                 aria-label="Fechar"
               >
-                Ã—
+                ×
               </button>
               <RegistrarDinheiro
                 lojas={lojas}
@@ -1255,13 +1255,13 @@ export function Movimentacoes() {
         {usuario?.role === "ADMIN" && (
           <div className="card-gradient mb-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span className="text-2xl">ðŸ”</span>
-              Filtrar MovimentaÃ§Ãµes
+              <span className="text-2xl">🔍</span>
+              Filtrar Movimentações
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  ðŸª Filtrar por Loja
+                  🏪 Filtrar por Loja
                 </label>
                 <select
                   value={filtroLojaListagem}
@@ -1283,8 +1283,8 @@ export function Movimentacoes() {
         {showForm && (
           <div id="form-nova-movimentacao" className="card-gradient mb-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span className="text-2xl">ðŸ“</span>
-              Registrar MovimentaÃ§Ã£o
+              <span className="text-2xl">📝</span>
+              Registrar Movimentação
             </h3>
 
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1301,7 +1301,7 @@ export function Movimentacoes() {
                   />
                 </svg>
                 <strong>Como funciona:</strong> Informe quantos produtos tem
-                AGORA na mÃ¡quina (o sistema calcula o que saiu). Se abastecer,
+                AGORA na máquina (o sistema calcula o que saiu). Se abastecer,
                 informe quantos foram adicionados.
               </p>
             </div>
@@ -1328,7 +1328,7 @@ export function Movimentacoes() {
                       : "cursor-pointer bg-blue-600 hover:bg-blue-700"
                   }`}
                 >
-                  <span aria-hidden="true">ðŸ“·</span>
+                  <span aria-hidden="true">📷</span>
                   {lendoFotoContadores ? "Lendo foto..." : "Tirar foto dos contadores"}
                 </label>
                 <p className="text-xs text-gray-500 mt-2">
@@ -1371,11 +1371,11 @@ export function Movimentacoes() {
                   </div>
                 )}
               </div>
-              {/* Contadores da MÃ¡quina */}
+              {/* Contadores da Máquina */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸ“¥ Contador IN (Entrada)
+                    📥 Contador IN (Entrada)
                   </label>
                   <input
                     type="number"
@@ -1389,13 +1389,13 @@ export function Movimentacoes() {
                     disabled={formData.ignoreInOut}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    NÃºmero do contador IN da mÃ¡quina
+                    Número do contador IN da máquina
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸ“¤ Contador OUT (SaÃ­da)
+                    📤 Contador OUT (Saída)
                   </label>
                   <input
                     type="number"
@@ -1409,7 +1409,7 @@ export function Movimentacoes() {
                     disabled={formData.ignoreInOut}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    NÃºmero do contador OUT da mÃ¡quina
+                    Número do contador OUT da máquina
                   </p>
                 </div>
               </div>
@@ -1424,13 +1424,13 @@ export function Movimentacoes() {
                   className="mr-2"
                 />
                 <label htmlFor="ignoreInOut" className="text-sm text-gray-700">
-                  NÃ£o preciso informar IN/OUT nesta movimentaÃ§Ã£o
+                  Não preciso informar IN/OUT nesta movimentação
                 </label>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸ“¦ Quantidade Atual na MÃ¡quina *
+                    📦 Quantidade Atual na Máquina *
                   </label>
                   <input
                     type="number"
@@ -1446,7 +1446,7 @@ export function Movimentacoes() {
                   </p>
                   {formData.quantidadeAtualMaquina && estoqueAnterior > 0 && (
                     <p className="text-xs font-semibold text-red-600 mt-1">
-                      ðŸ”» SaÃ­ram:{" "}
+                      🔻 Saíram:{" "}
                       {Math.max(
                         0,
                         estoqueAnterior -
@@ -1458,10 +1458,10 @@ export function Movimentacoes() {
                   {alertaDivergencia && (
                     <div className="mt-2 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
                       <div className="flex items-start">
-                        <span className="text-yellow-600 text-lg mr-2">âš ï¸</span>
+                        <span className="text-yellow-600 text-lg mr-2">⚠️</span>
                         <div className="flex-1">
                           <p className="text-xs font-bold text-yellow-800 mb-1">
-                            AtenÃ§Ã£o: PossÃ­vel erro de contagem!
+                            Atenção: Possível erro de contagem!
                           </p>
                           <p className="text-xs text-yellow-700">
                             Reconte por favor
@@ -1474,7 +1474,7 @@ export function Movimentacoes() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸ“¥ Quantidade Adicionada
+                    📥 Quantidade Adicionada
                   </label>
                   <input
                     type="number"
@@ -1491,7 +1491,7 @@ export function Movimentacoes() {
                   {formData.quantidadeAdicionada &&
                     formData.quantidadeAtualMaquina && (
                       <p className="text-xs font-semibold text-green-600 mt-1">
-                        âœ… Novo total:{" "}
+                        ✅ Novo total:{" "}
                         {parseInt(formData.quantidadeAtualMaquina || 0) +
                           parseInt(formData.quantidadeAdicionada || 0)}{" "}
                         unidades
@@ -1501,7 +1501,7 @@ export function Movimentacoes() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸŽ« Quantidade de Fichas
+                    🎫 Quantidade de Fichas
                   </label>
                   <input
                     type="number"
@@ -1514,12 +1514,12 @@ export function Movimentacoes() {
                     disabled={formData.retiradaEstoque}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Fichas coletadas da mÃ¡quina
+                    Fichas coletadas da máquina
                   </p>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    âŒ Retirada de Produto
+                    ❌ Retirada de Produto
                   </label>
                   <input
                     type="number"
@@ -1531,7 +1531,7 @@ export function Movimentacoes() {
                     min="0"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Quantidade de produtos retirados (nÃ£o conta como saÃ­da
+                    Quantidade de produtos retirados (não conta como saída
                     financeira)
                   </p>
                   <label className="flex items-center mt-2 gap-2">
@@ -1549,7 +1549,7 @@ export function Movimentacoes() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸ’µ Valor em Notas (R$)
+                    💵 Valor em Notas (R$)
                   </label>
                   <input
                     type="number"
@@ -1562,12 +1562,12 @@ export function Movimentacoes() {
                     step="0.01"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Valor total em dinheiro (notas) inserido na mÃ¡quina
+                    Valor total em dinheiro (notas) inserido na máquina
                   </p>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸ’³ Valor Digital (Pix/Maquininha) (R$)
+                    💳 Valor Digital (Pix/Maquininha) (R$)
                   </label>
                   <input
                     type="number"
@@ -1597,12 +1597,12 @@ export function Movimentacoes() {
                   />
                   <div className="flex-1">
                     <span className="text-sm font-bold text-orange-900">
-                      ðŸ“¦ Retirada de Estoque (nÃ£o conta como dinheiro)
+                      📦 Retirada de Estoque (não conta como dinheiro)
                     </span>
                     <p className="text-xs text-orange-700 mt-1">
-                      Marque esta opÃ§Ã£o quando estiver retirando produtos da
-                      mÃ¡quina sem que seja uma venda (exemplo: produtos
-                      danificados, devoluÃ§Ã£o, transferÃªncia). As fichas serÃ£o
+                      Marque esta opção quando estiver retirando produtos da
+                      máquina sem que seja uma venda (exemplo: produtos
+                      danificados, devolução, transferência). As fichas serão
                       automaticamente zeradas.
                     </p>
                   </div>
@@ -1640,7 +1640,7 @@ export function Movimentacoes() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    MÃ¡quina *
+                    Máquina *
                   </label>
                   <select
                     name="maquina_id"
@@ -1652,7 +1652,7 @@ export function Movimentacoes() {
                   >
                     <option value="">
                       {filtroLojaForm
-                        ? "Selecione uma mÃ¡quina..."
+                        ? "Selecione uma máquina..."
                         : "Primeiro selecione uma loja"}
                     </option>
                     {maquinas
@@ -1669,7 +1669,7 @@ export function Movimentacoes() {
                   </select>
                   {filtroLojaForm && (
                     <p className="text-xs text-gray-500 mt-1">
-                      ðŸ’¡ Mostrando apenas mÃ¡quinas da loja selecionada
+                      💡 Mostrando apenas máquinas da loja selecionada
                     </p>
                   )}
                 </div>
@@ -1688,20 +1688,20 @@ export function Movimentacoes() {
                     <option value="">Nenhum produto</option>
                     {produtos.map((produto) => (
                       <option key={produto.id} value={produto.id}>
-                        {produto.emoji || "ðŸ§¸"} {produto.nome}
+                        {produto.emoji || "🧸"} {produto.nome}
                       </option>
                     ))}
                   </select>
                   {formData.maquina_id && formData.produto_id && (
                     <p className="text-[10px] text-blue-600 mt-1 animate-pulse">
-                      âœ¨ Produto sugerido com base na Ãºltima visita
+                      ✨ Produto sugerido com base na última visita
                     </p>
                   )}
                 </div>
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ObservaÃ§Ã£o
+                    Observação
                   </label>
                   <textarea
                     name="observacao"
@@ -1709,7 +1709,7 @@ export function Movimentacoes() {
                     onChange={handleChange}
                     className="input-field"
                     rows="2"
-                    placeholder="InformaÃ§Ãµes adicionais sobre a movimentaÃ§Ã£o..."
+                    placeholder="Informações adicionais sobre a movimentação..."
                   />
                 </div>
               </div>
@@ -1729,7 +1729,7 @@ export function Movimentacoes() {
                   className="mt-1"
                 />
                 <label htmlFor="naoVaiRegistrar" className="text-sm text-amber-900">
-                  NÃ£o vou registrar esta movimentaÃ§Ã£o agora â€” sÃ³ quero avisar
+                  Não vou registrar esta movimentação agora — só quero avisar
                   pelo WhatsApp. (isso gera um alerta pra loja acompanhar)
                 </label>
               </div>
@@ -1737,14 +1737,14 @@ export function Movimentacoes() {
               {mostrarObsAlerta && (
                 <div className="border border-amber-300 bg-amber-50 rounded-lg p-4 space-y-2">
                   <label className="block text-sm font-semibold text-amber-900">
-                    Por que vocÃª nÃ£o vai registrar essa movimentaÃ§Ã£o agora?
+                    Por que você não vai registrar essa movimentação agora?
                   </label>
                   <textarea
                     value={obsAlerta}
                     onChange={(e) => setObsAlerta(e.target.value)}
                     className="input-field"
                     rows="2"
-                    placeholder="Explique o motivo (obrigatÃ³rio)"
+                    placeholder="Explique o motivo (obrigatório)"
                   />
                   <div className="flex gap-2 justify-end">
                     <button
@@ -1802,7 +1802,7 @@ export function Movimentacoes() {
                   title={
                     naoVaiRegistrar
                       ? "Enviar aviso pelo WhatsApp sem registrar"
-                      : "Marque a caixa acima para liberar este botÃ£o"
+                      : "Marque a caixa acima para liberar este botão"
                   }
                 >
                   <svg
@@ -1857,7 +1857,7 @@ export function Movimentacoes() {
                           d="M5 13l4 4L19 7"
                         />
                       </svg>
-                      Registrar MovimentaÃ§Ã£o
+                      Registrar Movimentação
                     </span>
                   )}
                 </button>
@@ -1866,12 +1866,12 @@ export function Movimentacoes() {
           </div>
         )}
 
-        {/* HistÃ³rico de MovimentaÃ§Ãµes - Apenas para ADMIN */}
+        {/* Histórico de Movimentações - Apenas para ADMIN */}
         {usuario?.role === "ADMIN" && (
           <div className="card-gradient">
             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <span className="text-2xl">ðŸ“‹</span>
-              HistÃ³rico de MovimentaÃ§Ãµes
+              <span className="text-2xl">📋</span>
+              Histórico de Movimentações
               {filtroLojaListagem && (
                 <span className="text-sm text-gray-600 font-normal">
                   ({movimentacoesFiltradas.length} de {movimentacoes.length}{" "}
@@ -1884,19 +1884,19 @@ export function Movimentacoes() {
               <DataTable headers={columns} data={movimentacoesFiltradas} />
             ) : (
               <EmptyState
-                icon="ðŸ”„"
+                icon="🔄"
                 title={
                   filtroLojaListagem
-                    ? "Nenhuma movimentaÃ§Ã£o encontrada"
-                    : "Nenhuma movimentaÃ§Ã£o registrada"
+                    ? "Nenhuma movimentação encontrada"
+                    : "Nenhuma movimentação registrada"
                 }
                 message={
                   filtroLojaListagem
-                    ? "NÃ£o hÃ¡ movimentaÃ§Ãµes para a loja selecionada."
-                    : "Registre sua primeira movimentaÃ§Ã£o para comeÃ§ar o controle de estoque!"
+                    ? "Não há movimentações para a loja selecionada."
+                    : "Registre sua primeira movimentação para começar o controle de estoque!"
                 }
                 action={{
-                  label: "Nova MovimentaÃ§Ã£o",
+                  label: "Nova Movimentação",
                   onClick: () => setShowForm(true),
                 }}
               />
@@ -1904,18 +1904,18 @@ export function Movimentacoes() {
           </div>
         )}
 
-        {/* SeÃ§Ã£o MovimentaÃ§Ãµes de Estoque de Loja - visÃ­vel apenas para ADMIN */}
+        {/* Seção Movimentações de Estoque de Loja - visível apenas para ADMIN */}
         {usuario?.role === "ADMIN" && (
           <div className="mt-12">
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              <span className="text-3xl">ðŸª</span>
-              MovimentaÃ§Ãµes de Estoque de Loja
+              <span className="text-3xl">🏪</span>
+              Movimentações de Estoque de Loja
             </h2>
             {/* Filtros */}
             <div className="mb-5 rounded-2xl border border-gray-200 bg-white/80 backdrop-blur-sm shadow-sm p-4 md:p-5">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <h3 className="text-sm md:text-base font-bold text-gray-800 flex items-center gap-2">
-                  <span>ðŸ”Ž</span>
+                  <span>🔎</span>
                   Filtros
                 </h3>
                 <button
@@ -1953,14 +1953,14 @@ export function Movimentacoes() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Data inÃ­cio
+                    Data início
                   </label>
                   <input
                     type="date"
                     className="input-field"
                     value={filtroDataInicioEstoque}
                     onChange={(e) => setFiltroDataInicioEstoque(e.target.value)}
-                    aria-label="Data inÃ­cio"
+                    aria-label="Data início"
                   />
                 </div>
 
@@ -1979,7 +1979,7 @@ export function Movimentacoes() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ResponsÃ¡vel
+                    Responsável
                   </label>
                   <input
                     type="text"
@@ -2013,14 +2013,14 @@ export function Movimentacoes() {
           </div>
         )}
 
-        {/* Modal de EdiÃ§Ã£o */}
+        {/* Modal de Edição */}
         {editandoMovimentacao && usuario?.role === "ADMIN" && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <span className="text-2xl">âœï¸</span>
-                  Editar MovimentaÃ§Ã£o
+                  <span className="text-2xl">✏️</span>
+                  Editar Movimentação
                 </h3>
                 <button
                   onClick={cancelarEdicao}
@@ -2052,7 +2052,7 @@ export function Movimentacoes() {
                     ).toLocaleString("pt-BR")}
                   </p>
                   <p className="text-sm text-gray-600 mt-1">
-                    <strong>MÃ¡quina:</strong>{" "}
+                    <strong>Máquina:</strong>{" "}
                     {maquinas.find(
                       (m) => m.id === editandoMovimentacao.maquinaId,
                     )?.codigo || "N/A"}
@@ -2061,7 +2061,7 @@ export function Movimentacoes() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸŽ« Quantidade de Fichas
+                    🎫 Quantidade de Fichas
                   </label>
                   <input
                     type="number"
@@ -2077,7 +2077,7 @@ export function Movimentacoes() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸ“¦ Quantidade Abastecida
+                    📦 Quantidade Abastecida
                   </label>
                   <input
                     type="number"
@@ -2096,7 +2096,7 @@ export function Movimentacoes() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸ’µ Quantidade de Notas
+                    💵 Quantidade de Notas
                   </label>
                   <input
                     type="number"
@@ -2114,7 +2114,7 @@ export function Movimentacoes() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ðŸ’³ Valor Digital (Pix/Maquininha) (R$)
+                    💳 Valor Digital (Pix/Maquininha) (R$)
                   </label>
                   <input
                     type="number"
@@ -2139,7 +2139,7 @@ export function Movimentacoes() {
                     Cancelar
                   </button>
                   <button onClick={salvarEdicao} className="flex-1 btn-primary">
-                    Salvar AlteraÃ§Ãµes
+                    Salvar Alterações
                   </button>
                 </div>
               </div>
@@ -2147,7 +2147,7 @@ export function Movimentacoes() {
           </div>
         )}
       </div>
-      {/* --- MODAL DE EXCLUSÃƒO DE ESTOQUE LOJA --- */}
+      {/* --- MODAL DE EXCLUSÃO DE ESTOQUE LOJA --- */}
       {excluindoEstoqueLoja && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6">
@@ -2168,11 +2168,11 @@ export function Movimentacoes() {
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-gray-900">
-                Excluir MovimentaÃ§Ã£o?
+                Excluir Movimentação?
               </h3>
               <p className="text-sm text-gray-500 mt-2">
-                Tem certeza que deseja excluir esta movimentaÃ§Ã£o de estoque da
-                loja? Esta aÃ§Ã£o nÃ£o pode ser desfeita.
+                Tem certeza que deseja excluir esta movimentação de estoque da
+                loja? Esta ação não pode ser desfeita.
               </p>
               <div className="mt-6 flex justify-center gap-3">
                 <button
@@ -2190,12 +2190,12 @@ export function Movimentacoes() {
         </div>
       )}
 
-      {/* --- MODAL DE EDIÃ‡ÃƒO DE ESTOQUE LOJA --- */}
+      {/* --- MODAL DE EDIÇÃO DE ESTOQUE LOJA --- */}
       {editandoEstoqueLoja && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-4">
-              âœï¸ Editar Produtos Enviados
+              ✏️ Editar Produtos Enviados
             </h3>
             <form onSubmit={salvarEdicaoLoja}>
               <div className="p-3 bg-gray-50 rounded mb-4">
@@ -2255,7 +2255,7 @@ export function Movimentacoes() {
                         className="input-field w-28"
                       >
                         <option value="entrada">Entrada</option>
-                        <option value="saida">SaÃ­da</option>
+                        <option value="saida">Saída</option>
                       </select>
                     </div>
                   ))
