@@ -1,6 +1,6 @@
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 
 export function Navbar() {
   const { usuario, logout, alertasManutencaoCount } = useAuth();
@@ -9,178 +9,71 @@ export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const temAlertaManutencao = alertasManutencaoCount > 0;
+  const isActive = (path) => location.pathname === path;
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
-  const isActive = (path) => location.pathname === path;
-
-  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
-
   const closeMenu = () => setIsMenuOpen(false);
+
+  const menuItems = [
+    { to: "/", label: "Dashboard", icon: "📊" },
+    { to: "/movimentacoes", label: "Movimentações", icon: "📦" },
+    { to: "/manutencao", label: "Manutenção", icon: "🛠️", alert: true },
+    ...(usuario?.role !== "FUNCIONARIO"
+      ? [
+          { to: "/maquinas", label: "Máquinas", icon: "🎮" },
+          { to: "/lojas", label: "Lojas", icon: "🏪" },
+          { to: "/produtos", label: "Produtos", icon: "🧸" },
+          { to: "/produtos-a-comprar", label: "Produtos a Comprar", icon: "🛒" },
+        ]
+      : []),
+    ...(usuario?.role === "ADMIN"
+      ? [
+          { to: "/analise-estoque", label: "Estoque Detalhado", icon: "📦" },
+          { to: "/graficos", label: "Gráficos", icon: "📈" },
+          { to: "/relatorios", label: "Relatórios", icon: "📄" },
+          { to: "/usuarios", label: "Usuários", icon: "👥" },
+        ]
+      : []),
+  ];
 
   return (
     <nav className="bg-linear-to-r from-black via-neutral-900 to-red-950 text-white shadow-2xl border-b-4 border-primary">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
-          <div className="flex items-center">
-            <Link
-              to="/"
-              className="flex items-center space-x-2 sm:space-x-3 group"
-            >
-              <img
-                src="/LogoMicoLeao.png"
-                alt="Mico Leao"
-                className="w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 object-contain rounded-xl bg-white/95 p-1 transition-transform duration-300 group-hover:scale-110"
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-              />
-            </Link>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-20 items-center justify-between gap-3">
+          <Link to="/" className="flex shrink-0 items-center group">
+            <img
+              src="/LogoMicoLeao.png"
+              alt="Mico Leao"
+              className="h-16 w-16 rounded-xl bg-white/95 object-contain p-1 transition-transform duration-300 group-hover:scale-105 sm:h-20 sm:w-20"
+              onError={(event) => {
+                event.currentTarget.style.display = "none";
+              }}
+            />
+          </Link>
 
-            {/* Menu Desktop */}
-            <div className="hidden lg:block ml-12">
-              <div className="flex items-center space-x-2">
-                <Link
-                  to="/"
-                  className={`    rounded-lg text-sm font-medium transition-all duration-200 ${
-                    isActive("/")
-                      ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg scale-105"
-                      : "text-gray-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  📊 Dashboard
-                </Link>
-                <Link
-                  to="/movimentacoes"
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    isActive("/movimentacoes")
-                      ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg scale-105"
-                      : "text-gray-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  📦 Movimentações
-                </Link>
-                <Link
-                  to="/manutencao"
-                  className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    temAlertaManutencao
-                      ? "text-white animate-blink-alert"
-                      : isActive("/manutencao")
-                        ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg scale-105"
-                        : "text-gray-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  🛠️ Manutenção
-                  {temAlertaManutencao && (
-                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-red-600 shadow">
-                      {alertasManutencaoCount}
-                    </span>
-                  )}
-                </Link>
-                {usuario?.role !== "FUNCIONARIO" && (
-                  <>
-                    <Link
-                      to="/maquinas"
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        isActive("/maquinas")
-                          ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg scale-105"
-                          : "text-gray-300 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      🎮 Máquinas
-                    </Link>
-                    <Link
-                      to="/lojas"
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        isActive("/lojas")
-                          ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg scale-105"
-                          : "text-gray-300 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      🏪 Lojas
-                    </Link>
-                    <Link
-                      to="/produtos"
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        isActive("/produtos")
-                          ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg scale-105"
-                          : "text-gray-300 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      🧸 Produtos
-                    </Link>
-                    <Link
-                      to="/produtos-a-comprar"
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        isActive("/produtos-a-comprar")
-                          ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg scale-105"
-                          : "text-gray-300 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      🛒 Carrinho
-                    </Link>
-                  </>
-                )}
-                {usuario?.role === "ADMIN" && (
-                  <>
-                    <Link
-                      to="/analise-estoque"
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        isActive("/analise-estoque")
-                          ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg scale-105"
-                          : "text-gray-300 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      Estoque Detalhado
-                    </Link>
-                    <Link
-                      to="/graficos"
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        isActive("/graficos")
-                          ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg scale-105"
-                          : "text-gray-300 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      📈 Gráficos
-                    </Link>
-                    <Link
-                      to="/relatorios"
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        isActive("/relatorios")
-                          ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg scale-105"
-                          : "text-gray-300 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      📄 Relatórios
-                    </Link>
-                    <Link
-                      to="/usuarios"
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        isActive("/usuarios")
-                          ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg scale-105"
-                          : "text-gray-300 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      👥 Usuários
-                    </Link>
-                  </>
-                )}
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="hidden min-w-0 text-right bg-white/5 px-4 py-2 rounded-lg border border-white/10 sm:block">
+              <div className="truncate text-sm font-semibold text-white">
+                {usuario?.nome}
+              </div>
+              <div className="text-xs text-accent-cream">
+                {usuario?.role === "ADMIN" ? "Administrador" : "Funcionário"}
               </div>
             </div>
-          </div>
-          {/* User Info e Logout */}
-          <div className="flex items-center space-x-4">
-            {/* Botão Hamburger Mobile */}
+
             <button
-              onClick={toggleMenu}
-              className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition-colors"
+              type="button"
+              onClick={() => setIsMenuOpen((open) => !open)}
+              className="rounded-lg p-2 transition-colors hover:bg-white/10"
               aria-label="Menu"
+              aria-expanded={isMenuOpen}
             >
               <svg
-                className="w-6 h-6"
+                className="h-7 w-7"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -203,37 +96,13 @@ export function Navbar() {
               </svg>
             </button>
 
-            <div className="hidden md:block text-right bg-white/5 px-4 py-2 rounded-lg border border-white/10">
-              <div className="text-sm font-semibold text-white">
-                {usuario?.nome}
-              </div>
-              <div className="text-xs text-accent-cream flex items-center justify-end gap-1">
-                {usuario?.role === "ADMIN" ? (
-                  <>
-                    <svg
-                      className="w-3 h-3"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    Administrador
-                  </>
-                ) : (
-                  "Funcionário"
-                )}
-              </div>
-            </div>
             <button
+              type="button"
               onClick={handleLogout}
-              className="bg-linear-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
+              className="flex items-center gap-2 rounded-lg bg-linear-to-r from-red-500 to-red-600 px-4 py-2.5 text-sm font-semibold shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:from-red-600 hover:to-red-700 hover:shadow-xl"
             >
               <svg
-                className="w-4 h-4"
+                className="h-4 w-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -251,171 +120,48 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Menu Mobile Dropdown */}
       {isMenuOpen && (
-        <div className="lg:hidden bg-neutral-950 border-t border-white/10">
-          <div className="px-4 py-3 space-y-2">
-            <Link
-              to="/"
-              onClick={closeMenu}
-              className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                isActive("/")
-                  ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
-                  : "text-gray-300 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              📊 Dashboard
-            </Link>
-            <Link
-              to="/movimentacoes"
-              onClick={closeMenu}
-              className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                isActive("/movimentacoes")
-                  ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
-                  : "text-gray-300 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              📦 Movimentações
-            </Link>
-            <Link
-              to="/manutencao"
-              onClick={closeMenu}
-              className={`relative flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                temAlertaManutencao
-                  ? "text-white animate-blink-alert"
-                  : isActive("/manutencao")
-                    ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
-                    : "text-gray-300 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              🛠️ Manutenção
-              {temAlertaManutencao && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-red-600 shadow">
-                  {alertasManutencaoCount}
-                </span>
-              )}
-            </Link>
-            {usuario?.role !== "FUNCIONARIO" && (
-              <>
+        <div className="border-t border-white/10 bg-neutral-950">
+          <div className="mx-auto grid max-w-7xl gap-2 px-4 py-3 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:px-8">
+            {menuItems.map((item) => {
+              const active = isActive(item.to);
+              const alert = item.alert && temAlertaManutencao;
+
+              return (
                 <Link
-                  to="/maquinas"
+                  key={item.to}
+                  to={item.to}
                   onClick={closeMenu}
-                  className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive("/maquinas")
-                      ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
-                      : "text-gray-300 hover:bg-white/10 hover:text-white"
+                  className={`relative flex min-h-12 items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition-all ${
+                    alert
+                      ? "text-white animate-blink-alert"
+                      : active
+                        ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
+                        : "text-gray-300 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  🎮 Máquinas
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="text-lg" aria-hidden="true">
+                      {item.icon}
+                    </span>
+                    <span className="truncate">{item.label}</span>
+                  </span>
+                  {alert && (
+                    <span className="ml-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-red-600 shadow">
+                      {alertasManutencaoCount}
+                    </span>
+                  )}
                 </Link>
-                <Link
-                  to="/lojas"
-                  onClick={closeMenu}
-                  className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive("/lojas")
-                      ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
-                      : "text-gray-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  🏪 Lojas
-                </Link>
-                <Link
-                  to="/produtos"
-                  onClick={closeMenu}
-                  className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive("/produtos")
-                      ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
-                      : "text-gray-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  🧸 Produtos
-                </Link>
-                <Link
-                  to="/produtos-a-comprar"
-                  onClick={closeMenu}
-                  className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive("/produtos-a-comprar")
-                      ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
-                      : "text-gray-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  🛒 Produtos a Comprar
-                </Link>
-              </>
-            )}
-            {usuario?.role === "ADMIN" && (
-              <>
-                <Link
-                  to="/analise-estoque"
-                  onClick={closeMenu}
-                  className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive("/analise-estoque")
-                      ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
-                      : "text-gray-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  Estoque Detalhado
-                </Link>
-                <Link
-                  to="/graficos"
-                  onClick={closeMenu}
-                  className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive("/graficos")
-                      ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
-                      : "text-gray-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  📈 Gráficos
-                </Link>
-                <Link
-                  to="/relatorios"
-                  onClick={closeMenu}
-                  className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive("/relatorios")
-                      ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
-                      : "text-gray-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  📄 Relatórios
-                </Link>
-                <Link
-                  to="/usuarios"
-                  onClick={closeMenu}
-                  className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive("/usuarios")
-                      ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
-                      : "text-gray-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  👥 Usuários
-                </Link>
-              </>
-            )}
-            {/* User Info Mobile */}
-            <div className="md:hidden mt-4 pt-4 border-t border-white/10">
-              <div className="bg-white/5 px-4 py-3 rounded-lg border border-white/10 mb-3">
-                <div className="text-sm font-semibold text-white">
+              );
+            })}
+
+            <div className="border-t border-white/10 pt-3 sm:col-span-2 lg:col-span-3">
+              <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 sm:hidden">
+                <div className="truncate text-sm font-semibold text-white">
                   {usuario?.nome}
                 </div>
-                <div className="text-xs text-accent-cream flex items-center gap-1 mt-1">
-                  {usuario?.role === "ADMIN" ? (
-                    <>
-                      <svg
-                        className="w-3 h-3"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      Administrador
-                    </>
-                  ) : (
-                    "Funcionário"
-                  )}
+                <div className="mt-1 text-xs text-accent-cream">
+                  {usuario?.role === "ADMIN" ? "Administrador" : "Funcionário"}
                 </div>
               </div>
             </div>
