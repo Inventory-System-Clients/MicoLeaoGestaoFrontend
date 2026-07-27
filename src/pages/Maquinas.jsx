@@ -14,6 +14,21 @@ import {
 } from "../components/UIComponents";
 import { PageLoader, EmptyState } from "../components/Loading";
 
+const obterStatusMaquina = (maquina) => {
+  const status = maquina.statusOperacao || maquina.status_operacao;
+  const mapa = {
+    EM_OPERACAO: { label: "Em operação", variant: "success" },
+    EM_MANUTENCAO: { label: "Em manutenção", variant: "warning" },
+    PRONTA_PARA_SAIDA: { label: "Pronta para saída", variant: "info" },
+    PARADA: { label: "Parada", variant: "danger" },
+    EM_TRANSPORTE: { label: "Em transporte", variant: "warning" },
+  };
+
+  if (status && mapa[status]) return mapa[status];
+  if (maquina.ativo === false) return mapa.PARADA;
+  return mapa.EM_OPERACAO;
+};
+
 export function Maquinas() {
   const navigate = useNavigate();
   const { usuario } = useAuth();
@@ -156,8 +171,20 @@ export function Maquinas() {
     },
     {
       key: "tipo",
-      label: "Tipo",
+      label: "Tipo/Modelo",
       render: (maquina) => maquina.tipo || "-",
+    },
+    {
+      key: "mediaSaidaEsperada",
+      label: "Média Saída",
+      render: (maquina) => {
+        const valor = Number(
+          maquina.mediaSaidaEsperada ?? maquina.media_saida_esperada,
+        );
+        return Number.isFinite(valor) && valor > 0
+          ? `${valor.toFixed(1)} pelúcias`
+          : "-";
+      },
     },
     {
       key: "capacidadePadrao",
@@ -175,11 +202,10 @@ export function Maquinas() {
     {
       key: "ativo",
       label: "Status",
-      render: (maquina) => (
-        <Badge variant={maquina.ativo ? "success" : "danger"}>
-          {maquina.ativo ? "Ativa" : "Inativa"}
-        </Badge>
-      ),
+      render: (maquina) => {
+        const status = obterStatusMaquina(maquina);
+        return <Badge variant={status.variant}>{status.label}</Badge>;
+      },
     },
     {
       key: "acoes",

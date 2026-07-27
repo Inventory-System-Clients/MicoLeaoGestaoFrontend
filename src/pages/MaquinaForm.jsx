@@ -17,10 +17,12 @@ export function MaquinaForm() {
     nome: "",
     loja_id: "",
     tipo: "",
+    statusOperacao: "EM_OPERACAO",
     capacidadePadrao: "",
     valorFicha: "",
     fichasNecessarias: "",
     jogadasBoasPorPelucia: "",
+    mediaSaidaEsperada: "",
     forcaForte: "",
     forcaFraca: "",
     forcaPremium: "",
@@ -67,10 +69,18 @@ export function MaquinaForm() {
         nome: response.data.nome || "",
         loja_id: response.data.lojaId ? String(response.data.lojaId) : "",
         tipo: response.data.tipo || "",
+        statusOperacao:
+          response.data.statusOperacao ||
+          response.data.status_operacao ||
+          (response.data.ativo === false ? "PARADA" : "EM_OPERACAO"),
         capacidadePadrao: response.data.capacidadePadrao || "",
         valorFicha: response.data.valorFicha || "",
         fichasNecessarias: response.data.fichasNecessarias || "",
         jogadasBoasPorPelucia: response.data.jogadasBoasPorPelucia || "",
+        mediaSaidaEsperada:
+          response.data.mediaSaidaEsperada ||
+          response.data.media_saida_esperada ||
+          "",
         forcaForte: response.data.forcaForte || "",
         forcaFraca: response.data.forcaFraca || "",
         forcaPremium: response.data.forcaPremium || "",
@@ -130,12 +140,17 @@ export function MaquinaForm() {
         nome: formData.nome.trim(),
         lojaId: formData.loja_id,
         tipo: formData.tipo?.trim() || null,
+        statusOperacao: formData.statusOperacao || "EM_OPERACAO",
         capacidadePadrao: parseInt(formData.capacidadePadrao, 10) || 0,
         valorFicha: parseFloat(formData.valorFicha) || 0,
         fichasNecessarias: parseInt(formData.fichasNecessarias, 10) || null,
         jogadasBoasPorPelucia:
           formData.jogadasBoasPorPelucia !== ""
             ? parseFloat(formData.jogadasBoasPorPelucia)
+            : null,
+        mediaSaidaEsperada:
+          formData.mediaSaidaEsperada !== ""
+            ? parseFloat(formData.mediaSaidaEsperada)
             : null,
         forcaForte: parseInt(formData.forcaForte, 10) || null,
         forcaFraca: parseInt(formData.forcaFraca, 10) || null,
@@ -223,10 +238,7 @@ export function MaquinaForm() {
                 </div>
 
                 <div>
-                  <p className="block text-sm font-semibold text-gray-700 mb-2">
-                    Jogadas boas por pelucia
-                  </p>
-                  <label className="sr-only">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Nome *
                   </label>
                   <input
@@ -260,19 +272,23 @@ export function MaquinaForm() {
                   </select>
                 </div>
 
-                <div className="flex items-center">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="ativo"
-                      checked={formData.ativo}
-                      onChange={handleChange}
-                      className="w-5 h-5 text-primary rounded focus:ring-2 focus:ring-primary"
-                    />
-                    <span className="text-sm font-semibold text-gray-700">
-                      Máquina Ativa
-                    </span>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Status operacional *
                   </label>
+                  <select
+                    name="statusOperacao"
+                    value={formData.statusOperacao || "EM_OPERACAO"}
+                    onChange={handleChange}
+                    className="select-field"
+                    required
+                  >
+                    <option value="EM_OPERACAO">Em operação</option>
+                    <option value="EM_MANUTENCAO">Em manutenção</option>
+                    <option value="PRONTA_PARA_SAIDA">Pronta para saída</option>
+                    <option value="PARADA">Parada</option>
+                    <option value="EM_TRANSPORTE">Em transporte</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -366,7 +382,26 @@ export function MaquinaForm() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    💪 Força Forte (%)
+                    Média de saída esperada
+                  </label>
+                  <input
+                    type="number"
+                    name="mediaSaidaEsperada"
+                    value={formData.mediaSaidaEsperada}
+                    onChange={handleChange}
+                    className="input-field"
+                    placeholder="Ex: 12"
+                    min="0"
+                    step="0.01"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Média esperada de pelúcias saindo por movimentação
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Jogadas boas por pelúcia
                   </label>
                   <input
                     type="number"
@@ -379,7 +414,7 @@ export function MaquinaForm() {
                     step="0.01"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Quantas jogadas e esperado para sair uma pelucia.
+                    Quantas jogadas é esperado para sair uma pelúcia
                   </p>
                 </div>
 
@@ -578,4 +613,3 @@ export function MaquinaForm() {
     </div>
   );
 }
-

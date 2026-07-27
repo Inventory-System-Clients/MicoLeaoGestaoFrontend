@@ -19,6 +19,10 @@ export function LojaForm() {
     cep: "",
     telefone: "",
     responsavel: "",
+    statusOperacao: "ATIVA",
+    dataInicio: "",
+    observacoes: "",
+    dataVencimentoExtintor: "",
     valorFichaPadrao: "2,50",
     ativo: true,
   });
@@ -194,6 +198,16 @@ export function LojaForm() {
 
       setFormData({
         ...response.data,
+        statusOperacao:
+          response.data?.statusOperacao ||
+          response.data?.status_operacao ||
+          (response.data?.ativo === false ? "INATIVA" : "ATIVA"),
+        dataInicio: response.data?.dataInicio || response.data?.data_inicio || "",
+        observacoes: response.data?.observacoes || "",
+        dataVencimentoExtintor:
+          response.data?.dataVencimentoExtintor ||
+          response.data?.data_vencimento_extintor ||
+          "",
         valorFichaPadrao: formatarValorFichaParaInput(valorFichaApi),
       });
     } catch (error) {
@@ -251,8 +265,14 @@ export function LojaForm() {
         cep: formData.cep?.trim() || null,
         telefone: formData.telefone.trim(),
         responsavel: formData.responsavel?.trim() || null,
+        statusOperacao: formData.statusOperacao || "ATIVA",
+        dataInicio: formData.dataInicio || null,
+        observacoes: formData.observacoes?.trim() || null,
+        dataVencimentoExtintor: formData.dataVencimentoExtintor || null,
         valorFichaPadrao: parseDecimalInput(formData.valorFichaPadrao, 2.5),
-        ativo: formData.ativo,
+        ativo: formData.statusOperacao
+          ? formData.statusOperacao !== "INATIVA"
+          : formData.ativo,
       };
 
       if (isEdit) {
@@ -537,19 +557,61 @@ export function LojaForm() {
                   />
                 </div>
 
-                <div className="flex items-center">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="ativo"
-                      checked={formData.ativo}
-                      onChange={handleChange}
-                      className="w-5 h-5 text-primary rounded focus:ring-2 focus:ring-primary"
-                    />
-                    <span className="text-sm font-semibold text-gray-700">
-                      Loja Ativa
-                    </span>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Status da loja *
                   </label>
+                  <select
+                    name="statusOperacao"
+                    value={formData.statusOperacao || "ATIVA"}
+                    onChange={handleChange}
+                    className="select-field"
+                    required
+                  >
+                    <option value="ATIVA">Ativa / em operação</option>
+                    <option value="EM_IMPLANTACAO">Em implantação</option>
+                    <option value="INATIVA">Inativa / pausada</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Data de início
+                  </label>
+                  <input
+                    type="date"
+                    name="dataInicio"
+                    value={formData.dataInicio || ""}
+                    onChange={handleChange}
+                    className="input-field"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Vencimento do extintor
+                  </label>
+                  <input
+                    type="date"
+                    name="dataVencimentoExtintor"
+                    value={formData.dataVencimentoExtintor || ""}
+                    onChange={handleChange}
+                    className="input-field"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Observações
+                  </label>
+                  <textarea
+                    name="observacoes"
+                    value={formData.observacoes || ""}
+                    onChange={handleChange}
+                    className="input-field"
+                    rows="3"
+                    placeholder="Observações operacionais, combinados com a loja, restrições de acesso..."
+                  />
                 </div>
               </div>
             </div>

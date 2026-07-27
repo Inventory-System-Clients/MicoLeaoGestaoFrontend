@@ -6,6 +6,27 @@ import { Footer } from "../components/Footer";
 import { PageHeader, Badge, AlertBox } from "../components/UIComponents";
 import { PageLoader, EmptyState } from "../components/Loading";
 
+const obterStatusLoja = (loja) => {
+  const status = loja.statusOperacao || loja.status_operacao;
+
+  if (status === "EM_IMPLANTACAO") {
+    return { label: "Em implantação", variant: "warning" };
+  }
+
+  if (status === "INATIVA" || loja.ativo === false) {
+    return { label: "Inativa", variant: "danger" };
+  }
+
+  return { label: "Ativa", variant: "success" };
+};
+
+const formatarDataLoja = (valor) => {
+  if (!valor) return "Não informado";
+  const data = new Date(`${valor}T00:00:00`);
+  if (Number.isNaN(data.getTime())) return "Não informado";
+  return data.toLocaleDateString("pt-BR");
+};
+
 export function LojaDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -144,6 +165,7 @@ export function LojaDetalhes() {
     capacidadeTotal > 0
       ? Math.round((estoqueTotal / capacidadeTotal) * 100)
       : 0;
+  const statusLoja = obterStatusLoja(loja);
 
   return (
     <div className="min-h-screen bg-background-light bg-pattern teddy-pattern">
@@ -191,9 +213,7 @@ export function LojaDetalhes() {
                   Status
                 </label>
                 <div className="mt-1">
-                  <Badge variant={loja.ativo ? "success" : "danger"}>
-                    {loja.ativo ? "Ativa" : "Inativa"}
-                  </Badge>
+                  <Badge variant={statusLoja.variant}>{statusLoja.label}</Badge>
                 </div>
               </div>
 
@@ -243,6 +263,36 @@ export function LojaDetalhes() {
                   <p className="text-gray-900">{loja.responsavel}</p>
                 </div>
               )}
+
+              <div>
+                <label className="text-sm font-semibold text-gray-500">
+                  Data de início
+                </label>
+                <p className="text-gray-900">
+                  {formatarDataLoja(loja.dataInicio || loja.data_inicio)}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-gray-500">
+                  Vencimento do extintor
+                </label>
+                <p className="text-gray-900">
+                  {formatarDataLoja(
+                    loja.dataVencimentoExtintor ||
+                      loja.data_vencimento_extintor,
+                  )}
+                </p>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-sm font-semibold text-gray-500">
+                  Observações
+                </label>
+                <p className="whitespace-pre-wrap text-gray-900">
+                  {loja.observacoes || "Sem observações"}
+                </p>
+              </div>
             </div>
           </div>
 

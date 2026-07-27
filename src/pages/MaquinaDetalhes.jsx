@@ -6,6 +6,21 @@ import { Footer } from "../components/Footer";
 import { PageHeader, Badge, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 
+const obterStatusMaquina = (maquina) => {
+  const status = maquina.statusOperacao || maquina.status_operacao;
+  const mapa = {
+    EM_OPERACAO: { label: "Em operação", variant: "success" },
+    EM_MANUTENCAO: { label: "Em manutenção", variant: "warning" },
+    PRONTA_PARA_SAIDA: { label: "Pronta para saída", variant: "info" },
+    PARADA: { label: "Parada", variant: "danger" },
+    EM_TRANSPORTE: { label: "Em transporte", variant: "warning" },
+  };
+
+  if (status && mapa[status]) return mapa[status];
+  if (maquina.ativo === false) return mapa.PARADA;
+  return mapa.EM_OPERACAO;
+};
+
 export function MaquinaDetalhes() {
   const { id } = useParams();
   // const location = useLocation(); // Removido pois não é utilizado
@@ -98,6 +113,7 @@ export function MaquinaDetalhes() {
 
   if (!maquina)
     return <AlertBox type="error" message="Máquina não encontrada." />;
+  const statusMaquina = obterStatusMaquina(maquina);
 
   return (
     <div className="min-h-screen bg-background-light">
@@ -144,6 +160,9 @@ export function MaquinaDetalhes() {
             <strong>Loja:</strong>{" "}
             {maquina.lojaNome || maquina.loja?.nome || "-"}
           </p>
+          <div className="mb-4">
+            <Badge variant={statusMaquina.variant}>{statusMaquina.label}</Badge>
+          </div>
           {/* Detalhes dos alertas */}
           {alertaInconsistencia && (
             <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded text-yellow-900">
@@ -240,6 +259,12 @@ export function MaquinaDetalhes() {
               <p>
                 <strong>Capacidade:</strong>{" "}
                 {maquina.capacidadePadrao || maquina.capacidade || "-"}
+              </p>
+              <p>
+                <strong>Média de Saída Esperada:</strong>{" "}
+                {maquina.mediaSaidaEsperada || maquina.media_saida_esperada
+                  ? `${maquina.mediaSaidaEsperada || maquina.media_saida_esperada} pelúcias`
+                  : "-"}
               </p>
               <p>
                 <strong>Estoque Atual:</strong>{" "}

@@ -13,6 +13,20 @@ import {
 import { PageLoader } from "../components/Loading";
 import { useAuth } from "../contexts/AuthContext";
 
+const obterStatusLoja = (loja) => {
+  const status = loja.statusOperacao || loja.status_operacao;
+
+  if (status === "EM_IMPLANTACAO") {
+    return { label: "Em implantação", variant: "warning" };
+  }
+
+  if (status === "INATIVA" || loja.ativo === false) {
+    return { label: "Inativa", variant: "danger" };
+  }
+
+  return { label: "Ativa", variant: "success" };
+};
+
 export function Lojas() {
   const { usuario } = useAuth();
   const [lojas, setLojas] = useState([]);
@@ -121,11 +135,10 @@ export function Lojas() {
     {
       label: "Status",
       key: "ativo",
-      render: (loja) => (
-        <Badge variant={loja.ativo ? "success" : "danger"}>
-          {loja.ativo ? "Ativa" : "Inativa"}
-        </Badge>
-      ),
+      render: (loja) => {
+        const status = obterStatusLoja(loja);
+        return <Badge variant={status.variant}>{status.label}</Badge>;
+      },
     },
     {
       label: "Máquinas",

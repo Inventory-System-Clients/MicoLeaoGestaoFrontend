@@ -31,7 +31,16 @@ const obterDataExtintor = (loja) =>
   null;
 
 const montarStatusLoja = ({ loja, pendencias, manutencoesAbertas, diasSemMov }) => {
-  if (loja?.ativo === false) {
+  const statusOperacao = loja?.statusOperacao || loja?.status_operacao;
+
+  if (statusOperacao === "EM_IMPLANTACAO") {
+    return {
+      label: "Em implantação",
+      className: "bg-blue-100 text-blue-800 border-blue-200",
+    };
+  }
+
+  if (statusOperacao === "INATIVA" || loja?.ativo === false) {
     return {
       label: "Pausada",
       className: "bg-slate-100 text-slate-700 border-slate-200",
@@ -165,11 +174,26 @@ export function VisaoLojas() {
               movimentacoes.length > 0
                 ? totalSairam / movimentacoes.length
                 : 0;
+            const mediaEsperadaMaquinas =
+              maquinasDaLoja.length > 0
+                ? maquinasDaLoja.reduce(
+                    (total, maquina) =>
+                      total +
+                      numero(
+                        maquina.mediaSaidaEsperada ||
+                          maquina.media_saida_esperada,
+                      ),
+                    0,
+                  ) / maquinasDaLoja.length
+                : 0;
             const ultimaSaida = numero(ultimaMovimentacao?.sairam);
             const abaixoDaMedia =
-              movimentacoes.length >= 3 &&
-              mediaPelucias > 0 &&
-              ultimaSaida < mediaPelucias * 0.75;
+              ultimaMovimentacao &&
+              ((mediaEsperadaMaquinas > 0 &&
+                ultimaSaida < mediaEsperadaMaquinas * 0.75) ||
+                (movimentacoes.length >= 3 &&
+                  mediaPelucias > 0 &&
+                  ultimaSaida < mediaPelucias * 0.75));
 
             const dataExtintor = obterDataExtintor(loja);
             const diasExtintor = dataExtintor
@@ -208,6 +232,7 @@ export function VisaoLojas() {
               dataExtintor,
               diasExtintor,
               mediaPelucias,
+              mediaEsperadaMaquinas,
               ultimaSaida,
               abaixoDaMedia,
               pendencias,
@@ -319,6 +344,7 @@ export function VisaoLojas() {
           >
             <option value="todos">Todos os status</option>
             <option value="Em operação">Em operação</option>
+            <option value="Em implantação">Em implantação</option>
             <option value="Com pendência">Com pendência</option>
             <option value="Sem movimentação">Sem movimentação</option>
             <option value="Pausada">Pausada</option>
@@ -412,6 +438,11 @@ export function VisaoLojas() {
                     {item.mediaPelucias.toFixed(1)}
                   </p>
                   <p className="text-xs text-gray-500">pelúcias por visita</p>
+                  {item.mediaEsperadaMaquinas > 0 && (
+                    <p className="text-xs text-gray-500">
+                      Meta cad.: {item.mediaEsperadaMaquinas.toFixed(1)}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -450,6 +481,9 @@ export function VisaoLojas() {
                   <p className="mt-1 text-xs text-gray-500">
                     Última saída: {item.ultimaSaida} · Média:{" "}
                     {item.mediaPelucias.toFixed(1)}
+                    {item.mediaEsperadaMaquinas > 0
+                      ? ` · Meta: ${item.mediaEsperadaMaquinas.toFixed(1)}`
+                      : ""}
                   </p>
                 </div>
               </div>
