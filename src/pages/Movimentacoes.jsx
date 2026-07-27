@@ -24,6 +24,12 @@ import {
 
 const CHAVE_ULTIMA_MENSAGEM_WHATSAPP = "ultimaMensagemMovimentacaoWhatsapp";
 
+const numeroInteiroValido = (valor) => {
+  if (valor === "" || valor === null || valor === undefined) return null;
+  const numero = Number.parseInt(valor, 10);
+  return Number.isNaN(numero) ? null : numero;
+};
+
 export function Movimentacoes() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -202,22 +208,18 @@ export function Movimentacoes() {
 
   // Verificar divergência entre contador OUT e total pre informado
   useEffect(() => {
-    const verificarDivergencia = async () => {
-      // Só verificar se temos máquina selecionada, contador OUT e total pre preenchidos
-      if (
-        !formData.maquina_id ||
-        !formData.contadorOut ||
-        !formData.quantidadeAtualMaquina
-      ) {
+    let ativo = true;
+
+    const calcularMovimentacaoPorContadores = async () => {
+      if (!formData.maquina_id || formData.ignoreInOut) {
         setAlertaDivergencia(null);
         return;
       }
 
-      const contadorOutAtual = parseInt(formData.contadorOut);
-      const totalPreInformado = parseInt(formData.quantidadeAtualMaquina);
+      const contadorInAtual = numeroInteiroValido(formData.contadorIn);
+      const contadorOutAtual = numeroInteiroValido(formData.contadorOut);
 
-      // Validar se são números válidos
-      if (isNaN(contadorOutAtual) || isNaN(totalPreInformado)) {
+      if (contadorInAtual === null && contadorOutAtual === null) {
         setAlertaDivergencia(null);
         return;
       }
@@ -227,33 +229,90 @@ export function Movimentacoes() {
           formData.maquina_id,
         );
 
-        if (ultimaMov) {
-          const contadorOutAnterior = ultimaMov.contadorOut || 0;
-          const totalPosAnterior = ultimaMov.totalPos || 0;
+        if (!ativo) return;
 
-          // Calcular quantos produtos saíram baseado no contador OUT
-          const saidaCalculada = contadorOutAtual - contadorOutAnterior;
+        if (!ultimaMov) {
+          setAlertaDivergencia(null);
+          return;
+        }
 
-          // Calcular qual deveria ser o total pre esperado
-          const totalPreEsperado = totalPosAnterior - saidaCalculada;
+        const maquina = maquinas.find(
+          (item) => String(item.id) === String(formData.maquina_id),
+        );
+        const contadorInAnterior = Number(ultimaMov.contadorIn || 0);
+        const contadorOutAnterior = Number(ultimaMov.contadorOut || 0);
+        const totalPosAnterior = Number(ultimaMov.totalPos || 0);
+        const capacidadePadrao = Number(maquina?.capacidadePadrao || 0);
 
-          // Se houver divergência, mostrar alerta
-          const diferenca = Math.abs(totalPreInformado - totalPreEsperado);
-          if (diferenca > 0) {
-            setAlertaDivergencia({
-              totalPreInformado,
-              totalPreEsperado,
-              diferenca,
-              saidaCalculada,
-              totalPosAnterior,
-              contadorOutAnterior,
-              contadorOutAtual,
-            });
-          } else {
-            setAlertaDivergencia(null);
-          }
+        const saidaCalculada =
+          contadorOutAtual === null
+            ? null
+            : contadorOutAtual - contadorOutAnterior;
+        const fichasCalculadas =
+          contadorInAtual === null ? null : contadorInAtual - contadorInAnterior;
+
+        if (
+          (saidaCalculada !== null && saidaCalculada < 0) ||
+          (fichasCalculadas !== null && fichasCalculadas < 0)
+        ) {
+          setAlertaDivergencia({
+            tipo: "contador_menor",
+            contadorInAnterior,
+            contadorOutAnterior,
+          });
+          return;
+        }
+
+        const totalPreEsperado =
+          saidaCalculada === null
+            ? null
+            : Math.max(0, totalPosAnterior - saidaCalculada);
+        const abastecimentoSugerido =
+          totalPreEsperado === null || capacidadePadrao <= 0
+            ? null
+            : Math.max(0, capacidadePadrao - totalPreEsperado);
+
+        setFormData((prev) => {
+          if (prev.maquina_id !== formData.maquina_id) return prev;
+
+          return {
+            ...prev,
+            quantidadeAtualMaquina:
+              totalPreEsperado === null
+                ? prev.quantidadeAtualMaquina
+                : String(totalPreEsperado),
+            quantidadeAdicionada:
+              abastecimentoSugerido === null
+                ? prev.quantidadeAdicionada
+                : String(abastecimentoSugerido),
+            fichas:
+              fichasCalculadas === null ? prev.fichas : String(fichasCalculadas),
+          };
+        });
+
+        if (totalPreEsperado === null) {
+          setAlertaDivergencia(null);
+          return;
+        }
+
+        const totalPreInformado = numeroInteiroValido(
+          formData.quantidadeAtualMaquina,
+        );
+        if (
+          totalPreInformado !== null &&
+          totalPreInformado !== totalPreEsperado
+        ) {
+          setAlertaDivergencia({
+            tipo: "total_pre",
+            totalPreInformado,
+            totalPreEsperado,
+            diferenca: Math.abs(totalPreInformado - totalPreEsperado),
+            saidaCalculada,
+            totalPosAnterior,
+            contadorOutAnterior,
+            contadorOutAtual,
+          });
         } else {
-          // Não há movimentação anterior, não há como comparar
           setAlertaDivergencia(null);
         }
       } catch (error) {
@@ -262,11 +321,18 @@ export function Movimentacoes() {
       }
     };
 
-    verificarDivergencia();
+    calcularMovimentacaoPorContadores();
+
+    return () => {
+      ativo = false;
+    };
   }, [
     formData.maquina_id,
+    formData.contadorIn,
     formData.contadorOut,
     formData.quantidadeAtualMaquina,
+    formData.ignoreInOut,
+    maquinas,
   ]);
 
   // Sugere produto automaticamente ao escolher máquina, mas permite troca manual
@@ -1530,7 +1596,9 @@ export function Movimentacoes() {
                             Atenção: Possível erro de contagem!
                           </p>
                           <p className="text-xs text-yellow-700">
-                            Reconte por favor
+                            {alertaDivergencia.tipo === "contador_menor"
+                              ? "O contador informado ficou menor que o anterior. Confira IN/OUT antes de continuar."
+                              : "Reconte por favor"}
                           </p>
                         </div>
                       </div>
@@ -1554,6 +1622,12 @@ export function Movimentacoes() {
                   <p className="text-xs text-gray-500 mt-1">
                     Quantos produtos foram adicionados
                   </p>
+                  {formData.quantidadeAtualMaquina &&
+                    formData.quantidadeAdicionada && (
+                      <p className="text-xs font-semibold text-blue-600 mt-1">
+                        Sugestão para completar a máquina
+                      </p>
+                    )}
                   {formData.quantidadeAdicionada &&
                     formData.quantidadeAtualMaquina && (
                       <p className="text-xs font-semibold text-green-600 mt-1">
