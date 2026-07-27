@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useState } from "react";
 import api from "../services/api";
 
 const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
@@ -21,9 +21,6 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
     useState("");
   const [observacoes, setObservacoes] = useState("");
   const [gastosVariaveis, setGastosVariaveis] = useState([]);
-  const [consultandoMachinePay, setConsultandoMachinePay] = useState(false);
-  const [erroMachinePay, setErroMachinePay] = useState("");
-  const [resumoMachinePay, setResumoMachinePay] = useState(null);
 
   const obterPeriodoDoMes = (valorMes) => {
     if (!valorMes) return null;
@@ -93,61 +90,14 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
     setMaquinaSelecionada("");
   };
 
-  const consultarMachinePay = async () => {
-    const periodoSelecionado = obterPeriodoDoMes(mesReferencia);
-    if (
-      registrarTotalLoja ||
-      !maquinaSelecionada ||
-      !periodoSelecionado
-    ) {
-      setResumoMachinePay(null);
-      setErroMachinePay("");
-      return;
-    }
-
-    try {
-      setConsultandoMachinePay(true);
-      setErroMachinePay("");
-      const response = await api.get("/registro-dinheiro/machine-pay", {
-        params: {
-          maquinaId: maquinaSelecionada,
-          inicio: periodoSelecionado.inicio,
-          fim: periodoSelecionado.fim,
-        },
-      });
-
-      setValorCartaoPix(response.data.cartaoPix.toFixed(2).replace(".", ","));
-      setPercentualTaxaCartaoMedia(
-        response.data.percentualTaxaMedia.toFixed(4).replace(".", ","),
-      );
-      setResumoMachinePay(response.data);
-    } catch (error) {
-      setResumoMachinePay(null);
-      setErroMachinePay(
-        error.response?.data?.error ||
-          "Não foi possível buscar os valores na Machine Pay.",
-      );
-    } finally {
-      setConsultandoMachinePay(false);
-    }
-  };
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      consultarMachinePay();
-    }, 350);
-
-    return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [maquinaSelecionada, mesReferencia, registrarTotalLoja]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const periodoSelecionado = obterPeriodoDoMes(mesReferencia);
 
-    // Garantir que campos obrigatórios estejam preenchidos corretamente
+    // Garantir que campos obrigatÃ³rios estejam preenchidos corretamente
     if (!lojaSelecionada || !periodoSelecionado) {
-      alert("Preencha todos os campos obrigatórios: loja e mês de fechamento.");
+      alert("Preencha todos os campos obrigatÃ³rios: loja e mÃªs de fechamento.");
       return;
     }
 
@@ -156,17 +106,17 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
     const taxaMediaNumero = parseLocaleNumber(percentualTaxaCartaoMedia);
 
     if (valorDinheiro !== "" && dinheiroNumero === null) {
-      alert("Valor de dinheiro inválido.");
+      alert("Valor de dinheiro invÃ¡lido.");
       return;
     }
 
     if (valorCartaoPix !== "" && cartaoPixNumero === null) {
-      alert("Valor de cartão/pix inválido.");
+      alert("Valor de cartÃ£o/pix invÃ¡lido.");
       return;
     }
 
     if (percentualTaxaCartaoMedia !== "" && taxaMediaNumero === null) {
-      alert("Taxa média de cartão inválida.");
+      alert("Taxa mÃ©dia de cartÃ£o invÃ¡lida.");
       return;
     }
 
@@ -178,7 +128,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       : [];
 
     if (gastosNormalizados.some((gasto) => gasto.valor === null)) {
-      alert("Preencha os valores dos gastos variáveis corretamente.");
+      alert("Preencha os valores dos gastos variÃ¡veis corretamente.");
       return;
     }
 
@@ -212,7 +162,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
         maxHeight: "90vh",
       }}
     >
-      {/* Botão Voltar no topo à esquerda */}
+      {/* BotÃ£o Voltar no topo Ã  esquerda */}
       <button
         type="button"
         onClick={() => window.history.back()}
@@ -230,20 +180,20 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
           cursor: "pointer",
         }}
       >
-        ← Voltar
+        â† Voltar
       </button>
-      {/* Pelúcia decorativa topo */}
+      {/* PelÃºcia decorativa topo */}
       <div style={{ position: "absolute", left: -38, top: -38 }}>
         <img
           src="/public/pelucia-urso.png"
-          alt="Pelúcia"
+          alt="PelÃºcia"
           style={{ width: 64, height: 64 }}
         />
       </div>
       <div style={{ position: "absolute", right: -38, top: -38 }}>
         <img
           src="/public/pelucia-coelho.png"
-          alt="Pelúcia"
+          alt="PelÃºcia"
           style={{ width: 64, height: 64 }}
         />
       </div>
@@ -257,11 +207,11 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
         }}
       >
         <span role="img" aria-label="dinheiro" style={{ marginRight: 8 }}>
-          💰
+          ðŸ’°
         </span>
         Registrar Dinheiro
       </h2>
-      {/* Gastos Variáveis - só aparece se registrarTotalLoja estiver marcado */}
+      {/* Gastos VariÃ¡veis - sÃ³ aparece se registrarTotalLoja estiver marcado */}
       {registrarTotalLoja && (
         <div
           style={{
@@ -281,7 +231,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
             }}
           >
             <label style={{ fontWeight: 600, color: "#a67c52", fontSize: 17 }}>
-              Gastos Variáveis:
+              Gastos VariÃ¡veis:
             </label>
             <button
               type="button"
@@ -363,7 +313,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
               </div>
               <div style={{ flex: 2, minWidth: 120 }}>
                 <label style={{ fontSize: 14, color: "#a67c52" }}>
-                  Observação
+                  ObservaÃ§Ã£o
                 </label>
                 <input
                   type="text"
@@ -448,11 +398,11 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
           htmlFor="registrarTotalLoja"
           style={{ fontSize: 15, color: "#a67c52" }}
         >
-          Registrar valor total da loja (não selecionar máquina)
+          Registrar valor total da loja (nÃ£o selecionar mÃ¡quina)
         </label>
       </div>
       <div style={{ marginBottom: 18 }}>
-        <label style={{ fontWeight: 600, color: "#a67c52" }}>Máquina:</label>
+        <label style={{ fontWeight: 600, color: "#a67c52" }}>MÃ¡quina:</label>
         <select
           value={maquinaSelecionada}
           onChange={(e) => setMaquinaSelecionada(e.target.value)}
@@ -470,12 +420,12 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
           }}
           disabled={registrarTotalLoja}
         >
-          <option value="">Selecione a máquina</option>
+          <option value="">Selecione a mÃ¡quina</option>
           {maquinas &&
             (() => {
               // Encontrar a loja selecionada pelo id
               const lojaObj = lojas?.find((l) => l.id === lojaSelecionada);
-              // Se for Agarramais Aeroporto, mostrar todas as máquinas da loja
+              // Se for Agarramais Aeroporto, mostrar todas as mÃ¡quinas da loja
               if (
                 lojaObj &&
                 lojaObj.nome &&
@@ -489,7 +439,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
                     </option>
                   ));
               } else {
-                // Lógica padrão: só takeball e poltrona
+                // LÃ³gica padrÃ£o: sÃ³ takeball e poltrona
                 return maquinas
                   .filter(
                     (m) =>
@@ -511,7 +461,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>Fechamento:</label>
         <div style={{ marginTop: 6 }}>
-          <label style={{ fontSize: 14, color: "#a67c52" }}>Mês</label>
+          <label style={{ fontSize: 14, color: "#a67c52" }}>MÃªs</label>
           <input
             type="month"
             value={mesReferencia}
@@ -529,50 +479,6 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
             }}
           />
         </div>
-        {!registrarTotalLoja && maquinaSelecionada && (
-          <div
-            style={{
-              marginTop: 10,
-              padding: "10px 12px",
-              borderRadius: 8,
-              background: erroMachinePay ? "#fff0f0" : "#fffbe6",
-              border: "1px solid #e2cfa3",
-              color: "#a67c52",
-              fontSize: 14,
-            }}
-          >
-            {consultandoMachinePay && "Buscando valores na Machine Pay..."}
-            {!consultandoMachinePay && erroMachinePay && (
-              <>
-                <div>{erroMachinePay}</div>
-                <button
-                  type="button"
-                  onClick={consultarMachinePay}
-                  style={{
-                    marginTop: 8,
-                    border: "none",
-                    borderRadius: 6,
-                    padding: "6px 10px",
-                    background: "#e2cfa3",
-                    color: "#a67c52",
-                    cursor: "pointer",
-                    fontWeight: 600,
-                  }}
-                >
-                  Tentar novamente
-                </button>
-              </>
-            )}
-            {!consultandoMachinePay && resumoMachinePay && (
-              <div>
-                Machine Pay: Bruto com Taxas MP R${" "}
-                {resumoMachinePay.brutoComTaxasMp.toFixed(2)} · Pix R${" "}
-                {resumoMachinePay.pix.toFixed(2)} · Cartão R${" "}
-                {resumoMachinePay.cartao.toFixed(2)}
-              </div>
-            )}
-          </div>
-        )}
       </div>
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>
@@ -599,7 +505,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       </div>
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>
-          Cartão / Pix (R$):
+          CartÃ£o / Pix (R$):
         </label>
         <input
           type="text"
@@ -622,7 +528,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       </div>
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>
-          Taxa média de cartão (%):
+          Taxa mÃ©dia de cartÃ£o (%):
         </label>
         <input
           type="text"
@@ -645,7 +551,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       </div>
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>
-          Observações:
+          ObservaÃ§Ãµes:
         </label>
         <textarea
           value={observacoes}
@@ -676,12 +582,12 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
         }}
       >
         <ul style={{ paddingLeft: 18, margin: 0 }}>
-          <li>Se marcar valor total da loja, não selecione máquina.</li>
+          <li>Se marcar valor total da loja, nÃ£o selecione mÃ¡quina.</li>
           <li>
-            O lançamento do dinheiro de cada máquina não soma no dinheiro total
+            O lanÃ§amento do dinheiro de cada mÃ¡quina nÃ£o soma no dinheiro total
             da loja.
           </li>
-          <li>O dinheiro das fichas não soma mais no valor inteiro da loja.</li>
+          <li>O dinheiro das fichas nÃ£o soma mais no valor inteiro da loja.</li>
         </ul>
       </div>
       <button
@@ -700,8 +606,8 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
           marginTop: 8,
         }}
       >
-        <span role="img" aria-label="pelúcia" style={{ marginRight: 8 }}>
-          🧸
+        <span role="img" aria-label="pelÃºcia" style={{ marginRight: 8 }}>
+          ðŸ§¸
         </span>
         Registrar
       </button>
@@ -710,3 +616,5 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
 };
 
 export default RegistrarDinheiro;
+
+

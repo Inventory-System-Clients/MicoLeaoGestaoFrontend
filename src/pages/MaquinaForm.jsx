@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../services/api";
 import { Navbar } from "../components/Navbar";
@@ -11,28 +11,10 @@ export function MaquinaForm() {
   const navigate = useNavigate();
   const isEdit = !!id;
 
-  const [buscandoUsr, setBuscandoUsr] = useState(false);
-
-  const autoDescobrirUsr = async (posId) => {
-    if (!posId?.trim()) return;
-    try {
-      setBuscandoUsr(true);
-      const res = await api.get(`/machine-pay/descobrir-usr/${posId.trim()}`);
-      if (res.data?.usrId) {
-        setFormData((prev) => ({ ...prev, machinePayUsrId: res.data.usrId }));
-      }
-    } catch {
-      // silencioso — usr fica vazio, status ainda funciona via fallback do admin
-    } finally {
-      setBuscandoUsr(false);
-    }
-  };
 
   const [formData, setFormData] = useState({
     codigo: "",
     nome: "",
-    machinePayPosId: "",
-    machinePayUsrId: "",
     loja_id: "",
     tipo: "",
     capacidadePadrao: "",
@@ -83,8 +65,6 @@ export function MaquinaForm() {
       setFormData({
         codigo: response.data.codigo || "",
         nome: response.data.nome || "",
-        machinePayPosId: response.data.machinePayPosId || "",
-        machinePayUsrId: response.data.machinePayUsrId || "",
         loja_id: response.data.lojaId ? String(response.data.lojaId) : "",
         tipo: response.data.tipo || "",
         capacidadePadrao: response.data.capacidadePadrao || "",
@@ -101,7 +81,7 @@ export function MaquinaForm() {
       });
     } catch (error) {
       setError(
-        "Erro ao carregar máquina: " +
+        "Erro ao carregar mÃ¡quina: " +
           (error.response?.data?.error || error.message)
       );
     } finally {
@@ -124,7 +104,7 @@ export function MaquinaForm() {
     setLoading(true);
 
     try {
-      // Validação adicional
+      // ValidaÃ§Ã£o adicional
       console.log("FormData completo:", formData); // Debug
       console.log(
         "loja_id:",
@@ -140,7 +120,7 @@ export function MaquinaForm() {
       }
 
       if (!formData.codigo || formData.codigo.trim() === "") {
-        setError("Por favor, informe o código da máquina");
+        setError("Por favor, informe o cÃ³digo da mÃ¡quina");
         setLoading(false);
         return;
       }
@@ -148,8 +128,6 @@ export function MaquinaForm() {
       const data = {
         codigo: formData.codigo.trim(),
         nome: formData.nome.trim(),
-        machinePayPosId: formData.machinePayPosId?.trim() || null,
-        machinePayUsrId: formData.machinePayUsrId?.trim() || null,
         lojaId: formData.loja_id,
         tipo: formData.tipo?.trim() || null,
         capacidadePadrao: parseInt(formData.capacidadePadrao, 10) || 0,
@@ -173,15 +151,15 @@ export function MaquinaForm() {
 
       if (isEdit) {
         await api.put(`/maquinas/${id}`, data);
-        setSuccess("Máquina atualizada com sucesso!");
+        setSuccess("MÃ¡quina atualizada com sucesso!");
       } else {
         await api.post("/maquinas", data);
-        setSuccess("Máquina criada com sucesso!");
+        setSuccess("MÃ¡quina criada com sucesso!");
       }
 
       setTimeout(() => navigate("/maquinas"), 1500);
     } catch (error) {
-      setError(error.response?.data?.error || "Erro ao salvar máquina");
+      setError(error.response?.data?.error || "Erro ao salvar mÃ¡quina");
     } finally {
       setLoading(false);
     }
@@ -195,13 +173,13 @@ export function MaquinaForm() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <PageHeader
-          title={isEdit ? "Editar Máquina" : "Nova Máquina"}
+          title={isEdit ? "Editar MÃ¡quina" : "Nova MÃ¡quina"}
           subtitle={
             isEdit
-              ? "Atualize as informações da máquina"
-              : "Cadastre uma nova máquina no sistema"
+              ? "Atualize as informaÃ§Ãµes da mÃ¡quina"
+              : "Cadastre uma nova mÃ¡quina no sistema"
           }
-          icon="🎰"
+          icon="ðŸŽ°"
         />
 
         {error && (
@@ -211,7 +189,7 @@ export function MaquinaForm() {
 
         <div className="card-gradient">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Informações Básicas */}
+            {/* InformaÃ§Ãµes BÃ¡sicas */}
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <svg
@@ -225,13 +203,13 @@ export function MaquinaForm() {
                     clipRule="evenodd"
                   />
                 </svg>
-                Informações Básicas
+                InformaÃ§Ãµes BÃ¡sicas
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Código da Máquina *
+                    CÃ³digo da MÃ¡quina *
                   </label>
                   <input
                     type="text"
@@ -257,66 +235,9 @@ export function MaquinaForm() {
                     value={formData.nome}
                     onChange={handleChange}
                     className="input-field"
-                    placeholder="Ex: Máquina Principal"
+                    placeholder="Ex: MÃ¡quina Principal"
                     required
                   />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ID da Machine Pay
-                  </label>
-                  <input
-                    type="text"
-                    name="machinePayPosId"
-                    value={formData.machinePayPosId}
-                    onChange={handleChange}
-                    onBlur={(e) => {
-                      if (e.target.value && !formData.machinePayUsrId) {
-                        autoDescobrirUsr(e.target.value);
-                      }
-                    }}
-                    className="input-field"
-                    placeholder="Ex: 102246469"
-                    inputMode="numeric"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    POS ID usado para buscar Pix e cartão automaticamente. O Usr ID será preenchido automaticamente.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Usr ID Machine Pay
-                    {buscandoUsr && (
-                      <span className="ml-2 text-xs text-blue-500 font-normal">
-                        Descobrindo automaticamente...
-                      </span>
-                    )}
-                    {!buscandoUsr && formData.machinePayUsrId && (
-                      <span className="ml-2 text-xs text-emerald-600 font-normal">
-                        ✓ Preenchido
-                      </span>
-                    )}
-                  </label>
-                  <div className="flex gap-2 items-center">
-                    <div className="input-field flex-1 bg-gray-50 text-gray-600 select-none cursor-default min-h-10.5 flex items-center">
-                      {buscandoUsr
-                        ? "Descobrindo..."
-                        : formData.machinePayUsrId || "Sera preenchido ao salvar o POS ID"}
-                    </div>
-                    <button
-                      type="button"
-                      className="btn-secondary text-sm px-3 whitespace-nowrap"
-                      disabled={!formData.machinePayPosId || buscandoUsr}
-                      onClick={() => autoDescobrirUsr(formData.machinePayPosId)}
-                    >
-                      {buscandoUsr ? "..." : "Atualizar"}
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Preenchido automaticamente ao sair do campo POS ID.
-                  </p>
                 </div>
 
                 <div>
@@ -349,14 +270,14 @@ export function MaquinaForm() {
                       className="w-5 h-5 text-primary rounded focus:ring-2 focus:ring-primary"
                     />
                     <span className="text-sm font-semibold text-gray-700">
-                      Máquina Ativa
+                      MÃ¡quina Ativa
                     </span>
                   </label>
                 </div>
               </div>
             </div>
 
-            {/* Configurações */}
+            {/* ConfiguraÃ§Ãµes */}
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <svg
@@ -366,13 +287,13 @@ export function MaquinaForm() {
                 >
                   <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
                 </svg>
-                Configurações
+                ConfiguraÃ§Ãµes
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Tipo de Máquina
+                    Tipo de MÃ¡quina
                   </label>
                   <input
                     type="text"
@@ -383,13 +304,13 @@ export function MaquinaForm() {
                     placeholder="Ex: Garra, Empurrador, etc."
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Tipo ou modelo da máquina
+                    Tipo ou modelo da mÃ¡quina
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Capacidade Padrão *
+                    Capacidade PadrÃ£o *
                   </label>
                   <input
                     type="number"
@@ -402,7 +323,7 @@ export function MaquinaForm() {
                     required
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Capacidade máxima de produtos
+                    Capacidade mÃ¡xima de produtos
                   </p>
                 </div>
 
@@ -427,7 +348,7 @@ export function MaquinaForm() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    🎫 Fichas para Jogar
+                    ðŸŽ« Fichas para Jogar
                   </label>
                   <input
                     type="number"
@@ -439,13 +360,13 @@ export function MaquinaForm() {
                     min="1"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Quantas fichas são necessárias para liberar uma jogada
+                    Quantas fichas sÃ£o necessÃ¡rias para liberar uma jogada
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    💪 Força Forte (%)
+                    ðŸ’ª ForÃ§a Forte (%)
                   </label>
                   <input
                     type="number"
@@ -477,13 +398,13 @@ export function MaquinaForm() {
                     max="100"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Parâmetro de força forte da garra (0-100%)
+                    ParÃ¢metro de forÃ§a forte da garra (0-100%)
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    🤏 Força Fraca (%)
+                    ðŸ¤ ForÃ§a Fraca (%)
                   </label>
                   <input
                     type="number"
@@ -496,13 +417,13 @@ export function MaquinaForm() {
                     max="100"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Parâmetro de força fraca da garra (0-100%)
+                    ParÃ¢metro de forÃ§a fraca da garra (0-100%)
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    ⭐ Força Premium (%)
+                    â­ ForÃ§a Premium (%)
                   </label>
                   <input
                     type="number"
@@ -515,13 +436,13 @@ export function MaquinaForm() {
                     max="100"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Parâmetro de força premium da garra (0-100%)
+                    ParÃ¢metro de forÃ§a premium da garra (0-100%)
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    🎮 Jogadas para Força Premium
+                    ðŸŽ® Jogadas para ForÃ§a Premium
                   </label>
                   <input
                     type="number"
@@ -533,7 +454,7 @@ export function MaquinaForm() {
                     min="1"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Quantidade de jogadas com força premium
+                    Quantidade de jogadas com forÃ§a premium
                   </p>
                 </div>
 
@@ -552,13 +473,13 @@ export function MaquinaForm() {
                     max="100"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Percentual mínimo para alerta (padrão: 20%)
+                    Percentual mÃ­nimo para alerta (padrÃ£o: 20%)
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Informações Adicionais */}
+            {/* InformaÃ§Ãµes Adicionais */}
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <svg
@@ -572,13 +493,13 @@ export function MaquinaForm() {
                     clipRule="evenodd"
                   />
                 </svg>
-                Localização
+                LocalizaÃ§Ã£o
               </h3>
 
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Localização na Loja
+                    LocalizaÃ§Ã£o na Loja
                   </label>
                   <textarea
                     name="localizacao"
@@ -586,16 +507,16 @@ export function MaquinaForm() {
                     onChange={handleChange}
                     className="input-field"
                     rows="3"
-                    placeholder="Ex: Entrada principal, lado direito próximo ao balcão..."
+                    placeholder="Ex: Entrada principal, lado direito prÃ³ximo ao balcÃ£o..."
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Descrição da localização da máquina na loja
+                    DescriÃ§Ã£o da localizaÃ§Ã£o da mÃ¡quina na loja
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Botões */}
+            {/* BotÃµes */}
             <div className="flex gap-4 justify-end pt-6 border-t border-gray-200">
               <button
                 type="button"
@@ -644,7 +565,7 @@ export function MaquinaForm() {
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
-                    {isEdit ? "Atualizar Máquina" : "Criar Máquina"}
+                    {isEdit ? "Atualizar MÃ¡quina" : "Criar MÃ¡quina"}
                   </span>
                 )}
               </button>
@@ -657,3 +578,4 @@ export function MaquinaForm() {
     </div>
   );
 }
+

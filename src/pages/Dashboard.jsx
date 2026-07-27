@@ -26,7 +26,6 @@ export function Dashboard() {
   const [maquinas, setMaquinas] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [alertasBomDesempenho, setAlertasBomDesempenho] = useState([]);
-  const [machinePayTotal, setMachinePayTotal] = useState(null);
   // Estado para modal de movimentaÃ§Ã£o de estoque de loja
   const [movimentacaoLojaId, setMovimentacaoLojaId] = useState("");
   const [movimentacaoEnviando, setMovimentacaoEnviando] = useState(false);
@@ -805,7 +804,6 @@ export function Dashboard() {
           diaComparacao,
           inicioMesAtual: formatarDataParametro(inicioMesAtual),
           fimMesAtual: formatarDataParametro(hoje),
-          fimMesMachinePay: formatarDataParametro(fimMesAtual),
           inicioMesAnterior: formatarDataParametro(inicioMesAnterior),
           fimMesAnterior: formatarDataParametro(fimMesAnterior),
           nomeMesAnterior: inicioMesAnterior.toLocaleDateString("pt-BR", {
@@ -858,28 +856,6 @@ export function Dashboard() {
             return { data: null };
           }),
           api
-            .get("/registro-dinheiro/machine-pay-total", {
-              params: {
-                inicio: periodoComparacaoMensal.inicioMesAtual,
-                fim: `${periodoComparacaoMensal.fimMesMachinePay}T23:59`,
-              },
-            })
-            .catch((err) => {
-              console.error(
-                "Erro ao carregar total Machine Pay do mÃªs atual:",
-                err.message,
-              );
-              return {
-                data: {
-                  totalBrutoComTaxasMp: 0,
-                  totalPix: 0,
-                  totalCartao: 0,
-                  totalLiquido: 0,
-                  maquinaCount: 0,
-                },
-              };
-            }),
-          api
             .get("/gastos-variaveis", {
               params: {
                 dataInicio: periodoComparacaoMensal.inicioMesAtual,
@@ -903,7 +879,6 @@ export function Dashboard() {
         alertasRes,
         alertasBomDesempenhoRes,
         balancoRes,
-        machinePayTotalRes,
         gastoVariavelMesRes,
         lojasRes,
         maquinasRes,
@@ -919,7 +894,6 @@ export function Dashboard() {
           alertasRes,
           alertasBomDesempenhoRes,
           balancoRes,
-          machinePayTotalRes,
           gastoVariavelMesRes,
           lojasRes,
           maquinasRes,
@@ -983,16 +957,6 @@ export function Dashboard() {
       setMaquinas(maquinasRes.data || []);
       setProdutos(produtosRes.data || []);
       setAlertasBomDesempenho(alertasBomDesempenhoRes.data?.alertas || []);
-      setMachinePayTotal(
-        machinePayTotalRes?.data || {
-          totalBrutoComTaxasMp: 0,
-          totalPix: 0,
-          totalCartao: 0,
-          totalLiquido: 0,
-          maquinaCount: 0,
-        },
-      );
-
       // Carregar alertas de estoque de lojas (para todos os usuÃ¡rios)
       if (lojasRes.data && lojasRes.data.length > 0) {
         carregarAlertasEstoqueLoja(lojasRes.data);
@@ -1009,24 +973,14 @@ export function Dashboard() {
       setLojas([]);
       setMaquinas([]);
       setAlertasBomDesempenho([]);
-      setMachinePayTotal({
-        totalBrutoComTaxasMp: 0,
-        totalPix: 0,
-        totalCartao: 0,
-        totalLiquido: 0,
-        maquinaCount: 0,
-      });
     }
   }, [usuario]);
 
   useEffect(() => {
     carregarDados();
-    const intervaloMachinePay = setInterval(
-      carregarDados,
-      30 * 60 * 1000,
-    );
+    const intervaloDashboard = setInterval(carregarDados, 30 * 60 * 1000);
 
-    return () => clearInterval(intervaloMachinePay);
+    return () => clearInterval(intervaloDashboard);
   }, [carregarDados]);
 
   const carregarManutencoesPendentes = useCallback(async () => {
@@ -2516,40 +2470,6 @@ export function Dashboard() {
                   </p>
                   <p className="text-xs opacity-75 mt-1">
                     ðŸŽ PelÃºcias entregues
-                  </p>
-                </div>
-              </div>
-              {/* Machine Pay do MÃªs */}
-              <div className="stat-card bg-linear-to-br from-purple-500 to-indigo-600 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 lg:col-start-1 lg:row-start-2">
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium opacity-90">
-                      Machine Pay do MÃªs
-                    </h3>
-                    <svg
-                      className="w-8 h-8 opacity-80"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-                  <p className="text-3xl font-bold">
-                    R${" "}
-                    {machinePayTotal
-                      ? formatarMoeda(machinePayTotal.totalBrutoComTaxasMp)
-                      : "..."}
-                  </p>
-                  <p className="text-xs opacity-75 mt-1">
-                    {machinePayTotal
-                      ? `${machinePayTotal.maquinaCount || 0} mÃ¡quinas com ID MP`
-                      : "Carregando valores reais..."}
                   </p>
                 </div>
               </div>
