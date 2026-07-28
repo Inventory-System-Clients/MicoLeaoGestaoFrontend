@@ -846,13 +846,23 @@ export function Roteiros() {
         )}
 
         {isAdmin && mostrarFormularioCriacao && (
-          <form
-            onSubmit={criarRoteiro}
-            className="mb-6 rounded-lg border border-orange-100 bg-white p-5 shadow-sm"
-          >
-            <h2 className="mb-4 text-lg font-bold text-gray-900">
-              Criar roteiro
-            </h2>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+            <form
+              onSubmit={criarRoteiro}
+              className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg border border-orange-100 bg-white p-5 shadow-2xl"
+            >
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-bold text-gray-900">
+                  Criar roteiro
+                </h2>
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                  onClick={() => setMostrarFormularioCriacao(false)}
+                >
+                  Fechar
+                </button>
+              </div>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
@@ -898,15 +908,6 @@ export function Roteiros() {
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="flex items-end">
-                <button
-                  type="submit"
-                  className="btn-primary w-full"
-                  disabled={salvando}
-                >
-                  {salvando ? "Salvando..." : "Criar roteiro"}
-                </button>
               </div>
             </div>
 
@@ -982,7 +983,25 @@ export function Roteiros() {
                 </div>
               )}
             </div>
-          </form>
+              <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setMostrarFormularioCriacao(false)}
+                  disabled={salvando}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={salvando}
+                >
+                  {salvando ? "Salvando..." : "Criar roteiro"}
+                </button>
+              </div>
+            </form>
+          </div>
         )}
 
         <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
