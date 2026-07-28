@@ -45,9 +45,18 @@ export default function ManutencaoPage() {
   const [alertasMovimentacao, setAlertasMovimentacao] = useState([]);
   const [historicoMaquina, setHistoricoMaquina] = useState(null);
   const [alertaRecorrencia, setAlertaRecorrencia] = useState(null);
+  const [pecas, setPecas] = useState([]);
+  const [meuEstoquePecas, setMeuEstoquePecas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  const [usoPecaAbertoId, setUsoPecaAbertoId] = useState(null);
+  const [formUsoPeca, setFormUsoPeca] = useState({
+    pecaId: "",
+    quantidade: "",
+    observacao: "",
+  });
 
   const [form, setForm] = useState({
     titulo: "",
@@ -102,6 +111,20 @@ export default function ManutencaoPage() {
       const manutencoesResponse = await api.get("/manutencoes", { params });
       const manutencoesData = manutencoesResponse.data;
       setManutencoes(Array.isArray(manutencoesData) ? manutencoesData : []);
+
+      const pecasResponse = await api.get("/pecas");
+      const pecasData = pecasResponse.data;
+      setPecas(Array.isArray(pecasData) ? pecasData : []);
+
+      if (usuario?.role === "FUNCIONARIO") {
+        const estoquePecasResponse = await api.get("/pecas/estoque-funcionario");
+        const estoquePecasData = estoquePecasResponse.data;
+        setMeuEstoquePecas(
+          Array.isArray(estoquePecasData) ? estoquePecasData : [],
+        );
+      } else {
+        setMeuEstoquePecas([]);
+      }
 
       if (usuario?.role === "ADMIN") {
         const [
@@ -269,6 +292,41 @@ export default function ManutencaoPage() {
     }
   };
 
+  const abrirUsoPeca = (manutencaoId) => {
+    setUsoPecaAbertoId((atual) => (atual === manutencaoId ? null : manutencaoId));
+    setFormUsoPeca({ pecaId: "", quantidade: "", observacao: "" });
+  };
+
+  const handleRegistrarUsoPeca = async (event, manutencaoId) => {
+    event.preventDefault();
+
+    const quantidadeNumerica = Number(formUsoPeca.quantidade);
+    if (!formUsoPeca.pecaId) {
+      setError("Selecione a peça utilizada.");
+      return;
+    }
+    if (!Number.isInteger(quantidadeNumerica) || quantidadeNumerica <= 0) {
+      setError("Informe uma quantidade válida (inteiro maior que zero).");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+      await api.post(`/manutencoes/${manutencaoId}/pecas`, {
+        pecaId: formUsoPeca.pecaId,
+        quantidade: quantidadeNumerica,
+        observacao: formUsoPeca.observacao || null,
+      });
+      setUsoPecaAbertoId(null);
+      await carregarDados();
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao registrar uso de peça");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleResolverAlerta = async (id) => {
     try {
       setError("");
@@ -332,6 +390,31 @@ export default function ManutencaoPage() {
             message={`⚠️ Manutenção recorrente detectada: ${alertaRecorrencia.join(" ")}`}
             onClose={() => setAlertaRecorrencia(null)}
           />
+        )}
+
+        {usuario?.role === "FUNCIONARIO" && (
+          <div className="card">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+              🔩 Meu estoque de peças
+            </h2>
+            {meuEstoquePecas.filter((item) => item.quantidade > 0).length ===
+            0 ? (
+              <p className="text-sm text-gray-600">
+                Você não tem peças em estoque no momento.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {meuEstoquePecas
+                  .filter((item) => item.quantidade > 0)
+                  .map((item) => (
+                    <Badge key={item.id} variant="info" size="sm">
+                      {item.peca?.nome}: {item.quantidade}{" "}
+                      {item.peca?.unidade || ""}
+                    </Badge>
+                  ))}
+              </div>
+            )}
+          </div>
         )}
 
         {isAdmin && (
@@ -771,13 +854,13 @@ export default function ManutencaoPage() {
           ) : (
             <div className="space-y-3">
               {manutencoesVisiveis.map((item) => {
-                const podeAtualizar =
-                  item.status !== "CONCLUIDA" &&
-                  (isAdmin ||
-                    item.responsavel?.id === usuario?.id ||
-                    (item.funcionariosPermitidos || []).some(
-                      (f) => f.id === usuario?.id,
-                    ));
+                const podePermitido =
+                  isAdmin ||
+                  item.responsavel?.id === usuario?.id ||
+                  (item.funcionariosPermitidos || []).some(
+                    (f) => f.id === usuario?.id,
+                  );
+                const podeAtualizar = item.status !== "CONCLUIDA" && podePermitido;
                 const statusInfo = obterStatusInfo(item.status);
 
                 return (
@@ -859,6 +942,114 @@ export default function ManutencaoPage() {
                         </select>
                       </div>
                     )}
+
+                    <div className="mt-3 border-t border-gray-100 pt-3">
+                      <p className="text-xs font-semibold text-gray-700">
+                        Peças usadas:
+                      </p>
+                      {(item.pecasUsadas || []).length === 0 ? (
+                        <p className="text-xs text-gray-500">
+                          Nenhuma peça registrada.
+                        </p>
+                      ) : (
+                        <ul className="mt-1 space-y-1 text-xs text-gray-600">
+                          {item.pecasUsadas.map((uso) => (
+                            <li key={uso.id}>
+                              {uso.quantidade} {uso.peca?.unidade || ""}{" "}
+                              {uso.peca?.nome} — usado por{" "}
+                              {uso.usuario?.nome || "-"} em{" "}
+                              {formatarDataHora(uso.dataUso)}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {podePermitido && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => abrirUsoPeca(item.id)}
+                            className="btn-secondary text-xs"
+                          >
+                            {usoPecaAbertoId === item.id
+                              ? "Cancelar"
+                              : "Registrar uso de peça"}
+                          </button>
+                        </div>
+                      )}
+
+                      {usoPecaAbertoId === item.id && (
+                        <form
+                          onSubmit={(e) => handleRegistrarUsoPeca(e, item.id)}
+                          className="mt-2 grid grid-cols-1 gap-2 rounded-lg bg-gray-50 p-3 md:grid-cols-3"
+                        >
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-gray-700">
+                              Peça
+                            </label>
+                            <select
+                              value={formUsoPeca.pecaId}
+                              onChange={(e) =>
+                                setFormUsoPeca((prev) => ({
+                                  ...prev,
+                                  pecaId: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                            >
+                              <option value="">Selecione...</option>
+                              {pecas.map((peca) => (
+                                <option key={peca.id} value={peca.id}>
+                                  {peca.nome}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-gray-700">
+                              Quantidade
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={formUsoPeca.quantidade}
+                              onChange={(e) =>
+                                setFormUsoPeca((prev) => ({
+                                  ...prev,
+                                  quantidade: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-gray-700">
+                              Observação
+                            </label>
+                            <input
+                              value={formUsoPeca.observacao}
+                              onChange={(e) =>
+                                setFormUsoPeca((prev) => ({
+                                  ...prev,
+                                  observacao: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                            />
+                          </div>
+                          <div className="md:col-span-3 flex justify-end">
+                            <button
+                              type="submit"
+                              disabled={submitting}
+                              className="btn-primary text-sm disabled:opacity-60"
+                            >
+                              {submitting ? "Salvando..." : "Confirmar uso"}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
                   </div>
                 );
               })}

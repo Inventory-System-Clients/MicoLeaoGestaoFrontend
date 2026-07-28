@@ -30,6 +30,7 @@ import { Desenvolvimento } from "./pages/Desenvolvimento";
 import { ModoSeguranca } from "./pages/ModoSeguranca";
 import ManutencaoPage from "./pages/ManutencaoPage";
 import FabricacaoPelucia from "./pages/FabricacaoPelucia";
+import Pecas from "./pages/Pecas";
 import { Graficos } from "./pages/Graficos";
 import { Relatorios } from "./pages/Relatorios";
 import { Sangrias } from "./pages/Sangrias";
@@ -206,6 +207,14 @@ function App() {
             element={
               <PrivateRoute adminOnly>
                 <FabricacaoPelucia />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/pecas"
+            element={
+              <PrivateRoute adminOnly>
+                <Pecas />
               </PrivateRoute>
             }
           />

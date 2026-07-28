@@ -43,6 +43,7 @@ export function Navbar() {
             label: "Fabricação de Pelúcia",
             icon: "🧵",
           },
+          { to: "/pecas", label: "Peças", icon: "🔧" },
           { to: "/maquinas", label: "Máquinas", icon: "🎮" },
           { to: "/lojas", label: "Lojas", icon: "🏪" },
           { to: "/produtos", label: "Produtos", icon: "🧸" },
