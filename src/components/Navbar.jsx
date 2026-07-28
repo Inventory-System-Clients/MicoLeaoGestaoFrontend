@@ -19,6 +19,7 @@ export function Navbar() {
   const closeMenu = () => setIsMenuOpen(false);
 
   const menuItems = [
+    { to: "/treinamentos", label: "Treinamentos", icon: "▶" },
     { to: "/roteiros", label: "Roteiros", icon: "🗺️" },
     { to: "/", label: "Dashboard", icon: "📊" },
     { to: "/movimentacoes", label: "Movimentações", icon: "📦" },
