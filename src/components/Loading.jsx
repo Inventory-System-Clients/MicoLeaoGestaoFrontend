@@ -1,3 +1,5 @@
+import mascoteMicoLeao from "../assets/MascoteMicoLeao.png";
+
 export function LoadingSpinner({ size = "md", message = "Carregando..." }) {
   const sizeClasses = {
     sm: "w-8 h-8",
@@ -8,12 +10,13 @@ export function LoadingSpinner({ size = "md", message = "Carregando..." }) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-12">
       <div className="relative">
-        {/* Outer ring */}
         <div className={`${sizeClasses[size]} spinner border-4`}></div>
-
-        {/* Inner decoration */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-2xl animate-bounce">🧸</div>
+          <img
+            src={mascoteMicoLeao}
+            alt="Mascote Mico Leao"
+            className="h-10 w-10 animate-bounce object-contain"
+          />
         </div>
       </div>
 
@@ -31,7 +34,11 @@ export function PageLoader() {
         <div className="relative inline-block mb-6">
           <div className="w-20 h-20 spinner border-4"></div>
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-3xl animate-bounce">🧸</div>
+            <img
+              src={mascoteMicoLeao}
+              alt="Mascote Mico Leao"
+              className="h-14 w-14 animate-bounce object-contain"
+            />
           </div>
         </div>
         <h2 className="text-2xl font-bold mb-2">
