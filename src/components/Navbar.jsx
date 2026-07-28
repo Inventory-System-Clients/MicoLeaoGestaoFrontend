@@ -35,6 +35,7 @@ export function Navbar() {
     { to: "/", label: "Dashboard", icon: "📊" },
     { to: "/movimentacoes", label: "Movimentações", icon: "📦" },
     { to: "/manutencao", label: "Manutenção", icon: "🛠️", alert: true },
+    { to: "/conferencia-lacre", label: "Conferência de Lacre", icon: "🔏" },
     ...(usuario?.role !== "FUNCIONARIO"
       ? [
           { to: "/estoque", label: "Estoque", icon: "📦" },
@@ -44,6 +45,7 @@ export function Navbar() {
             icon: "🧵",
           },
           { to: "/pecas", label: "Peças", icon: "🔧" },
+          { to: "/envios", label: "Envios", icon: "📦" },
           { to: "/maquinas", label: "Máquinas", icon: "🎮" },
           { to: "/lojas", label: "Lojas", icon: "🏪" },
           { to: "/produtos", label: "Produtos", icon: "🧸" },

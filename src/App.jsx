@@ -31,6 +31,8 @@ import { ModoSeguranca } from "./pages/ModoSeguranca";
 import ManutencaoPage from "./pages/ManutencaoPage";
 import FabricacaoPelucia from "./pages/FabricacaoPelucia";
 import Pecas from "./pages/Pecas";
+import Envios from "./pages/Envios";
+import ConferenciaLacre from "./pages/ConferenciaLacre";
 import { Graficos } from "./pages/Graficos";
 import { Relatorios } from "./pages/Relatorios";
 import { Sangrias } from "./pages/Sangrias";
@@ -215,6 +217,22 @@ function App() {
             element={
               <PrivateRoute adminOnly>
                 <Pecas />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/envios"
+            element={
+              <PrivateRoute adminOnly>
+                <Envios />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/conferencia-lacre"
+            element={
+              <PrivateRoute>
+                <ConferenciaLacre />
               </PrivateRoute>
             }
           />
