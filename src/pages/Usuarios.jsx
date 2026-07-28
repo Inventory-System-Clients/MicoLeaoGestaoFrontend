@@ -74,6 +74,10 @@ export function Usuarios() {
           </Link>
         </div>
 
+        <p className="mb-4 text-right text-xs font-semibold text-gray-500">
+          Rota de emergencia: /modo-seguranca
+        </p>
+
         <IAgarraAssistente />
 
         {/* Filtros */}

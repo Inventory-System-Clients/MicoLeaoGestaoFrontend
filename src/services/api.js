@@ -27,6 +27,13 @@ api.interceptors.response.use(
       localStorage.removeItem("usuario");
       window.location.href = "/login";
     }
+    if (error.response?.status === 423) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("usuario");
+      if (window.location.pathname !== "/modo-seguranca") {
+        window.location.href = "/login";
+      }
+    }
     return Promise.reject(error);
   }
 );

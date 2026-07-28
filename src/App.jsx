@@ -24,6 +24,7 @@ import { RoteiroExecucao } from "./pages/RoteiroExecucao";
 import { Treinamentos } from "./pages/Treinamentos";
 import { Fornecedores } from "./pages/Fornecedores";
 import { Desenvolvimento } from "./pages/Desenvolvimento";
+import { ModoSeguranca } from "./pages/ModoSeguranca";
 import ManutencaoPage from "./pages/ManutencaoPage";
 import { Graficos } from "./pages/Graficos";
 import { Relatorios } from "./pages/Relatorios";
@@ -47,6 +48,7 @@ function App() {
             }
           />
           <Route path="/login" element={<Login />} />
+          <Route path="/modo-seguranca" element={<ModoSeguranca />} />
           <Route
             path="/alertas"
             element={
