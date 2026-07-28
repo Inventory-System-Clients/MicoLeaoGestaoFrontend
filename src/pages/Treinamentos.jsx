@@ -24,7 +24,7 @@ const extrairYoutubeId = (link) => {
 
 export function Treinamentos() {
   const { usuario } = useAuth();
-  const isAdmin = usuario?.role === "ADMIN";
+  const isAdmin = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
   const [loading, setLoading] = useState(true);
   const [videos, setVideos] = useState([]);
   const [feedbacks, setFeedbacks] = useState([]);

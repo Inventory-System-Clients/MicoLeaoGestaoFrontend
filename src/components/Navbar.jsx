@@ -10,6 +10,12 @@ export function Navbar() {
 
   const temAlertaManutencao = alertasManutencaoCount > 0;
   const isActive = (path) => location.pathname === path;
+  const perfilLabel =
+    usuario?.role === "DESENVOLVEDOR"
+      ? "Desenvolvedor"
+      : usuario?.role === "ADMIN"
+        ? "Administrador"
+        : "Funcionário";
 
   const handleLogout = () => {
     logout();
@@ -19,6 +25,7 @@ export function Navbar() {
   const closeMenu = () => setIsMenuOpen(false);
 
   const menuItems = [
+    { to: "/desenvolvimento", label: "Desenvolvimento", icon: "</>" },
     { to: "/fornecedores", label: "Fornecedores", icon: "$" },
     { to: "/treinamentos", label: "Treinamentos", icon: "▶" },
     { to: "/roteiros", label: "Roteiros", icon: "🗺️" },
@@ -33,7 +40,7 @@ export function Navbar() {
           { to: "/produtos-a-comprar", label: "Produtos a Comprar", icon: "🛒" },
         ]
       : []),
-    ...(usuario?.role === "ADMIN"
+    ...(["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)
       ? [
           { to: "/analise-estoque", label: "Estoque Detalhado", icon: "📦" },
           { to: "/graficos", label: "Gráficos", icon: "📈" },
@@ -64,7 +71,7 @@ export function Navbar() {
                 {usuario?.nome}
               </div>
               <div className="text-xs text-accent-cream">
-                {usuario?.role === "ADMIN" ? "Administrador" : "Funcionário"}
+                {perfilLabel}
               </div>
             </div>
 
@@ -164,7 +171,7 @@ export function Navbar() {
                   {usuario?.nome}
                 </div>
                 <div className="mt-1 text-xs text-accent-cream">
-                  {usuario?.role === "ADMIN" ? "Administrador" : "Funcionário"}
+                  {perfilLabel}
                 </div>
               </div>
             </div>

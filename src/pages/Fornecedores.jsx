@@ -59,7 +59,7 @@ const limparPayload = (form) => ({
 
 export function Fornecedores() {
   const { usuario } = useAuth();
-  const isAdmin = usuario?.role === "ADMIN";
+  const isAdmin = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
   const [loading, setLoading] = useState(true);
   const [fornecedores, setFornecedores] = useState([]);
   const [comparacoes, setComparacoes] = useState([]);

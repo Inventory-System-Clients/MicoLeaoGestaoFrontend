@@ -27,7 +27,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const atualizarAlertasManutencaoCount = useCallback(async () => {
-    if (usuario?.role !== "ADMIN") return;
+    if (!["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)) return;
     try {
       const response = await api.get("/alertas-movimentacao");
       const dados = response.data;
@@ -38,7 +38,7 @@ export function AuthProvider({ children }) {
   }, [usuario?.role]);
 
   useEffect(() => {
-    if (usuario?.role !== "ADMIN") return;
+    if (!["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)) return;
 
     const buscar = async () => {
       try {
@@ -106,7 +106,7 @@ export function AuthProvider({ children }) {
     setUsuario(null);
   };
 
-  const isAdmin = () => usuario?.role === "ADMIN";
+  const isAdmin = () => ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
 
   const hasRole = (...roles) => roles.includes(usuario?.role);
 
@@ -122,7 +122,9 @@ export function AuthProvider({ children }) {
         hasRole,
         signed: !!usuario,
         alertasManutencaoCount:
-          usuario?.role === "ADMIN" ? alertasManutencaoCount : 0,
+          ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)
+            ? alertasManutencaoCount
+            : 0,
         atualizarAlertasManutencaoCount,
       }}
     >

@@ -93,7 +93,7 @@ export function Roteiros() {
   const navigate = useNavigate();
   const location = useLocation();
   const { usuario } = useAuth();
-  const isAdmin = usuario?.role === "ADMIN";
+  const isAdmin = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [roteiros, setRoteiros] = useState([]);

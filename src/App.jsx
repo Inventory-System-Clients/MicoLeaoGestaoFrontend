@@ -23,6 +23,7 @@ import { Roteiros } from "./pages/Roteiros";
 import { RoteiroExecucao } from "./pages/RoteiroExecucao";
 import { Treinamentos } from "./pages/Treinamentos";
 import { Fornecedores } from "./pages/Fornecedores";
+import { Desenvolvimento } from "./pages/Desenvolvimento";
 import ManutencaoPage from "./pages/ManutencaoPage";
 import { Graficos } from "./pages/Graficos";
 import { Relatorios } from "./pages/Relatorios";
@@ -230,6 +231,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Fornecedores />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/desenvolvimento"
+            element={
+              <PrivateRoute roles={["ADMIN", "DESENVOLVEDOR"]}>
+                <Desenvolvimento />
               </PrivateRoute>
             }
           />

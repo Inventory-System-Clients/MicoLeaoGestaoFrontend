@@ -105,6 +105,7 @@ export function Usuarios() {
               >
                 <option value="">Todos</option>
                 <option value="ADMIN">Administrador</option>
+                <option value="DESENVOLVEDOR">Desenvolvedor</option>
                 <option value="FUNCIONARIO">Funcionário</option>
               </select>
             </div>
@@ -173,11 +174,15 @@ export function Usuarios() {
                         className={`px-3 py-1 rounded-full text-xs font-semibold ${
                           usuario.role === "ADMIN"
                             ? "bg-primary/20 text-primary"
+                            : usuario.role === "DESENVOLVEDOR"
+                              ? "bg-purple-100 text-purple-800"
                             : "bg-blue-100 text-blue-800"
                         }`}
                       >
                         {usuario.role === "ADMIN"
                           ? "Admin"
+                          : usuario.role === "DESENVOLVEDOR"
+                            ? "Dev"
                           : "Funcionário"}
                       </span>
                     </td>
@@ -185,7 +190,7 @@ export function Usuarios() {
                       {usuario.telefone || "-"}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {usuario.role === "ADMIN" ? (
+                      {["ADMIN", "DESENVOLVEDOR"].includes(usuario.role) ? (
                         <span className="text-gray-400 italic">Todas</span>
                       ) : usuario.permissoesLojas?.length > 0 ? (
                         <span>{usuario.permissoesLojas.length} loja(s)</span>
