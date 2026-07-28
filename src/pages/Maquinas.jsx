@@ -165,6 +165,7 @@ export function Maquinas() {
       label: "Loja",
       render: (maquina) => {
         console.log("Buscando loja para máquina:", maquina.lojaId, "em", lojas);
+        if (!maquina.lojaId) return "Sem loja";
         const loja = lojas.find((l) => l.id === maquina.lojaId);
         return loja ? loja.nome : `N/A (ID: ${maquina.lojaId})`;
       },
@@ -235,7 +236,7 @@ export function Maquinas() {
           subtitle="Gerencie as máquinas de pelúcia das lojas"
           icon="🎰"
           action={
-            usuario?.role === "ADMIN"
+            ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)
               ? {
                   label: "Nova Máquina",
                   onClick: () => navigate("/maquinas/nova"),

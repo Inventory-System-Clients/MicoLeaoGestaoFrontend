@@ -2551,6 +2551,24 @@ export function Dashboard() {
               </p>
             </div>
           </div>
+          {/* Visão das Máquinas */}
+          <div
+            className="stat-card bg-linear-to-br from-emerald-600 to-teal-800 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
+            onClick={() => navigate("/visao-maquinas")}
+          >
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium opacity-90">
+                  Visão das Máquinas
+                </h3>
+                <span className="text-2xl">🎮</span>
+              </div>
+              <p className="text-3xl font-bold">{maquinas.length}</p>
+              <p className="text-xs opacity-75 mt-1">
+                Status, estoque e operação
+              </p>
+            </div>
+          </div>
           {/* Veículos */}
           <div
             className="stat-card bg-linear-to-br from-gray-700 to-gray-900 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"

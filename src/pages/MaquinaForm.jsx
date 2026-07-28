@@ -63,15 +63,18 @@ export function MaquinaForm() {
     try {
       setLoadingData(true);
       const response = await api.get(`/maquinas/${id}`);
+      const lojaIdAtual = response.data.lojaId ? String(response.data.lojaId) : "";
+      const statusAtual =
+        response.data.statusOperacao ||
+        response.data.status_operacao ||
+        (response.data.ativo === false ? "PARADA" : "EM_OPERACAO");
       setFormData({
         codigo: response.data.codigo || "",
         nome: response.data.nome || "",
-        loja_id: response.data.lojaId ? String(response.data.lojaId) : "",
+        loja_id: lojaIdAtual,
         tipo: response.data.tipo || "",
         statusOperacao:
-          response.data.statusOperacao ||
-          response.data.status_operacao ||
-          (response.data.ativo === false ? "PARADA" : "EM_OPERACAO"),
+          !lojaIdAtual && statusAtual === "EM_OPERACAO" ? "PARADA" : statusAtual,
         capacidadePadrao: response.data.capacidadePadrao || "",
         valorFicha: response.data.valorFicha || "",
         fichasNecessarias: response.data.fichasNecessarias || "",
@@ -96,9 +99,15 @@ export function MaquinaForm() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData({
+    const novosDados = {
       ...formData,
       [name]: type === "checkbox" ? checked : value,
+    };
+    if (name === "loja_id" && !value && novosDados.statusOperacao === "EM_OPERACAO") {
+      novosDados.statusOperacao = "PARADA";
+    }
+    setFormData({
+      ...novosDados,
     });
   };
 
@@ -118,8 +127,8 @@ export function MaquinaForm() {
         typeof formData.loja_id
       ); // Debug
 
-      if (!formData.loja_id || formData.loja_id === "") {
-        setError("Por favor, selecione uma loja");
+      if (!formData.loja_id && formData.statusOperacao === "EM_OPERACAO") {
+        setError("Máquina sem loja não pode ficar em operação.");
         setLoading(false);
         return;
       }
@@ -133,7 +142,7 @@ export function MaquinaForm() {
       const data = {
         codigo: formData.codigo.trim(),
         nome: formData.nome.trim(),
-        lojaId: formData.loja_id,
+        lojaId: formData.loja_id || null,
         tipo: formData.tipo?.trim() || null,
         statusOperacao: formData.statusOperacao || "EM_OPERACAO",
         capacidadePadrao: parseInt(formData.capacidadePadrao, 10) || 0,
@@ -245,16 +254,15 @@ export function MaquinaForm() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Loja *
+                    Loja
                   </label>
                   <select
                     name="loja_id"
                     value={formData.loja_id}
                     onChange={handleChange}
                     className="select-field"
-                    required
                   >
-                    <option value="">Selecione uma loja...</option>
+                    <option value="">Sem loja</option>
                     {lojas.map((loja) => (
                       <option key={loja.id} value={loja.id}>
                         {loja.nome}
@@ -274,7 +282,9 @@ export function MaquinaForm() {
                     className="select-field"
                     required
                   >
-                    <option value="EM_OPERACAO">Em operação</option>
+                    <option value="EM_OPERACAO" disabled={!formData.loja_id}>
+                      Em operação
+                    </option>
                     <option value="EM_MANUTENCAO">Em manutenção</option>
                     <option value="PRONTA_PARA_SAIDA">Pronta para saída</option>
                     <option value="PARADA">Parada</option>

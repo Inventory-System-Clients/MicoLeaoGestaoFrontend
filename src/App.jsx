@@ -12,6 +12,7 @@ import { Lojas } from "./pages/Lojas";
 import { LojaForm } from "./pages/LojaForm";
 import { LojaDetalhes } from "./pages/LojaDetalhes";
 import { VisaoLojas } from "./pages/VisaoLojas";
+import { VisaoMaquinas } from "./pages/VisaoMaquinas";
 import { Maquinas } from "./pages/Maquinas";
 import { MaquinaForm } from "./pages/MaquinaForm";
 import { MaquinaDetalhes } from "./pages/MaquinaDetalhes";
@@ -105,6 +106,14 @@ function App() {
             element={
               <PrivateRoute>
                 <VisaoLojas />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/visao-maquinas"
+            element={
+              <PrivateRoute>
+                <VisaoMaquinas />
               </PrivateRoute>
             }
           />
