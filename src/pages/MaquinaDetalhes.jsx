@@ -17,6 +17,22 @@ const statusMapa = {
   INATIVA: { label: "Inativa", variant: "danger" },
 };
 
+const statusManutencaoMapa = {
+  ABERTA: { label: "Aberta", variant: "warning" },
+  EM_ANDAMENTO: { label: "Em andamento", variant: "info" },
+  AGUARDANDO_PECA: { label: "Aguardando peça", variant: "danger" },
+  CONCLUIDA: { label: "Concluída", variant: "success" },
+};
+
+const tipoProblemaMapa = {
+  MECANICO: "Mecânico",
+  ELETRICO: "Elétrico",
+  SOFTWARE: "Software/Sistema",
+  LIMPEZA: "Limpeza/Higienização",
+  ESTRUTURAL: "Estrutural da loja",
+  OUTRO: "Outro",
+};
+
 const numero = (valor) => Number(valor || 0);
 
 const formatarDataHora = (valor) => {
@@ -64,6 +80,7 @@ export function MaquinaDetalhes() {
   const [maquina, setMaquina] = useState(null);
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [estoque, setEstoque] = useState(null);
+  const [historicoManutencao, setHistoricoManutencao] = useState(null);
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const [loading, setLoading] = useState(true);
@@ -79,15 +96,18 @@ export function MaquinaDetalhes() {
     try {
       setLoading(true);
       setFatalError("");
-      const [maquinaRes, movimentacoesRes, estoqueRes] = await Promise.all([
-        api.get(`/maquinas/${id}`),
-        api.get(`/movimentacoes?maquinaId=${id}&limite=200`),
-        api.get(`/maquinas/${id}/estoque`).catch(() => ({ data: null })),
-      ]);
+      const [maquinaRes, movimentacoesRes, estoqueRes, manutencaoRes] =
+        await Promise.all([
+          api.get(`/maquinas/${id}`),
+          api.get(`/movimentacoes?maquinaId=${id}&limite=200`),
+          api.get(`/maquinas/${id}/estoque`).catch(() => ({ data: null })),
+          api.get(`/manutencoes/maquina/${id}`).catch(() => ({ data: null })),
+        ]);
 
       setMaquina(maquinaRes.data);
       setMovimentacoes(movimentacoesRes.data || []);
       setEstoque(estoqueRes.data);
+      setHistoricoManutencao(manutencaoRes.data);
     } catch (err) {
       setFatalError(err.response?.data?.error || "Erro ao carregar máquina.");
     } finally {
@@ -370,6 +390,65 @@ export function MaquinaDetalhes() {
             <div className="mt-5 rounded-lg bg-slate-50 p-4">
               <p className="text-sm font-semibold text-gray-600">Localização</p>
               <p className="mt-1 text-gray-800">{maquina.localizacao}</p>
+            </div>
+          )}
+        </section>
+
+        <section className="mb-6 rounded-lg border border-orange-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-5 text-xl font-bold text-gray-900">
+            🛠️ Histórico de Manutenção
+          </h2>
+
+          {historicoManutencao?.recorrente && (
+            <div className="mb-4">
+              <AlertBox
+                type="warning"
+                message={`⚠️ Manutenção recorrente: ${historicoManutencao.recorrenciaMotivos.join(" ")}`}
+              />
+            </div>
+          )}
+
+          {!historicoManutencao?.manutencoes?.length ? (
+            <p className="text-sm text-gray-600">
+              Nenhuma manutenção registrada para esta máquina.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {historicoManutencao.manutencoes.map((item) => {
+                const statusInfo =
+                  statusManutencaoMapa[item.status] || {
+                    label: item.status,
+                    variant: "info",
+                  };
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-lg border border-gray-200 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-semibold text-gray-900">
+                        {item.titulo}
+                      </p>
+                      <Badge variant={statusInfo.variant} size="sm">
+                        {statusInfo.label}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-700">
+                      {item.descricao}
+                    </p>
+                    <div className="mt-2 space-y-1 text-xs text-gray-600">
+                      <p>
+                        Tipo de problema:{" "}
+                        {tipoProblemaMapa[item.tipoProblema] ||
+                          item.tipoProblema ||
+                          "-"}
+                      </p>
+                      <p>Responsável: {item.responsavel?.nome || "-"}</p>
+                      <p>Aberto em: {formatarDataHora(item.createdAt)}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>

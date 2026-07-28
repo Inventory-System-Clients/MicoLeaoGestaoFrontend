@@ -6,6 +6,31 @@ import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
 
+const TIPOS_PROBLEMA = [
+  { value: "MECANICO", label: "Mecânico" },
+  { value: "ELETRICO", label: "Elétrico" },
+  { value: "SOFTWARE", label: "Software/Sistema" },
+  { value: "LIMPEZA", label: "Limpeza/Higienização" },
+  { value: "ESTRUTURAL", label: "Estrutural da loja" },
+  { value: "OUTRO", label: "Outro" },
+];
+
+const STATUS_OPCOES = [
+  { value: "ABERTA", label: "Aberta", variant: "warning" },
+  { value: "EM_ANDAMENTO", label: "Em andamento", variant: "info" },
+  { value: "AGUARDANDO_PECA", label: "Aguardando peça", variant: "danger" },
+  { value: "CONCLUIDA", label: "Concluída", variant: "success" },
+];
+
+const obterStatusInfo = (status) =>
+  STATUS_OPCOES.find((opcao) => opcao.value === status) || {
+    label: status || "-",
+    variant: "info",
+  };
+
+const obterLabelTipoProblema = (tipo) =>
+  TIPOS_PROBLEMA.find((opcao) => opcao.value === tipo)?.label || tipo || "-";
+
 export default function ManutencaoPage() {
   const {
     usuario,
@@ -16,7 +41,10 @@ export default function ManutencaoPage() {
   const [funcionarios, setFuncionarios] = useState([]);
   const [usuariosFiltro, setUsuariosFiltro] = useState([]);
   const [lojas, setLojas] = useState([]);
+  const [maquinas, setMaquinas] = useState([]);
   const [alertasMovimentacao, setAlertasMovimentacao] = useState([]);
+  const [historicoMaquina, setHistoricoMaquina] = useState(null);
+  const [alertaRecorrencia, setAlertaRecorrencia] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -27,6 +55,10 @@ export default function ManutencaoPage() {
     funcionariosIds: [],
     custo: "",
     lojaId: "",
+    maquinaId: "",
+    responsavelId: "",
+    tipoProblema: "",
+    prazo: "",
   });
 
   const [filtros, setFiltros] = useState({
@@ -34,6 +66,7 @@ export default function ManutencaoPage() {
     dataInicio: "",
     dataFim: "",
     lojaId: "",
+    maquinaId: "",
     usuarioId: "",
   });
 
@@ -49,7 +82,7 @@ export default function ManutencaoPage() {
 
   const manutencoesVisiveis = useMemo(() => {
     if (isAdmin) return manutencoesOrdenadas;
-    return manutencoesOrdenadas.filter((item) => item.status !== "RESOLVIDA");
+    return manutencoesOrdenadas.filter((item) => item.status !== "CONCLUIDA");
   }, [isAdmin, manutencoesOrdenadas]);
 
   const carregarDados = useCallback(async () => {
@@ -62,6 +95,7 @@ export default function ManutencaoPage() {
         if (filtros.dataInicio) params.dataInicio = filtros.dataInicio;
         if (filtros.dataFim) params.dataFim = filtros.dataFim;
         if (filtros.lojaId) params.lojaId = filtros.lojaId;
+        if (filtros.maquinaId) params.maquinaId = filtros.maquinaId;
         if (filtros.usuarioId) params.usuarioId = filtros.usuarioId;
       }
 
@@ -73,27 +107,32 @@ export default function ManutencaoPage() {
         const [
           funcionariosResponse,
           lojasResponse,
+          maquinasResponse,
           usuariosResponse,
           alertasResponse,
         ] = await Promise.all([
           api.get("/manutencoes/funcionarios"),
           api.get("/lojas"),
+          api.get("/maquinas"),
           api.get("/usuarios"),
           api.get("/alertas-movimentacao"),
         ]);
         const funcionariosData = funcionariosResponse.data;
         const lojasData = lojasResponse.data;
+        const maquinasData = maquinasResponse.data;
         const usuariosData = usuariosResponse.data;
         const alertasData = alertasResponse.data;
         setFuncionarios(
           Array.isArray(funcionariosData) ? funcionariosData : [],
         );
         setLojas(Array.isArray(lojasData) ? lojasData : []);
+        setMaquinas(Array.isArray(maquinasData) ? maquinasData : []);
         setUsuariosFiltro(Array.isArray(usuariosData) ? usuariosData : []);
         setAlertasMovimentacao(Array.isArray(alertasData) ? alertasData : []);
       } else {
         setFuncionarios([]);
         setLojas([]);
+        setMaquinas([]);
         setUsuariosFiltro([]);
         setAlertasMovimentacao([]);
       }
@@ -109,11 +148,42 @@ export default function ManutencaoPage() {
     carregarDados();
   }, [authLoading, carregarDados]);
 
+  useEffect(() => {
+    if (!form.maquinaId) {
+      setHistoricoMaquina(null);
+      return undefined;
+    }
+
+    let cancelado = false;
+    api
+      .get(`/manutencoes/maquina/${form.maquinaId}`)
+      .then((response) => {
+        if (!cancelado) setHistoricoMaquina(response.data);
+      })
+      .catch(() => {
+        if (!cancelado) setHistoricoMaquina(null);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [form.maquinaId]);
+
   const handleSelectFuncionarios = (event) => {
     const ids = Array.from(event.target.selectedOptions).map(
       (opt) => opt.value,
     );
     setForm((prev) => ({ ...prev, funcionariosIds: ids }));
+  };
+
+  const handleSelectMaquina = (event) => {
+    const maquinaId = event.target.value;
+    const maquina = maquinas.find((item) => item.id === maquinaId);
+    setForm((prev) => ({
+      ...prev,
+      maquinaId,
+      lojaId: maquina ? maquina.lojaId || "" : prev.lojaId,
+    }));
   };
 
   const handleCriar = async (event) => {
@@ -142,22 +212,31 @@ export default function ManutencaoPage() {
       return;
     }
 
-    if (custoInformado && custoNumerico > 0 && !form.lojaId) {
-      setError("Selecione a loja para lançar o gasto variável.");
+    if (custoInformado && custoNumerico > 0 && !form.lojaId && !form.maquinaId) {
+      setError("Selecione a loja ou a máquina para lançar o gasto variável.");
       return;
     }
 
     try {
       setSubmitting(true);
       setError("");
+      setAlertaRecorrencia(null);
 
-      await api.post("/manutencoes", {
+      const response = await api.post("/manutencoes", {
         titulo: form.titulo.trim(),
         descricao: form.descricao.trim(),
         funcionariosIds: form.funcionariosIds,
         custo: custoInformado ? custoNumerico : null,
         lojaId: form.lojaId || null,
+        maquinaId: form.maquinaId || null,
+        responsavelId: form.responsavelId || null,
+        tipoProblema: form.tipoProblema || null,
+        prazo: form.prazo || null,
       });
+
+      if (response.data?.recorrente) {
+        setAlertaRecorrencia(response.data.recorrenciaMotivos || []);
+      }
 
       setForm({
         titulo: "",
@@ -165,6 +244,10 @@ export default function ManutencaoPage() {
         funcionariosIds: [],
         custo: "",
         lojaId: "",
+        maquinaId: "",
+        responsavelId: "",
+        tipoProblema: "",
+        prazo: "",
       });
       await carregarDados();
     } catch (err) {
@@ -174,13 +257,15 @@ export default function ManutencaoPage() {
     }
   };
 
-  const handleResolver = async (id) => {
+  const handleAtualizarStatus = async (id, novoStatus) => {
     try {
       setError("");
-      await api.patch(`/manutencoes/${id}/resolver`);
+      await api.patch(`/manutencoes/${id}/status`, { status: novoStatus });
       await carregarDados();
     } catch (err) {
-      setError(err.response?.data?.error || "Erro ao resolver manutenção");
+      setError(
+        err.response?.data?.error || "Erro ao atualizar status da manutenção",
+      );
     }
   };
 
@@ -207,6 +292,7 @@ export default function ManutencaoPage() {
       dataInicio: "",
       dataFim: "",
       lojaId: "",
+      maquinaId: "",
       usuarioId: "",
     });
   };
@@ -216,6 +302,13 @@ export default function ManutencaoPage() {
     const data = new Date(dataIso);
     if (Number.isNaN(data.getTime())) return "-";
     return data.toLocaleString("pt-BR");
+  };
+
+  const formatarData = (dataIso) => {
+    if (!dataIso) return "-";
+    const data = new Date(`${dataIso}T00:00:00`);
+    if (Number.isNaN(data.getTime())) return "-";
+    return data.toLocaleDateString("pt-BR");
   };
 
   return (
@@ -231,6 +324,14 @@ export default function ManutencaoPage() {
 
         {error && (
           <AlertBox type="error" message={error} onClose={() => setError("")} />
+        )}
+
+        {alertaRecorrencia && alertaRecorrencia.length > 0 && (
+          <AlertBox
+            type="warning"
+            message={`⚠️ Manutenção recorrente detectada: ${alertaRecorrencia.join(" ")}`}
+            onClose={() => setAlertaRecorrencia(null)}
+          />
         )}
 
         {isAdmin && (
@@ -311,7 +412,7 @@ export default function ManutencaoPage() {
 
               <div className="md:col-span-2">
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Descrição
+                  Problema relatado
                 </label>
                 <textarea
                   value={form.descricao}
@@ -319,7 +420,156 @@ export default function ManutencaoPage() {
                     setForm((prev) => ({ ...prev, descricao: e.target.value }))
                   }
                   className="min-h-28 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                  placeholder="Descreva o problema ou atividade de manutenção"
+                  placeholder="Descreva o problema relatado"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Máquina vinculada
+                </label>
+                <select
+                  value={form.maquinaId}
+                  onChange={handleSelectMaquina}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                >
+                  <option value="">Nenhuma (problema da loja)</option>
+                  {maquinas.map((maquina) => (
+                    <option key={maquina.id} value={maquina.id}>
+                      {maquina.codigo} {maquina.nome ? `- ${maquina.nome}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Loja
+                </label>
+                <select
+                  value={form.lojaId}
+                  disabled={Boolean(form.maquinaId)}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, lojaId: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 disabled:bg-gray-100"
+                >
+                  <option value="">Selecione...</option>
+                  {lojas.map((loja) => (
+                    <option key={loja.id} value={loja.id}>
+                      {loja.nome}
+                    </option>
+                  ))}
+                </select>
+                {form.maquinaId && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Preenchida automaticamente pela máquina selecionada.
+                  </p>
+                )}
+              </div>
+
+              {historicoMaquina && (
+                <div className="md:col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-sm font-semibold text-gray-800">
+                    Histórico desta máquina ({historicoMaquina.manutencoes.length})
+                  </p>
+                  {historicoMaquina.recorrente && (
+                    <p className="mt-1 text-xs font-medium text-amber-700">
+                      ⚠️ {historicoMaquina.recorrenciaMotivos.join(" ")}
+                    </p>
+                  )}
+                  {historicoMaquina.manutencoes.length === 0 ? (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Nenhuma manutenção anterior registrada.
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-1 text-xs text-gray-600">
+                      {historicoMaquina.manutencoes.slice(0, 5).map((item) => (
+                        <li key={item.id}>
+                          {formatarDataHora(item.createdAt)} —{" "}
+                          {obterLabelTipoProblema(item.tipoProblema)} —{" "}
+                          {obterStatusInfo(item.status).label} — {item.titulo}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Tipo de problema
+                </label>
+                <select
+                  value={form.tipoProblema}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      tipoProblema: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                >
+                  <option value="">Selecione...</option>
+                  {TIPOS_PROBLEMA.map((tipo) => (
+                    <option key={tipo.value} value={tipo.value}>
+                      {tipo.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Prazo / data de aviso
+                </label>
+                <input
+                  type="date"
+                  value={form.prazo}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, prazo: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Funcionário responsável
+                </label>
+                <select
+                  value={form.responsavelId}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      responsavelId: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                >
+                  <option value="">Selecione...</option>
+                  {funcionarios.map((funcionario) => (
+                    <option key={funcionario.id} value={funcionario.id}>
+                      {funcionario.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Custo da manutenção (R$)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.custo}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, custo: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                  placeholder="Ex: 150.00"
                 />
               </div>
 
@@ -342,43 +592,6 @@ export default function ManutencaoPage() {
                 <p className="mt-1 text-xs text-gray-500">
                   Use Ctrl para selecionar múltiplos.
                 </p>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Custo da manutenção (R$)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.custo}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, custo: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                  placeholder="Ex: 150.00"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Loja do gasto variável
-                </label>
-                <select
-                  value={form.lojaId}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, lojaId: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  <option value="">Selecione...</option>
-                  {lojas.map((loja) => (
-                    <option key={loja.id} value={loja.id}>
-                      {loja.nome}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
 
@@ -418,7 +631,7 @@ export default function ManutencaoPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-6">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Status
@@ -431,8 +644,11 @@ export default function ManutencaoPage() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
                 >
                   <option value="TODAS">Todas</option>
-                  <option value="PENDENTE">Pendentes</option>
-                  <option value="RESOLVIDA">Resolvidas</option>
+                  {STATUS_OPCOES.map((opcao) => (
+                    <option key={opcao.value} value={opcao.value}>
+                      {opcao.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -489,6 +705,29 @@ export default function ManutencaoPage() {
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Máquina
+                </label>
+                <select
+                  value={filtros.maquinaId}
+                  onChange={(e) =>
+                    setFiltros((prev) => ({
+                      ...prev,
+                      maquinaId: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                >
+                  <option value="">Todas</option>
+                  {maquinas.map((maquina) => (
+                    <option key={maquina.id} value={maquina.id}>
+                      {maquina.codigo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Usuário
                 </label>
                 <select
@@ -532,12 +771,14 @@ export default function ManutencaoPage() {
           ) : (
             <div className="space-y-3">
               {manutencoesVisiveis.map((item) => {
-                const podeResolver =
-                  item.status === "PENDENTE" &&
+                const podeAtualizar =
+                  item.status !== "CONCLUIDA" &&
                   (isAdmin ||
+                    item.responsavel?.id === usuario?.id ||
                     (item.funcionariosPermitidos || []).some(
                       (f) => f.id === usuario?.id,
                     ));
+                const statusInfo = obterStatusInfo(item.status);
 
                 return (
                   <div
@@ -548,13 +789,8 @@ export default function ManutencaoPage() {
                       <h3 className="text-base font-semibold text-gray-900">
                         {item.titulo}
                       </h3>
-                      <Badge
-                        variant={
-                          item.status === "RESOLVIDA" ? "success" : "warning"
-                        }
-                        size="sm"
-                      >
-                        {item.status}
+                      <Badge variant={statusInfo.variant} size="sm">
+                        {statusInfo.label}
                       </Badge>
                     </div>
 
@@ -563,6 +799,19 @@ export default function ManutencaoPage() {
                     </p>
 
                     <div className="mt-2 space-y-1 text-xs text-gray-600">
+                      <p>
+                        Máquina:{" "}
+                        {item.maquina
+                          ? `${item.maquina.codigo} ${item.maquina.nome || ""}`
+                          : "-"}
+                      </p>
+                      <p>Loja: {item.loja?.nome || "-"}</p>
+                      <p>
+                        Tipo de problema:{" "}
+                        {obterLabelTipoProblema(item.tipoProblema)}
+                      </p>
+                      <p>Responsável: {item.responsavel?.nome || "-"}</p>
+                      <p>Prazo: {formatarData(item.prazo)}</p>
                       <p>Criado por: {item.criadoPor?.nome || "-"}</p>
                       {isAdmin && (
                         <p>
@@ -572,7 +821,6 @@ export default function ManutencaoPage() {
                             : "-"}
                         </p>
                       )}
-                      <p>Loja: {item.loja?.nome || "-"}</p>
                       {isAdmin && (
                         <p>
                           Funcionários permitidos:{" "}
@@ -581,25 +829,34 @@ export default function ManutencaoPage() {
                             .join(", ") || "-"}
                         </p>
                       )}
-                      {isAdmin && item.status === "RESOLVIDA" && (
+                      {isAdmin && item.status === "CONCLUIDA" && (
                         <>
-                          <p>Resolvido por: {item.resolvidoPor?.nome || "-"}</p>
+                          <p>Concluído por: {item.resolvidoPor?.nome || "-"}</p>
                           <p>
-                            Resolvido em: {formatarDataHora(item.resolvidoEm)}
+                            Concluído em: {formatarDataHora(item.resolvidoEm)}
                           </p>
                         </>
                       )}
                     </div>
 
-                    {podeResolver && (
-                      <div className="mt-3">
-                        <button
-                          type="button"
-                          onClick={() => handleResolver(item.id)}
-                          className="btn-primary"
+                    {podeAtualizar && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <label className="text-xs font-medium text-gray-700">
+                          Atualizar status:
+                        </label>
+                        <select
+                          value={item.status}
+                          onChange={(e) =>
+                            handleAtualizarStatus(item.id, e.target.value)
+                          }
+                          className="rounded-lg border border-gray-300 px-2 py-1 text-sm outline-none focus:border-blue-500"
                         >
-                          Marcar como resolvido
-                        </button>
+                          {STATUS_OPCOES.map((opcao) => (
+                            <option key={opcao.value} value={opcao.value}>
+                              {opcao.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
                   </div>
