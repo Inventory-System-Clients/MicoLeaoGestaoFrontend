@@ -1,14 +1,17 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useAlertas } from "../contexts/AlertasContext";
 
 export function Navbar() {
   const { usuario, logout, alertasManutencaoCount } = useAuth();
+  const { totalGeral } = useAlertas();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const temAlertaManutencao = alertasManutencaoCount > 0;
+  const podeVerAlertas = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
   const isActive = (path) => location.pathname === path;
   const perfilLabel =
     usuario?.role === "DESENVOLVEDOR"
@@ -74,6 +77,26 @@ export function Navbar() {
                 {perfilLabel}
               </div>
             </div>
+
+            {podeVerAlertas && (
+              <button
+                type="button"
+                onClick={() => navigate("/alertas")}
+                className={`relative flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold shadow-lg transition-all duration-200 hover:-translate-y-0.5 sm:px-4 ${
+                  totalGeral > 0
+                    ? "animate-pulse bg-linear-to-r from-yellow-500 to-orange-600 text-white hover:from-yellow-600 hover:to-orange-700"
+                    : "bg-white/10 text-white hover:bg-white/15"
+                }`}
+              >
+                <span className="text-lg leading-none">🔔</span>
+                <span className="hidden sm:inline">Alertas</span>
+                {totalGeral > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-xs font-black text-white">
+                    {totalGeral > 99 ? "99+" : totalGeral}
+                  </span>
+                )}
+              </button>
+            )}
 
             <button
               type="button"

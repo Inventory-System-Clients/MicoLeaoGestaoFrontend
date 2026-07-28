@@ -294,7 +294,7 @@ export default function AlertAdmin() {
   const [loadingUsuarios, setLoadingUsuarios] = useState(false);
 
   useEffect(() => {
-    if (usuario?.role === "ADMIN") {
+    if (["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)) {
       carregarAlertas();
       carregarLojasEUsuarios();
     } else {
@@ -627,7 +627,7 @@ export default function AlertAdmin() {
     return <div className="p-8 text-center">Carregando alertas...</div>;
   }
 
-  if (usuario?.role !== "ADMIN") {
+  if (!["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)) {
     return null;
   }
 

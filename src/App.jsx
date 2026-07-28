@@ -2,6 +2,7 @@ import Veiculos from "./pages/Veiculos";
 import Alertas from "./pages/Alertas";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { AlertasProvider } from "./contexts/AlertasContext";
 import { PrivateRoute } from "./components/PrivateRoute";
 import { Login } from "./pages/Login";
 import { Registrar } from "./pages/Registrar";
@@ -38,8 +39,9 @@ import "./App.css";
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
+      <AlertasProvider>
+        <BrowserRouter>
+          <Routes>
           <Route
             path="/veiculos"
             element={
@@ -302,8 +304,9 @@ function App() {
             }
           />
           <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </BrowserRouter>
+          </Routes>
+        </BrowserRouter>
+      </AlertasProvider>
     </AuthProvider>
   );
 }
