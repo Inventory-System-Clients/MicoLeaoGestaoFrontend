@@ -37,6 +37,7 @@ export function Navbar() {
     { to: "/manutencao", label: "Manutenção", icon: "🛠️", alert: true },
     ...(usuario?.role !== "FUNCIONARIO"
       ? [
+          { to: "/estoque", label: "Estoque", icon: "📦" },
           { to: "/maquinas", label: "Máquinas", icon: "🎮" },
           { to: "/lojas", label: "Lojas", icon: "🏪" },
           { to: "/produtos", label: "Produtos", icon: "🧸" },

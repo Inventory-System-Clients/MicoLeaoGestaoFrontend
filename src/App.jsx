@@ -20,6 +20,7 @@ import { MaquinaDetalhes } from "./pages/MaquinaDetalhes";
 import { Produtos } from "./pages/Produtos";
 import { ProdutosAComprar } from "./pages/ProdutosAComprar";
 import { ProdutoForm } from "./pages/ProdutoForm";
+import { Estoque } from "./pages/Estoque";
 import { Movimentacoes } from "./pages/Movimentacoes";
 import { Roteiros } from "./pages/Roteiros";
 import { RoteiroExecucao } from "./pages/RoteiroExecucao";
@@ -188,6 +189,14 @@ function App() {
             element={
               <PrivateRoute>
                 <ProdutosAComprar />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/estoque"
+            element={
+              <PrivateRoute adminOnly>
+                <Estoque />
               </PrivateRoute>
             }
           />
