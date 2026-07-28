@@ -733,7 +733,7 @@ export function Movimentacoes() {
 
       if (contextoRoteiroMovimentacao?.roteiroId) {
         const params = new URLSearchParams({
-          lojaId: contextoRoteiroMovimentacao.lojaId,
+          itemId: contextoRoteiroMovimentacao.roteiroItemId,
         });
         navigate(
           `/roteiros/${contextoRoteiroMovimentacao.roteiroId}/executar?${params}`,

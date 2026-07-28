@@ -40,8 +40,8 @@ export function RoteiroExecucao() {
   const [roteiro, setRoteiro] = useState(null);
   const [maquinas, setMaquinas] = useState([]);
   const [produtos, setProdutos] = useState([]);
-  const [lojaSelecionada, setLojaSelecionada] = useState(
-    searchParams.get("lojaId") || "",
+  const [itemSelecionadoId, setItemSelecionadoId] = useState(
+    searchParams.get("itemId") || "",
   );
   const [modalMovimentacao, setModalMovimentacao] = useState(null);
   const [formMovimentacao, setFormMovimentacao] = useState(
@@ -157,13 +157,18 @@ export function RoteiroExecucao() {
     );
   }
 
-  const lojasDoRoteiro = (roteiro.itens || []).filter((item) => item.tipo === "LOJA");
-  const itemLojaSelecionada = lojasDoRoteiro.find(
-    (item) => String(item.lojaId) === String(lojaSelecionada),
+  const itemSelecionado = (roteiro.itens || []).find(
+    (item) => String(item.id) === String(itemSelecionadoId),
   );
-  const maquinasDaLojaSelecionada = lojaSelecionada
-    ? maquinas.filter((maquina) => String(maquina.lojaId) === String(lojaSelecionada))
+  const itemLojaSelecionada =
+    itemSelecionado?.tipo === "LOJA" ? itemSelecionado : null;
+  const maquinasDaLojaSelecionada = itemLojaSelecionada
+    ? maquinas.filter(
+        (maquina) => String(maquina.lojaId) === String(itemLojaSelecionada.lojaId),
+      )
     : [];
+  const anotacaoSelecionada =
+    itemSelecionado?.tipo === "ANOTACAO" ? itemSelecionado : null;
 
   const abrirMovimentacaoRoteiro = async (item, maquina) => {
     setError("");
@@ -331,15 +336,13 @@ export function RoteiroExecucao() {
                   <button
                     type="button"
                     key={item.id}
-                    onClick={() =>
-                      item.tipo === "LOJA" && setLojaSelecionada(item.lojaId)
-                    }
+                    onClick={() => setItemSelecionadoId(item.id)}
                     className={`w-full rounded-lg border p-3 text-left transition ${
                       lojaConcluida
                         ? "border-emerald-300 bg-emerald-50"
                         : item.tipo === "ANOTACAO"
                           ? "border-blue-200 bg-blue-50"
-                          : String(lojaSelecionada) === String(item.lojaId)
+                          : String(itemSelecionadoId) === String(item.id)
                             ? "border-orange-400 bg-orange-50"
                             : "border-slate-200 bg-slate-50 hover:border-orange-200"
                     }`}
@@ -382,7 +385,34 @@ export function RoteiroExecucao() {
             </div>
 
             <div className="rounded-lg border border-slate-200 p-4">
-              {lojaSelecionada ? (
+              {anotacaoSelecionada ? (
+                <div className="min-h-48 rounded-lg border border-blue-200 bg-blue-50 p-5">
+                  <p className="text-sm font-bold uppercase text-blue-700">
+                    Anotacao
+                  </p>
+                  <div className="mt-3 whitespace-pre-wrap text-lg font-semibold leading-relaxed text-gray-900">
+                    {anotacaoSelecionada.anotacao}
+                  </div>
+                  <div className="mt-5 flex justify-end">
+                    <button
+                      type="button"
+                      className={`rounded-lg px-4 py-2 text-sm font-bold ${
+                        anotacaoSelecionada.concluido
+                          ? "bg-white text-emerald-700"
+                          : "bg-white text-orange-700"
+                      }`}
+                      onClick={() =>
+                        concluirItem(
+                          anotacaoSelecionada,
+                          !anotacaoSelecionada.concluido,
+                        )
+                      }
+                    >
+                      {anotacaoSelecionada.concluido ? "Concluido" : "Concluir"}
+                    </button>
+                  </div>
+                </div>
+              ) : itemLojaSelecionada ? (
                 <>
                   <h2 className="text-lg font-bold text-gray-900">Maquinas da loja</h2>
                   <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -428,7 +458,7 @@ export function RoteiroExecucao() {
                 </>
               ) : (
                 <div className="flex min-h-48 items-center justify-center text-center text-gray-500">
-                  Selecione uma loja do roteiro para ver as maquinas.
+                  Selecione uma loja ou anotacao do roteiro.
                 </div>
               )}
             </div>
