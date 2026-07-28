@@ -38,6 +38,11 @@ export function Navbar() {
     ...(usuario?.role !== "FUNCIONARIO"
       ? [
           { to: "/estoque", label: "Estoque", icon: "📦" },
+          {
+            to: "/fabricacao-pelucia",
+            label: "Fabricação de Pelúcia",
+            icon: "🧵",
+          },
           { to: "/maquinas", label: "Máquinas", icon: "🎮" },
           { to: "/lojas", label: "Lojas", icon: "🏪" },
           { to: "/produtos", label: "Produtos", icon: "🧸" },

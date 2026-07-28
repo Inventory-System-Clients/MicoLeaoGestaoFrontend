@@ -29,6 +29,7 @@ import { Fornecedores } from "./pages/Fornecedores";
 import { Desenvolvimento } from "./pages/Desenvolvimento";
 import { ModoSeguranca } from "./pages/ModoSeguranca";
 import ManutencaoPage from "./pages/ManutencaoPage";
+import FabricacaoPelucia from "./pages/FabricacaoPelucia";
 import { Graficos } from "./pages/Graficos";
 import { Relatorios } from "./pages/Relatorios";
 import { Sangrias } from "./pages/Sangrias";
@@ -197,6 +198,14 @@ function App() {
             element={
               <PrivateRoute adminOnly>
                 <Estoque />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/fabricacao-pelucia"
+            element={
+              <PrivateRoute adminOnly>
+                <FabricacaoPelucia />
               </PrivateRoute>
             }
           />
