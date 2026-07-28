@@ -22,6 +22,7 @@ import { Movimentacoes } from "./pages/Movimentacoes";
 import { Roteiros } from "./pages/Roteiros";
 import { RoteiroExecucao } from "./pages/RoteiroExecucao";
 import { Treinamentos } from "./pages/Treinamentos";
+import { Fornecedores } from "./pages/Fornecedores";
 import ManutencaoPage from "./pages/ManutencaoPage";
 import { Graficos } from "./pages/Graficos";
 import { Relatorios } from "./pages/Relatorios";
@@ -221,6 +222,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Treinamentos />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/fornecedores"
+            element={
+              <PrivateRoute>
+                <Fornecedores />
               </PrivateRoute>
             }
           />
