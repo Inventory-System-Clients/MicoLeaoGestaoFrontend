@@ -33,6 +33,7 @@ export function Treinamentos() {
   const [editando, setEditando] = useState(null);
   const [formVideo, setFormVideo] = useState(videoInicial);
   const [feedback, setFeedback] = useState({ tipo: "OBSERVACAO", mensagem: "" });
+  const [filtros, setFiltros] = useState({ nome: "", categoria: "" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -115,6 +116,24 @@ export function Treinamentos() {
   };
 
   if (loading) return <PageLoader />;
+
+  const categorias = [...new Set(videos.map((video) => video.categoria).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+  const videosFiltrados = videos.filter((video) => {
+    const nomeBusca = filtros.nome.trim().toLowerCase();
+    const categoriaBusca = filtros.categoria.trim().toLowerCase();
+
+    if (nomeBusca && !String(video.titulo || "").toLowerCase().includes(nomeBusca)) {
+      return false;
+    }
+    if (
+      categoriaBusca &&
+      String(video.categoria || "").toLowerCase() !== categoriaBusca
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-background-light bg-pattern teddy-pattern">
@@ -211,8 +230,49 @@ export function Treinamentos() {
           </form>
         </section>
 
+        <section className="mb-6 rounded-lg border border-orange-100 bg-white p-5 shadow-sm">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-gray-900">Filtros</h2>
+            <p className="text-sm text-gray-600">
+              Pesquise treinamentos pelo nome do video ou pela categoria.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Nome do video
+              </label>
+              <input
+                value={filtros.nome}
+                onChange={(e) => setFiltros({ ...filtros, nome: e.target.value })}
+                className="input-field"
+                placeholder="Buscar por titulo..."
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Categoria
+              </label>
+              <select
+                value={filtros.categoria}
+                onChange={(e) =>
+                  setFiltros({ ...filtros, categoria: e.target.value })
+                }
+                className="select-field"
+              >
+                <option value="">Todas</option>
+                {categorias.map((categoria) => (
+                  <option key={categoria} value={categoria}>
+                    {categoria}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </section>
+
         <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {videos.map((video) => {
+          {videosFiltrados.map((video) => {
             const youtubeId = extrairYoutubeId(video.link);
             return (
               <article key={video.id} className="rounded-lg border border-orange-100 bg-white p-5 shadow-sm">
@@ -264,6 +324,11 @@ export function Treinamentos() {
         {videos.length === 0 && (
           <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-gray-600">
             Nenhum treinamento cadastrado ainda.
+          </div>
+        )}
+        {videos.length > 0 && videosFiltrados.length === 0 && (
+          <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-gray-600">
+            Nenhum treinamento encontrado com estes filtros.
           </div>
         )}
 
