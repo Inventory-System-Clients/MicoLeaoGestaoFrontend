@@ -32,6 +32,12 @@ const numeroInteiroValido = (valor) => {
   return Number.isNaN(numero) ? null : numero;
 };
 
+const numeroAnteriorValido = (valor) => {
+  if (valor === "" || valor === null || valor === undefined) return null;
+  const numero = Number.parseInt(valor, 10);
+  return Number.isNaN(numero) ? null : numero;
+};
+
 export function RoteiroExecucao() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -90,9 +96,13 @@ export function RoteiroExecucao() {
     const contadorOutAtual = numeroInteiroValido(formMovimentacao.contadorOut);
     if (contadorInAtual === null && contadorOutAtual === null) return;
 
-    const contadorInAnterior = Number(ultimaMovimentacao.contadorIn || 0);
-    const contadorOutAnterior = Number(ultimaMovimentacao.contadorOut || 0);
-    const totalPosAnterior = Number(ultimaMovimentacao.totalPos || 0);
+    const contadorInAnterior = numeroAnteriorValido(
+      ultimaMovimentacao.ultimoContadorIn ?? ultimaMovimentacao.contadorIn,
+    );
+    const contadorOutAnterior = numeroAnteriorValido(
+      ultimaMovimentacao.ultimoContadorOut ?? ultimaMovimentacao.contadorOut,
+    );
+    const totalPosAnterior = numeroAnteriorValido(ultimaMovimentacao.totalPos);
     const capacidadePadrao = Number(
       modalMovimentacao.maquina?.capacidadePadrao ||
         modalMovimentacao.maquina?.capacidade ||
@@ -100,9 +110,13 @@ export function RoteiroExecucao() {
     );
 
     const saidaCalculada =
-      contadorOutAtual === null ? null : contadorOutAtual - contadorOutAnterior;
+      contadorOutAtual === null || contadorOutAnterior === null
+        ? null
+        : contadorOutAtual - contadorOutAnterior;
     const fichasCalculadas =
-      contadorInAtual === null ? null : contadorInAtual - contadorInAnterior;
+      contadorInAtual === null || contadorInAnterior === null
+        ? null
+        : contadorInAtual - contadorInAnterior;
 
     if (
       (saidaCalculada !== null && saidaCalculada < 0) ||
@@ -112,7 +126,7 @@ export function RoteiroExecucao() {
     }
 
     const totalPreEsperado =
-      saidaCalculada === null
+      saidaCalculada === null || totalPosAnterior === null
         ? null
         : Math.max(0, totalPosAnterior - saidaCalculada);
     const abastecimentoSugerido =
@@ -179,7 +193,7 @@ export function RoteiroExecucao() {
     try {
       const [ultimaRes, sugestaoRes] = await Promise.all([
         api
-          .get(`/movimentacoes/maquina/${maquina.id}/ultima`)
+          .get(`/movimentacoes/loja/${item.lojaId}/maquina/${maquina.id}/ultima`)
           .catch(() => ({ data: null })),
         api
           .get(`/maquinas/${maquina.id}/produto-sugerido`)
@@ -769,8 +783,14 @@ export function RoteiroExecucao() {
                 <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-gray-600">
                   Ultima movimentacao: total pos{" "}
                   {ultimaMovimentacao.totalPos ?? 0}, IN{" "}
-                  {ultimaMovimentacao.contadorIn ?? 0}, OUT{" "}
-                  {ultimaMovimentacao.contadorOut ?? 0}.
+                  {ultimaMovimentacao.ultimoContadorIn ??
+                    ultimaMovimentacao.contadorIn ??
+                    "-"}
+                  , OUT{" "}
+                  {ultimaMovimentacao.ultimoContadorOut ??
+                    ultimaMovimentacao.contadorOut ??
+                    "-"}
+                  .
                 </p>
               )}
 
