@@ -23,10 +23,11 @@ const formularioInicial = {
   veiculoId: "",
   todosDias: true,
   diasSemana: [],
+  diaSemanaReset: 0,
+  horaReset: "23:59",
 };
 
 const itemInicial = { tipo: "LOJA", lojaId: "", anotacao: "" };
-const configInicial = { diaSemanaReset: 0, horaReset: "23:59" };
 
 const textoDias = (roteiro) => {
   if (roteiro.todosDias) return "Todos os dias";
@@ -43,6 +44,51 @@ const ordenarRoteiro = (roteiro) => ({
   itens: [...(roteiro.itens || [])].sort((a, b) => a.ordem - b.ordem),
 });
 
+const obterStatusRoteiro = (roteiro, maquinas = []) => {
+  const itens = roteiro.itens || [];
+  if (!itens.length) return "nao_iniciado";
+
+  let totalTarefas = 0;
+  let totalConcluidas = 0;
+
+  itens.forEach((item) => {
+    if (item.tipo === "ANOTACAO") {
+      totalTarefas += 1;
+      if (item.concluido) totalConcluidas += 1;
+      return;
+    }
+
+    const maquinasDaLoja = maquinas.filter(
+      (maquina) => String(maquina.lojaId) === String(item.lojaId),
+    );
+    if (!maquinasDaLoja.length) {
+      totalTarefas += 1;
+      if (item.concluido) totalConcluidas += 1;
+      return;
+    }
+
+    const maquinasConcluidas = new Set(
+      (item.maquinasConcluidas || []).map(String),
+    );
+    totalTarefas += maquinasDaLoja.length;
+    totalConcluidas += maquinasDaLoja.filter((maquina) =>
+      maquinasConcluidas.has(String(maquina.id)),
+    ).length;
+  });
+
+  if (totalTarefas > 0 && totalConcluidas >= totalTarefas) return "finalizado";
+  if (totalConcluidas > 0 || itens.some((item) => item.concluido)) {
+    return "em_andamento";
+  }
+  return "nao_iniciado";
+};
+
+const textoBotaoRoteiro = {
+  nao_iniciado: "Iniciar roteiro",
+  em_andamento: "Continuar roteiro",
+  finalizado: "Finalizado",
+};
+
 export function Roteiros() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -56,8 +102,15 @@ export function Roteiros() {
   const [lojas, setLojas] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [ultimasMovVeiculos, setUltimasMovVeiculos] = useState({});
-  const [config, setConfig] = useState(configInicial);
   const [form, setForm] = useState(formularioInicial);
+  const [mostrarFormularioCriacao, setMostrarFormularioCriacao] = useState(false);
+  const [filtros, setFiltros] = useState({
+    nome: "",
+    usuarioId: "",
+    veiculoId: "",
+    diasSemana: [],
+    lojaIds: [],
+  });
   const [itensForm, setItensForm] = useState({});
   const [editando, setEditando] = useState(null);
   const [dragInfo, setDragInfo] = useState(null);
@@ -92,15 +145,8 @@ export function Roteiros() {
       setUltimasMovVeiculos(ultimasVeiculosRes.data || {});
 
       if (isAdmin) {
-        const [usuariosRes, configRes] = await Promise.all([
-          api.get("/usuarios"),
-          api.get("/roteiros/configuracao"),
-        ]);
+        const usuariosRes = await api.get("/usuarios");
         setUsuarios(usuariosRes.data || []);
-        setConfig({
-          diaSemanaReset: configRes.data?.diaSemanaReset ?? 0,
-          horaReset: configRes.data?.horaReset || "23:59",
-        });
       }
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao carregar roteiros.");
@@ -150,6 +196,31 @@ export function Roteiros() {
     });
   };
 
+  const atualizarFiltroDia = (dia) => {
+    setFiltros((prev) => {
+      const atual = new Set(prev.diasSemana);
+      if (atual.has(dia)) atual.delete(dia);
+      else atual.add(dia);
+      return { ...prev, diasSemana: [...atual].sort() };
+    });
+  };
+
+  const adicionarFiltroLoja = (lojaId) => {
+    if (!lojaId) return;
+    setFiltros((prev) =>
+      prev.lojaIds.includes(lojaId)
+        ? prev
+        : { ...prev, lojaIds: [...prev.lojaIds, lojaId] },
+    );
+  };
+
+  const removerFiltroLoja = (lojaId) => {
+    setFiltros((prev) => ({
+      ...prev,
+      lojaIds: prev.lojaIds.filter((id) => id !== lojaId),
+    }));
+  };
+
   const criarRoteiro = async (e) => {
     e.preventDefault();
     setSalvando(true);
@@ -164,6 +235,7 @@ export function Roteiros() {
 
       await api.post("/roteiros", form);
       setForm(formularioInicial);
+      setMostrarFormularioCriacao(false);
       setSuccess("Roteiro criado com sucesso.");
       await carregarDados();
     } catch (err) {
@@ -350,6 +422,56 @@ export function Roteiros() {
   const maquinasDaLojaSelecionada = lojaSelecionada
     ? maquinas.filter((maquina) => String(maquina.lojaId) === String(lojaSelecionada))
     : [];
+  const roteirosFiltrados = roteiros.filter((roteiro) => {
+    const nomeBusca = filtros.nome.trim().toLowerCase();
+    if (nomeBusca && !String(roteiro.nome || "").toLowerCase().includes(nomeBusca)) {
+      return false;
+    }
+
+    if (filtros.usuarioId === "__sem_funcionario__" && roteiro.usuarioId) {
+      return false;
+    }
+    if (
+      filtros.usuarioId &&
+      filtros.usuarioId !== "__sem_funcionario__" &&
+      String(roteiro.usuarioId) !== String(filtros.usuarioId)
+    ) {
+      return false;
+    }
+
+    if (filtros.veiculoId === "__sem_veiculo__" && roteiro.veiculoId) {
+      return false;
+    }
+    if (
+      filtros.veiculoId &&
+      filtros.veiculoId !== "__sem_veiculo__" &&
+      String(roteiro.veiculoId) !== String(filtros.veiculoId)
+    ) {
+      return false;
+    }
+
+    if (filtros.diasSemana.length) {
+      const diasRoteiro = roteiro.todosDias
+        ? DIAS.map((dia) => dia.value)
+        : (roteiro.diasSemana || []).map(Number);
+      if (!filtros.diasSemana.some((dia) => diasRoteiro.includes(Number(dia)))) {
+        return false;
+      }
+    }
+
+    if (filtros.lojaIds.length) {
+      const lojasRoteiro = new Set(
+        (roteiro.itens || [])
+          .filter((item) => item.tipo === "LOJA")
+          .map((item) => String(item.lojaId)),
+      );
+      if (!filtros.lojaIds.every((lojaId) => lojasRoteiro.has(String(lojaId)))) {
+        return false;
+      }
+    }
+
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-background-light bg-pattern teddy-pattern">
@@ -373,7 +495,7 @@ export function Roteiros() {
           />
         )}
 
-        {isAdmin && (
+        {false && (
           <section className="mb-6 rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
@@ -591,6 +713,139 @@ export function Roteiros() {
         )}
 
         {isAdmin && (
+          <section className="mb-6 rounded-lg border border-orange-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Filtros</h2>
+                <p className="text-sm text-gray-600">
+                  Encontre roteiros por nome, funcionario, veiculo, dias e lojas.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setMostrarFormularioCriacao((prev) => !prev)}
+              >
+                {mostrarFormularioCriacao ? "Fechar" : "Criar roteiro"}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Nome do roteiro
+                </label>
+                <input
+                  value={filtros.nome}
+                  onChange={(e) => setFiltros({ ...filtros, nome: e.target.value })}
+                  className="input-field"
+                  placeholder="Buscar por nome..."
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Funcionario
+                </label>
+                <select
+                  value={filtros.usuarioId}
+                  onChange={(e) =>
+                    setFiltros({ ...filtros, usuarioId: e.target.value })
+                  }
+                  className="select-field"
+                >
+                  <option value="">Todos</option>
+                  <option value="__sem_funcionario__">Sem funcionario</option>
+                  {funcionarios.map((funcionario) => (
+                    <option key={funcionario.id} value={funcionario.id}>
+                      {funcionario.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Veiculo
+                </label>
+                <select
+                  value={filtros.veiculoId}
+                  onChange={(e) =>
+                    setFiltros({ ...filtros, veiculoId: e.target.value })
+                  }
+                  className="select-field"
+                >
+                  <option value="">Todos</option>
+                  <option value="__sem_veiculo__">Sem veiculo</option>
+                  {veiculos.map((veiculo) => (
+                    <option key={veiculo.id} value={veiculo.id}>
+                      {veiculo.emoji || ""} {veiculo.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Lojas
+                </label>
+                <select
+                  value=""
+                  onChange={(e) => adicionarFiltroLoja(e.target.value)}
+                  className="select-field"
+                >
+                  <option value="">Adicionar loja...</option>
+                  {lojas
+                    .filter((loja) => !filtros.lojaIds.includes(loja.id))
+                    .map((loja) => (
+                      <option key={loja.id} value={loja.id}>
+                        {loja.nome}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg bg-slate-50 p-3">
+              <p className="mb-2 text-sm font-semibold text-gray-700">
+                Dias da semana
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {DIAS.map((dia) => (
+                  <button
+                    type="button"
+                    key={dia.value}
+                    onClick={() => atualizarFiltroDia(dia.value)}
+                    className={`rounded-lg border px-3 py-2 text-sm font-bold ${
+                      filtros.diasSemana.includes(dia.value)
+                        ? "border-orange-500 bg-orange-100 text-orange-800"
+                        : "border-slate-200 bg-white text-slate-700"
+                    }`}
+                  >
+                    {dia.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {filtros.lojaIds.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {filtros.lojaIds.map((lojaId) => {
+                  const loja = lojas.find((item) => item.id === lojaId);
+                  return (
+                    <button
+                      type="button"
+                      key={lojaId}
+                      onClick={() => removerFiltroLoja(lojaId)}
+                      className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-bold text-orange-800"
+                    >
+                      {loja?.nome || "Loja"} x
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {isAdmin && mostrarFormularioCriacao && (
           <form
             onSubmit={criarRoteiro}
             className="mb-6 rounded-lg border border-orange-100 bg-white p-5 shadow-sm"
@@ -655,6 +910,48 @@ export function Roteiros() {
               </div>
             </div>
 
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="mb-3 text-sm font-bold text-gray-800">
+                Reset deste roteiro
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Dia do reset
+                  </label>
+                  <select
+                    value={form.diaSemanaReset}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        diaSemanaReset: Number(e.target.value),
+                      })
+                    }
+                    className="select-field"
+                  >
+                    {DIAS.map((dia) => (
+                      <option key={dia.value} value={dia.value}>
+                        {dia.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Horario do reset
+                  </label>
+                  <input
+                    type="time"
+                    value={form.horaReset}
+                    onChange={(e) =>
+                      setForm({ ...form, horaReset: e.target.value })
+                    }
+                    className="input-field"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="mt-4 rounded-lg bg-slate-50 p-3">
               <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                 <input
@@ -689,7 +986,7 @@ export function Roteiros() {
         )}
 
         <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-          {roteiros.map((roteiro) => {
+          {roteirosFiltrados.map((roteiro) => {
             const itemForm = itensForm[roteiro.id] || itemInicial;
             const editandoEste = editando?.id === roteiro.id;
             const editDias = editandoEste
@@ -697,6 +994,7 @@ export function Roteiros() {
                 ? editando.diasSemana
                 : []
               : [];
+            const statusRoteiro = obterStatusRoteiro(roteiro, maquinas);
 
             return (
               <article
@@ -719,16 +1017,16 @@ export function Roteiros() {
                     <p className="mt-1 text-xs font-semibold text-orange-700">
                       {textoDias(roteiro)}
                     </p>
+                    <p className="mt-1 text-xs font-semibold text-emerald-700">
+                      Reset:{" "}
+                      {DIAS.find(
+                        (dia) => dia.value === Number(roteiro.diaSemanaReset ?? 0),
+                      )?.label || "Dom"}{" "}
+                      {roteiro.horaReset || "23:59"}
+                    </p>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="btn-primary text-sm"
-                      onClick={() => iniciarRoteiro(roteiro)}
-                    >
-                      Iniciar roteiro
-                    </button>
                     {isAdmin && (
                       <>
                       <button
@@ -745,6 +1043,8 @@ export function Roteiros() {
                                   veiculoId: roteiro.veiculoId || "",
                                   todosDias: roteiro.todosDias,
                                   diasSemana: roteiro.diasSemana || [],
+                                  diaSemanaReset: roteiro.diaSemanaReset ?? 0,
+                                  horaReset: roteiro.horaReset || "23:59",
                                   ativo: roteiro.ativo,
                                 },
                           )
@@ -815,6 +1115,42 @@ export function Roteiros() {
                         />
                         Todos os dias
                       </label>
+                    </div>
+                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-xs font-bold text-gray-700">
+                          Dia do reset
+                        </label>
+                        <select
+                          value={editando.diaSemanaReset}
+                          onChange={(e) =>
+                            setEditando({
+                              ...editando,
+                              diaSemanaReset: Number(e.target.value),
+                            })
+                          }
+                          className="select-field"
+                        >
+                          {DIAS.map((dia) => (
+                            <option key={dia.value} value={dia.value}>
+                              {dia.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-xs font-bold text-gray-700">
+                          Horario do reset
+                        </label>
+                        <input
+                          type="time"
+                          value={editando.horaReset}
+                          onChange={(e) =>
+                            setEditando({ ...editando, horaReset: e.target.value })
+                          }
+                          className="input-field"
+                        />
+                      </div>
                     </div>
                     {!editando.todosDias && (
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -967,6 +1303,21 @@ export function Roteiros() {
                     </div>
                   )}
                 </div>
+
+                <div className="mt-5 flex justify-end border-t border-slate-100 pt-4">
+                  <button
+                    type="button"
+                    className={`px-5 py-3 text-sm font-bold shadow-sm ${
+                      statusRoteiro === "finalizado"
+                        ? "rounded-lg bg-emerald-100 text-emerald-800"
+                        : "btn-primary"
+                    }`}
+                    onClick={() => iniciarRoteiro(roteiro)}
+                    disabled={statusRoteiro === "finalizado"}
+                  >
+                    {textoBotaoRoteiro[statusRoteiro]}
+                  </button>
+                </div>
               </article>
             );
           })}
@@ -975,6 +1326,11 @@ export function Roteiros() {
         {roteiros.length === 0 && (
           <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-gray-600">
             Nenhum roteiro criado ainda.
+          </div>
+        )}
+        {roteiros.length > 0 && roteirosFiltrados.length === 0 && (
+          <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-gray-600">
+            Nenhum roteiro encontrado com estes filtros.
           </div>
         )}
       </main>
