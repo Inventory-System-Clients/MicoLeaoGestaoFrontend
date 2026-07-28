@@ -1,334 +1,314 @@
-import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
-import api from "../services/api";
-import { Navbar } from "../components/Navbar";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Footer } from "../components/Footer";
-import { PageHeader, Badge, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
+import { Navbar } from "../components/Navbar";
+import { AlertBox, Badge } from "../components/UIComponents";
+import api from "../services/api";
 
-const obterStatusMaquina = (maquina) => {
-  const status = maquina.statusOperacao || maquina.status_operacao;
-  const mapa = {
-    EM_OPERACAO: { label: "Em operação", variant: "success" },
-    EM_MANUTENCAO: { label: "Em manutenção", variant: "warning" },
-    PRONTA_PARA_SAIDA: { label: "Pronta para saída", variant: "info" },
-    PARADA: { label: "Parada", variant: "danger" },
-    EM_TRANSPORTE: { label: "Em transporte", variant: "warning" },
-  };
+const statusMapa = {
+  EM_OPERACAO: { label: "Em operação", variant: "success" },
+  EM_MANUTENCAO: { label: "Em manutenção", variant: "warning" },
+  PRONTA_PARA_SAIDA: { label: "Pronta para saída", variant: "info" },
+  PARADA: { label: "Parada", variant: "danger" },
+  SEM_LOJA: { label: "Sem loja", variant: "default" },
+  INATIVA: { label: "Inativa", variant: "danger" },
+};
 
-  if (status && mapa[status]) return mapa[status];
-  if (maquina.ativo === false) return mapa.PARADA;
-  return mapa.EM_OPERACAO;
+const numero = (valor) => Number(valor || 0);
+
+const formatarDataHora = (valor) => {
+  if (!valor) return "-";
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return "-";
+  return data.toLocaleString("pt-BR");
+};
+
+const obterStatus = (maquina) => {
+  if (!maquina?.ativo) return statusMapa.INATIVA;
+  if (!maquina?.lojaId) return statusMapa.SEM_LOJA;
+  return statusMapa[maquina.statusOperacao || maquina.status_operacao] || statusMapa.PARADA;
+};
+
+const obterProdutoMovimentacao = (movimentacao) => {
+  const detalhe = movimentacao?.detalhesProdutos?.[0];
+  return detalhe?.produto || detalhe || null;
 };
 
 export function MaquinaDetalhes() {
   const { id } = useParams();
-  // const location = useLocation(); // Removido pois não é utilizado
+  const navigate = useNavigate();
   const [maquina, setMaquina] = useState(null);
   const [movimentacoes, setMovimentacoes] = useState([]);
+  const [estoque, setEstoque] = useState(null);
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [estoqueAtual, setEstoqueAtual] = useState(null);
-  const [alertaInconsistencia, setAlertaInconsistencia] = useState(null);
-  const [alertaAbastecimento, setAlertaAbastecimento] = useState(null);
-  const [produtoUltimaMov, setProdutoUltimaMov] = useState(null);
 
   useEffect(() => {
+    const carregarDados = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const [maquinaRes, movimentacoesRes, estoqueRes] = await Promise.all([
+          api.get(`/maquinas/${id}`),
+          api.get(`/movimentacoes?maquinaId=${id}&limite=200`),
+          api.get(`/maquinas/${id}/estoque`).catch(() => ({ data: null })),
+        ]);
+
+        setMaquina(maquinaRes.data);
+        setMovimentacoes(movimentacoesRes.data || []);
+        setEstoque(estoqueRes.data);
+      } catch (err) {
+        setError(err.response?.data?.error || "Erro ao carregar máquina.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     carregarDados();
-    // eslint-disable-next-line
   }, [id]);
 
-  // Atualiza o estoque atual e produto da última movimentação sempre que as movimentações mudam
-  useEffect(() => {
-    if (movimentacoes && movimentacoes.length > 0) {
-      // Considera o campo totalPos, se existir, senão tenta outros nomes comuns
-      const ultimaMov = movimentacoes[0];
-      const totalPos =
-        ultimaMov.totalPos ?? ultimaMov.total_pos ?? ultimaMov.totalpos ?? null;
-      setEstoqueAtual(totalPos);
-
-      // Extrai produto da última movimentação
-      if (
-        ultimaMov.detalhesProdutos &&
-        Array.isArray(ultimaMov.detalhesProdutos) &&
-        ultimaMov.detalhesProdutos.length > 0
-      ) {
-        const prod = ultimaMov.detalhesProdutos[0];
-        setProdutoUltimaMov({ nome: prod.nome, emoji: prod.emoji });
-      } else {
-        setProdutoUltimaMov(null);
-      }
-    } else {
-      setEstoqueAtual(null);
-      setProdutoUltimaMov(null);
-    }
-  }, [movimentacoes]);
-
-  const carregarDados = async () => {
-    try {
-      setLoading(true);
-      const [
-        maquinaRes,
-        movimentacoesRes,
-        resInconsistencia,
-        resAbastecimento,
-      ] = await Promise.all([
-        api.get(`/maquinas/${id}`),
-        api.get(`/movimentacoes?maquinaId=${id}`),
-        api.get(
-          `/relatorios/alertas-movimentacao-inconsistente?maquinaId=${id}`,
-        ),
-        api.get(`/relatorios/alertas-abastecimento-incompleto?maquinaId=${id}`),
-      ]);
-      setMaquina(maquinaRes.data);
-      setMovimentacoes(movimentacoesRes.data);
-
-      // Valida se o alerta realmente pertence a esta máquina
-      const alertaInc = resInconsistencia.data?.alertas?.[0];
-      if (alertaInc && String(alertaInc.maquinaId) === String(id)) {
-        setAlertaInconsistencia(alertaInc);
-      } else {
-        setAlertaInconsistencia(null);
-      }
-
-      const alertaAbast = resAbastecimento.data?.alertas?.[0];
-      if (alertaAbast && String(alertaAbast.maquinaId) === String(id)) {
-        setAlertaAbastecimento(alertaAbast);
-      } else {
-        setAlertaAbastecimento(null);
-      }
-    } catch (error) {
-      setError(
-        "Erro ao carregar dados: " +
-          (error.response?.data?.error || error.message),
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  const movimentacoesFiltradas = useMemo(() => {
+    return movimentacoes.filter((mov) => {
+      const dataMov = new Date(mov.dataColeta || mov.createdAt);
+      const inicio = dataInicio ? new Date(`${dataInicio}T00:00:00`) : null;
+      const fim = dataFim ? new Date(`${dataFim}T23:59:59`) : null;
+      if (inicio && dataMov < inicio) return false;
+      if (fim && dataMov > fim) return false;
+      return true;
+    });
+  }, [movimentacoes, dataInicio, dataFim]);
 
   if (loading) return <PageLoader />;
-
   if (error) return <AlertBox type="error" message={error} />;
+  if (!maquina) return <AlertBox type="error" message="Máquina não encontrada." />;
 
-  if (!maquina)
-    return <AlertBox type="error" message="Máquina não encontrada." />;
-  const statusMaquina = obterStatusMaquina(maquina);
+  const status = obterStatus(maquina);
+  const ultimaMovimentacao = movimentacoes[0];
+  const produtoAtual = obterProdutoMovimentacao(ultimaMovimentacao);
+  const estoqueAtual =
+    estoque?.estoqueAtual ?? ultimaMovimentacao?.totalPos ?? maquina.estoqueAtual ?? 0;
 
   return (
-    <div className="min-h-screen bg-background-light">
+    <div className="min-h-screen bg-background-light bg-pattern teddy-pattern">
       <Navbar />
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex gap-4 mb-4">
-          <button
-            className="btn-secondary"
-            onClick={() =>
-              window.history.length > 1
-                ? window.history.back()
-                : window.location.assign("/alertas")
-            }
-          >
-            Voltar para Alertas
-          </button>
-          <button
-            className="btn-danger"
-            onClick={async () => {
-              try {
-                await api.delete(
-                  `/relatorios/alertas-movimentacao-inconsistente/${maquina.alertaId}`,
-                  { data: { maquinaId: maquina.id } },
-                );
-                window.location.assign("/alertas");
-              } catch (error) {
-                alert("Erro ao marcar como corrigido.", error);
-              }
-            }}
-            disabled={!maquina.alertaId}
-            title="Marcar este alerta como corrigido"
-          >
-            Corrigido
-          </button>
-        </div>
-        <PageHeader
-          title={`Informações da Máquina: ${maquina.nome}`}
-          subtitle={maquina.codigo}
-          icon="🎰"
-        />
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          {/* Nome da loja */}
-          <p className="mb-2 text-sm text-gray-700">
-            <strong>Loja:</strong>{" "}
-            {maquina.lojaNome || maquina.loja?.nome || "-"}
-          </p>
-          <div className="mb-4">
-            <Badge variant={statusMaquina.variant}>{statusMaquina.label}</Badge>
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <section className="mb-6 rounded-lg border border-orange-100 bg-white p-5 shadow-sm">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Buscar Lojas e Máquinas
+          </h1>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+            <button
+              type="button"
+              className="font-semibold text-primary hover:text-primary/80"
+              onClick={() => navigate(-1)}
+            >
+              ← Voltar
+            </button>
+            <span className="text-gray-400">/</span>
+            <span className="font-semibold text-gray-700">
+              {maquina.loja?.nome || "Sem loja"}
+            </span>
+            <span className="text-gray-400">/</span>
+            <span className="font-semibold text-gray-700">
+              {maquina.codigo} - {maquina.nome}
+            </span>
           </div>
-          {/* Detalhes dos alertas */}
-          {alertaInconsistencia && (
-            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded text-yellow-900">
-              <strong>Alerta de Inconsistência:</strong>
-              <br />
-              {(() => {
-                const movs = movimentacoes.slice(0, 2);
-                if (movs.length < 2)
-                  return <span>Não há movimentações suficientes.</span>;
-                const atual = movs[0];
-                const anterior = movs[1];
-                const diffOut =
-                  (atual.contadorOut || 0) - (anterior.contadorOut || 0);
-                const diffIn =
-                  (atual.contadorIn || 0) - (anterior.contadorIn || 0);
-                const saida = atual.sairam ?? 0;
-                const fichas = atual.fichas ?? 0;
-                const outInconsistente = diffOut !== saida;
-                const inInconsistente = diffIn !== fichas;
-                return (
-                  <>
-                    {outInconsistente && (
-                      <div className="mb-2">
-                        <span className="font-bold text-yellow-800">
-                          Saída (OUT):
-                        </span>
-                        <br />
-                        Contador OUT anterior:{" "}
-                        <strong>{anterior.contadorOut ?? "-"}</strong>
-                        <br />
-                        Contador OUT atual:{" "}
-                        <strong>{atual.contadorOut ?? "-"}</strong>
-                        <br />
-                        Era para ter saído: <strong>{diffOut}</strong>
-                        <br />
-                        Saída registrada: <strong>{saida}</strong>
-                        <br />
-                        Diferença: <strong>{diffOut - saida}</strong>
-                      </div>
-                    )}
-                    {inInconsistente && (
-                      <div className="mb-2">
-                        <span className="font-bold text-yellow-800">
-                          Entrada (IN):
-                        </span>
-                        <br />
-                        Contador IN anterior:{" "}
-                        <strong>{anterior.contadorIn ?? "-"}</strong>
-                        <br />
-                        Contador IN atual:{" "}
-                        <strong>{atual.contadorIn ?? "-"}</strong>
-                        <br />
-                        Era para ter entrado: <strong>{diffIn}</strong>
-                        <br />
-                        Fichas registradas: <strong>{fichas}</strong>
-                        <br />
-                        Diferença: <strong>{diffIn - fichas}</strong>
-                      </div>
-                    )}
-                    {!outInconsistente && !inInconsistente && (
-                      <span>Sem inconsistência detectada.</span>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-          )}
-          {alertaAbastecimento && (
-            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded text-yellow-900">
-              <strong>Alerta de Abastecimento Incompleto:</strong>
-              <br />
-              {alertaAbastecimento.mensagem ||
-                `Abastecimento incompleto: padrão ${alertaAbastecimento.padrao}, tinha ${alertaAbastecimento.anterior}, abastecido ${alertaAbastecimento.abastecido}. Motivo: ${alertaAbastecimento.observacao || "-"}`}
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        </section>
+
+        <section className="mb-6 rounded-lg border border-orange-100 bg-white p-6 shadow-sm">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p>
-                <strong>Tipo:</strong>{" "}
-                {produtoUltimaMov ? (
+              <h2 className="text-xl font-bold text-gray-900">
+                📊 Informações da Máquina
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Dados operacionais e configuração atual.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn-primary text-sm"
+              onClick={() => navigate(`/maquinas/${maquina.id}/editar`)}
+            >
+              Editar máquina
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div>
+              <p className="text-sm text-gray-600">Código</p>
+              <p className="font-bold text-gray-900">{maquina.codigo}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Nome</p>
+              <p className="font-bold text-gray-900">{maquina.nome || "-"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Tipo</p>
+              <p className="font-bold text-gray-900">
+                {produtoAtual ? (
                   <span>
-                    {produtoUltimaMov.emoji ? (
-                      <span>{produtoUltimaMov.emoji}</span>
-                    ) : null}{" "}
-                    {produtoUltimaMov.nome}
+                    {produtoAtual.emoji ? `${produtoAtual.emoji} ` : ""}
+                    {produtoAtual.nome}
                   </span>
                 ) : (
-                  <>
-                    {maquina.emoji ? <span>{maquina.emoji}</span> : null}{" "}
-                    {maquina.tipo || "-"}
-                  </>
+                  maquina.tipo || "-"
                 )}
-              </p>
-              <p>
-                <strong>Capacidade:</strong>{" "}
-                {maquina.capacidadePadrao || maquina.capacidade || "-"}
-              </p>
-              <p>
-                <strong>Estoque Atual:</strong>{" "}
-                {estoqueAtual !== null && estoqueAtual !== undefined
-                  ? estoqueAtual
-                  : "-"}
-              </p>
-              <p>
-                <strong>Valor da Ficha:</strong> R${" "}
-                {typeof maquina.valorFicha === "number"
-                  ? maquina.valorFicha.toFixed(2)
-                  : maquina.valorFicha || "-"}
               </p>
             </div>
             <div>
-              <p>
-                <strong>Força Fraca:</strong> {maquina.forcaFraca ?? "-"}%
-              </p>
-              <p>
-                <strong>Força Forte:</strong> {maquina.forcaForte ?? "-"}%
-              </p>
-              <p>
-                <strong>Força Premium:</strong> {maquina.forcaPremium ?? "-"}%
-              </p>
-              <p>
-                <strong>Jogadas Premium:</strong>{" "}
-                {maquina.jogadasPremium ?? "-"}
+              <p className="text-sm text-gray-600">Capacidade</p>
+              <p className="font-bold text-gray-900">
+                {maquina.capacidadePadrao || 0}
               </p>
             </div>
+            <div>
+              <p className="text-sm text-gray-600">Estoque Atual</p>
+              <p className="font-bold text-gray-900">{estoqueAtual}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Valor da Ficha</p>
+              <p className="font-bold text-gray-900">
+                R$ {Number(maquina.valorFicha || 0).toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Fichas para jogar</p>
+              <p className="font-bold text-gray-900">
+                {maquina.fichasNecessarias || "-"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Status</p>
+              <div className="mt-1">
+                <Badge variant={status.variant}>{status.label}</Badge>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <h2 className="text-xl font-bold mb-4">Últimas 2 Movimentações</h2>
-        <div className="bg-white rounded-lg shadow p-4 mb-4">
-          {movimentacoes.length < 2 ? (
-            <p className="text-gray-500">
-              Nenhuma movimentação suficiente encontrada.
-            </p>
-          ) : (
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="text-left py-2">Data</th>
-                  <th className="text-left py-2">Contador IN</th>
-                  <th className="text-left py-2">Contador OUT</th>
-                  <th className="text-left py-2">Fichas</th>
-                  <th className="text-left py-2">Saída</th>
-                  <th className="text-left py-2">Observação</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movimentacoes.slice(0, 2).map((mov) => (
-                  <tr key={mov.id} className="border-b">
-                    <td>
-                      {new Date(mov.dataColeta || mov.createdAt).toLocaleString(
-                        "pt-BR",
-                      )}
-                    </td>
-                    <td>{mov.contadorIn ?? "-"}</td>
-                    <td>{mov.contadorOut ?? "-"}</td>
-                    <td>{mov.fichas ?? "-"}</td>
-                    <td>{mov.sairam ?? "-"}</td>
-                    <td>{mov.observacoes || "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {maquina.localizacao && (
+            <div className="mt-5 rounded-lg bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-gray-600">Localização</p>
+              <p className="mt-1 text-gray-800">{maquina.localizacao}</p>
+            </div>
           )}
-        </div>
-      </div>
+        </section>
+
+        <section className="rounded-lg border border-orange-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-5 text-xl font-bold text-gray-900">
+            🔄 Histórico de Movimentações
+          </h2>
+
+          <div className="mb-5 grid grid-cols-1 gap-4 rounded-lg bg-slate-50 p-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                📅 Data Inicial
+              </label>
+              <input
+                type="date"
+                className="input-field"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                📅 Data Final
+              </label>
+              <input
+                type="date"
+                className="input-field"
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {movimentacoesFiltradas.map((mov) => (
+              <article
+                key={mov.id}
+                className="rounded-lg border border-orange-100 bg-white p-4 shadow-sm"
+              >
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <Badge variant={mov.tipo === "entrada" ? "success" : "danger"}>
+                    {mov.tipo === "entrada" ? "📥 Entrada" : "📤 Saída"}
+                  </Badge>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-gray-600">
+                      {formatarDataHora(mov.dataColeta || mov.createdAt)}
+                    </span>
+                    <button
+                      type="button"
+                      className="rounded-md bg-blue-600 px-3 py-1 text-xs font-bold text-white hover:bg-blue-700"
+                      onClick={() => navigate("/movimentacoes")}
+                    >
+                      Editar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 border-b border-slate-200 pb-3 text-sm md:grid-cols-6">
+                  <div>
+                    <p className="text-gray-500">Total Pré</p>
+                    <p className="font-bold">{numero(mov.totalPre)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Saíram</p>
+                    <p className="font-bold text-red-600">{numero(mov.sairam)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Abastecidas</p>
+                    <p className="font-bold text-green-600">
+                      {numero(mov.abastecidas)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Retirada</p>
+                    <p className="font-bold text-pink-600">
+                      {numero(mov.retiradaProduto)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Total Atual</p>
+                    <p className="font-bold text-purple-700">{numero(mov.totalPos)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Fichas</p>
+                    <p className="font-bold text-blue-700">{numero(mov.fichas)}</p>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                  <div>
+                    <p className="text-gray-500">🧮 Contador IN</p>
+                    <p className="font-bold">{mov.contadorIn ?? "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">🧮 Contador OUT</p>
+                    <p className="font-bold">{mov.contadorOut ?? "-"}</p>
+                  </div>
+                </div>
+
+                {mov.observacoes && (
+                  <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-gray-700">
+                    {mov.observacoes}
+                  </p>
+                )}
+              </article>
+            ))}
+
+            {movimentacoesFiltradas.length === 0 && (
+              <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-gray-500">
+                Nenhuma movimentação encontrada para esta máquina.
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
       <Footer />
     </div>
   );
