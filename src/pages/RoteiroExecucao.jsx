@@ -11,6 +11,24 @@ const ordenarRoteiro = (roteiro) => ({
   itens: [...(roteiro.itens || [])].sort((a, b) => a.ordem - b.ordem),
 });
 
+const formularioMovimentacaoInicial = {
+  produtoId: "",
+  quantidadeAtualMaquina: "",
+  quantidadeAdicionada: "",
+  fichas: "",
+  contadorIn: "",
+  contadorOut: "",
+  quantidadeNotasEntrada: "",
+  valorEntradaPix: "",
+  observacao: "",
+};
+
+const numeroInteiroValido = (valor) => {
+  if (valor === "" || valor === null || valor === undefined) return null;
+  const numero = Number.parseInt(valor, 10);
+  return Number.isNaN(numero) ? null : numero;
+};
+
 export function RoteiroExecucao() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -18,23 +36,32 @@ export function RoteiroExecucao() {
   const [loading, setLoading] = useState(true);
   const [roteiro, setRoteiro] = useState(null);
   const [maquinas, setMaquinas] = useState([]);
+  const [produtos, setProdutos] = useState([]);
   const [lojaSelecionada, setLojaSelecionada] = useState(
     searchParams.get("lojaId") || "",
   );
+  const [modalMovimentacao, setModalMovimentacao] = useState(null);
+  const [formMovimentacao, setFormMovimentacao] = useState(
+    formularioMovimentacaoInicial,
+  );
+  const [ultimaMovimentacao, setUltimaMovimentacao] = useState(null);
+  const [salvandoMovimentacao, setSalvandoMovimentacao] = useState(false);
   const [error, setError] = useState("");
 
   const carregarDados = async () => {
     try {
       setLoading(true);
-      const [roteirosRes, maquinasRes] = await Promise.all([
+      const [roteirosRes, maquinasRes, produtosRes] = await Promise.all([
         api.get("/roteiros"),
         api.get("/maquinas"),
+        api.get("/produtos"),
       ]);
       const encontrado = (roteirosRes.data || []).find(
         (item) => String(item.id) === String(id),
       );
       setRoteiro(encontrado ? ordenarRoteiro(encontrado) : null);
       setMaquinas(maquinasRes.data || []);
+      setProdutos(produtosRes.data || []);
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao carregar roteiro.");
     } finally {
@@ -46,6 +73,62 @@ export function RoteiroExecucao() {
     carregarDados();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (!modalMovimentacao || !ultimaMovimentacao) return;
+
+    const contadorInAtual = numeroInteiroValido(formMovimentacao.contadorIn);
+    const contadorOutAtual = numeroInteiroValido(formMovimentacao.contadorOut);
+    if (contadorInAtual === null && contadorOutAtual === null) return;
+
+    const contadorInAnterior = Number(ultimaMovimentacao.contadorIn || 0);
+    const contadorOutAnterior = Number(ultimaMovimentacao.contadorOut || 0);
+    const totalPosAnterior = Number(ultimaMovimentacao.totalPos || 0);
+    const capacidadePadrao = Number(
+      modalMovimentacao.maquina?.capacidadePadrao ||
+        modalMovimentacao.maquina?.capacidade ||
+        0,
+    );
+
+    const saidaCalculada =
+      contadorOutAtual === null ? null : contadorOutAtual - contadorOutAnterior;
+    const fichasCalculadas =
+      contadorInAtual === null ? null : contadorInAtual - contadorInAnterior;
+
+    if (
+      (saidaCalculada !== null && saidaCalculada < 0) ||
+      (fichasCalculadas !== null && fichasCalculadas < 0)
+    ) {
+      return;
+    }
+
+    const totalPreEsperado =
+      saidaCalculada === null
+        ? null
+        : Math.max(0, totalPosAnterior - saidaCalculada);
+    const abastecimentoSugerido =
+      totalPreEsperado === null || capacidadePadrao <= 0
+        ? null
+        : Math.max(0, capacidadePadrao - totalPreEsperado);
+
+    setFormMovimentacao((prev) => ({
+      ...prev,
+      quantidadeAtualMaquina:
+        totalPreEsperado === null
+          ? prev.quantidadeAtualMaquina
+          : String(totalPreEsperado),
+      quantidadeAdicionada:
+        abastecimentoSugerido === null
+          ? prev.quantidadeAdicionada
+          : String(abastecimentoSugerido),
+      fichas: fichasCalculadas === null ? prev.fichas : String(fichasCalculadas),
+    }));
+  }, [
+    formMovimentacao.contadorIn,
+    formMovimentacao.contadorOut,
+    modalMovimentacao,
+    ultimaMovimentacao,
+  ]);
 
   if (loading) return <PageLoader />;
 
@@ -72,19 +155,35 @@ export function RoteiroExecucao() {
     ? maquinas.filter((maquina) => String(maquina.lojaId) === String(lojaSelecionada))
     : [];
 
-  const abrirMovimentacaoRoteiro = (item, maquinaId) => {
-    const params = new URLSearchParams({
-      abrirFormulario: "true",
-      modo: "nova_movimentacao",
-      lojaId: item.lojaId,
-      maquinaId,
-      roteiroId: item.roteiroId,
-      roteiroItemId: item.id,
-      origemRoteiro: "true",
-      bloquearLojaMaquina: "true",
-    });
+  const abrirMovimentacaoRoteiro = async (item, maquina) => {
+    setError("");
+    setModalMovimentacao({ item, maquina });
+    setFormMovimentacao(formularioMovimentacaoInicial);
+    setUltimaMovimentacao(null);
 
-    navigate(`/movimentacoes?${params}`);
+    try {
+      const [ultimaRes, sugestaoRes] = await Promise.all([
+        api
+          .get(`/movimentacoes/maquina/${maquina.id}/ultima`)
+          .catch(() => ({ data: null })),
+        api
+          .get(`/maquinas/${maquina.id}/produto-sugerido`)
+          .catch(() => ({ data: null })),
+      ]);
+
+      const ultima = ultimaRes.data || null;
+      setUltimaMovimentacao(ultima);
+      setFormMovimentacao((prev) => ({
+        ...prev,
+        produtoId: sugestaoRes.data?.produtoSugerido?.id || "",
+        quantidadeAtualMaquina:
+          ultima?.totalPos !== undefined && ultima?.totalPos !== null
+            ? String(ultima.totalPos)
+            : String(maquina.estoqueAtual || 0),
+      }));
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao preparar movimentacao.");
+    }
   };
 
   const concluirItem = async (item, concluido = true) => {
@@ -93,6 +192,80 @@ export function RoteiroExecucao() {
       await carregarDados();
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao atualizar item do roteiro.");
+    }
+  };
+
+  const fecharModalMovimentacao = () => {
+    if (salvandoMovimentacao) return;
+    setModalMovimentacao(null);
+    setFormMovimentacao(formularioMovimentacaoInicial);
+    setUltimaMovimentacao(null);
+  };
+
+  const salvarMovimentacaoRoteiro = async (event) => {
+    event.preventDefault();
+    if (!modalMovimentacao || salvandoMovimentacao) return;
+
+    const totalPre = Number.parseInt(formMovimentacao.quantidadeAtualMaquina, 10) || 0;
+    const quantidadeAdicionada =
+      Number.parseInt(formMovimentacao.quantidadeAdicionada, 10) || 0;
+    const fichas = Number.parseInt(formMovimentacao.fichas, 10) || 0;
+    const ultimoTotalPos = Number(ultimaMovimentacao?.totalPos || 0);
+    const quantidadeSaiu = Math.max(0, ultimoTotalPos - totalPre);
+
+    if (!formMovimentacao.produtoId) {
+      setError("Selecione o produto da movimentacao.");
+      return;
+    }
+
+    setSalvandoMovimentacao(true);
+    setError("");
+
+    try {
+      await api.post("/movimentacoes", {
+        maquinaId: modalMovimentacao.maquina.id,
+        totalPre,
+        sairam: quantidadeSaiu,
+        abastecidas: quantidadeAdicionada,
+        totalPos: totalPre + quantidadeAdicionada,
+        fichas,
+        contadorIn: Number.parseInt(formMovimentacao.contadorIn, 10) || null,
+        contadorOut: Number.parseInt(formMovimentacao.contadorOut, 10) || null,
+        quantidade_notas_entrada: formMovimentacao.quantidadeNotasEntrada
+          ? Number.parseFloat(formMovimentacao.quantidadeNotasEntrada)
+          : null,
+        valor_entrada_maquininha_pix: formMovimentacao.valorEntradaPix
+          ? Number.parseFloat(formMovimentacao.valorEntradaPix)
+          : null,
+        retiradaEstoque: false,
+        contadorMaquina: null,
+        observacoes: formMovimentacao.observacao.trim() || null,
+        produtos: [
+          {
+            produtoId: formMovimentacao.produtoId,
+            quantidadeSaiu,
+            quantidadeAbastecida: quantidadeAdicionada,
+            retiradaProduto: 0,
+          },
+        ],
+      });
+
+      await api.patch(
+        `/roteiros/itens/${modalMovimentacao.item.id}/maquinas/${modalMovimentacao.maquina.id}/concluir`,
+      );
+
+      setModalMovimentacao(null);
+      setFormMovimentacao(formularioMovimentacaoInicial);
+      setUltimaMovimentacao(null);
+      await carregarDados();
+    } catch (err) {
+      setError(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Erro ao registrar movimentacao.",
+      );
+    } finally {
+      setSalvandoMovimentacao(false);
     }
   };
 
@@ -210,7 +383,7 @@ export function RoteiroExecucao() {
                           }`}
                           onClick={() =>
                             itemLojaSelecionada &&
-                            abrirMovimentacaoRoteiro(itemLojaSelecionada, maquina.id)
+                            abrirMovimentacaoRoteiro(itemLojaSelecionada, maquina)
                           }
                         >
                           <p className="font-bold text-gray-900">
@@ -242,6 +415,252 @@ export function RoteiroExecucao() {
             </div>
           </div>
         </section>
+
+        {modalMovimentacao && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+            <form
+              onSubmit={salvarMovimentacaoRoteiro}
+              className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-lg border border-orange-100 bg-white p-5 shadow-2xl"
+            >
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Movimentacao da maquina
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-600">
+                    {itemLojaSelecionada?.loja?.nome || "Loja"} -{" "}
+                    {modalMovimentacao.maquina.nome ||
+                      modalMovimentacao.maquina.codigo}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={fecharModalMovimentacao}
+                  disabled={salvandoMovimentacao}
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Loja
+                  </label>
+                  <input
+                    value={itemLojaSelecionada?.loja?.nome || ""}
+                    className="input-field bg-slate-100"
+                    disabled
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Maquina
+                  </label>
+                  <input
+                    value={`${modalMovimentacao.maquina.nome || ""} ${
+                      modalMovimentacao.maquina.codigo || ""
+                    }`.trim()}
+                    className="input-field bg-slate-100"
+                    disabled
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Produto *
+                  </label>
+                  <select
+                    value={formMovimentacao.produtoId}
+                    onChange={(e) =>
+                      setFormMovimentacao({
+                        ...formMovimentacao,
+                        produtoId: e.target.value,
+                      })
+                    }
+                    className="select-field"
+                    required
+                  >
+                    <option value="">Selecione...</option>
+                    {produtos.map((produto) => (
+                      <option key={produto.id} value={produto.id}>
+                        {produto.emoji || ""} {produto.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Fichas
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formMovimentacao.fichas}
+                    onChange={(e) =>
+                      setFormMovimentacao({
+                        ...formMovimentacao,
+                        fichas: e.target.value,
+                      })
+                    }
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Contador IN
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formMovimentacao.contadorIn}
+                    onChange={(e) =>
+                      setFormMovimentacao({
+                        ...formMovimentacao,
+                        contadorIn: e.target.value,
+                      })
+                    }
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Contador OUT
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formMovimentacao.contadorOut}
+                    onChange={(e) =>
+                      setFormMovimentacao({
+                        ...formMovimentacao,
+                        contadorOut: e.target.value,
+                      })
+                    }
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Quanto tem na maquina *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formMovimentacao.quantidadeAtualMaquina}
+                    onChange={(e) =>
+                      setFormMovimentacao({
+                        ...formMovimentacao,
+                        quantidadeAtualMaquina: e.target.value,
+                      })
+                    }
+                    className="input-field"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Quanto abastecer
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formMovimentacao.quantidadeAdicionada}
+                    onChange={(e) =>
+                      setFormMovimentacao({
+                        ...formMovimentacao,
+                        quantidadeAdicionada: e.target.value,
+                      })
+                    }
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Dinheiro contado
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formMovimentacao.quantidadeNotasEntrada}
+                    onChange={(e) =>
+                      setFormMovimentacao({
+                        ...formMovimentacao,
+                        quantidadeNotasEntrada: e.target.value,
+                      })
+                    }
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Pix/maquininha
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formMovimentacao.valorEntradaPix}
+                    onChange={(e) =>
+                      setFormMovimentacao({
+                        ...formMovimentacao,
+                        valorEntradaPix: e.target.value,
+                      })
+                    }
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Observacao
+                </label>
+                <textarea
+                  value={formMovimentacao.observacao}
+                  onChange={(e) =>
+                    setFormMovimentacao({
+                      ...formMovimentacao,
+                      observacao: e.target.value,
+                    })
+                  }
+                  className="input-field min-h-24"
+                />
+              </div>
+
+              {ultimaMovimentacao && (
+                <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-gray-600">
+                  Ultima movimentacao: total pos{" "}
+                  {ultimaMovimentacao.totalPos ?? 0}, IN{" "}
+                  {ultimaMovimentacao.contadorIn ?? 0}, OUT{" "}
+                  {ultimaMovimentacao.contadorOut ?? 0}.
+                </p>
+              )}
+
+              <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={fecharModalMovimentacao}
+                  disabled={salvandoMovimentacao}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={salvandoMovimentacao}
+                >
+                  {salvandoMovimentacao ? "Salvando..." : "Salvar movimentacao"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </main>
       <Footer />
     </div>
