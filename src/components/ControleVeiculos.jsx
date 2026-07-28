@@ -1,5 +1,6 @@
 import React, { useState, useContext, useEffect } from "react";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../contexts/AuthContext";
 
 import api from "../services/api";
@@ -8,7 +9,9 @@ export default function ControleVeiculos({
   veiculos = [],
   onRefresh,
   loading,
+  roteiroRetorno,
 }) {
+  const navigate = useNavigate();
   const { usuario } = useContext(AuthContext);
   const [modalAberto, setModalAberto] = useState(false);
   const [modalFinalizarAberto, setModalFinalizarAberto] = useState(false);
@@ -125,6 +128,12 @@ export default function ControleVeiculos({
       });
       if (onRefresh) onRefresh();
       fecharModal();
+      if (
+        roteiroRetorno?.roteiroId &&
+        String(roteiroRetorno.veiculoId) === String(veiculoSelecionado.id)
+      ) {
+        navigate(`/roteiros?iniciarRoteiro=${roteiroRetorno.roteiroId}`);
+      }
     } catch (error) {
       console.error("Erro ao pilotar:", error);
       Swal.fire("Erro", "Não foi possível iniciar o uso do veículo.", "error");

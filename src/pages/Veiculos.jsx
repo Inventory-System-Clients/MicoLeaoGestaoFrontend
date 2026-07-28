@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import ControleVeiculos from "../components/ControleVeiculos";
 import RegistroVeiculosMovimentacao from "../components/RegistroVeiculosMovimentacao";
 import AlertasVeiculos from "../components/AlertasVeiculos";
@@ -21,6 +21,12 @@ const initialFormState = {
 
 export default function Veiculos() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const roteiroRetorno = {
+    roteiroId: params.get("roteiroId") || "",
+    veiculoId: params.get("veiculoId") || "",
+  };
   const [modalCadastro, setModalCadastro] = useState(false);
   const [mostrarAlertas, setMostrarAlertas] = useState(false);
   const [form, setForm] = useState(initialFormState);
@@ -134,6 +140,7 @@ export default function Veiculos() {
               veiculos={veiculos}
               onRefresh={fetchVeiculos}
               loading={loading}
+              roteiroRetorno={roteiroRetorno}
             />
           </div>
 

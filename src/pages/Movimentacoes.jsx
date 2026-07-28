@@ -70,6 +70,10 @@ export function Movimentacoes() {
   const movimentacaoEmEnvioRef = useRef(false);
   const [movimentacaoAssistentePendente, setMovimentacaoAssistentePendente] =
     useState(null);
+  const [contextoRoteiroMovimentacao, setContextoRoteiroMovimentacao] =
+    useState(null);
+  const [bloquearLojaMaquinaRoteiro, setBloquearLojaMaquinaRoteiro] =
+    useState(false);
   const [naoVaiRegistrar, setNaoVaiRegistrar] = useState(false);
   const [mostrarObsAlerta, setMostrarObsAlerta] = useState(false);
   const [obsAlerta, setObsAlerta] = useState("");
@@ -151,6 +155,12 @@ export function Movimentacoes() {
       maquinaId: state.maquinaId ?? params.get("maquinaId") ?? "",
       contadorIn: state.contadorIn ?? params.get("contadorIn") ?? "",
       contadorOut: state.contadorOut ?? params.get("contadorOut") ?? "",
+      roteiroId: state.roteiroId ?? params.get("roteiroId") ?? "",
+      roteiroItemId: state.roteiroItemId ?? params.get("roteiroItemId") ?? "",
+      bloquearLojaMaquina:
+        state.bloquearLojaMaquina === true ||
+        params.get("bloquearLojaMaquina") === "true" ||
+        params.get("origemRoteiro") === "true",
     });
   }, [location.search, location.state]);
 
@@ -177,6 +187,20 @@ export function Movimentacoes() {
         : "";
 
     setShowForm(true);
+    setBloquearLojaMaquinaRoteiro(
+      movimentacaoAssistentePendente.bloquearLojaMaquina === true,
+    );
+    setContextoRoteiroMovimentacao(
+      movimentacaoAssistentePendente.roteiroId &&
+        movimentacaoAssistentePendente.roteiroItemId
+        ? {
+            roteiroId: movimentacaoAssistentePendente.roteiroId,
+            roteiroItemId: movimentacaoAssistentePendente.roteiroItemId,
+            lojaId,
+            maquinaId,
+          }
+        : null,
+    );
     setFiltroLojaForm(lojaId);
     setFormData((prev) => ({
       ...prev,
@@ -643,6 +667,12 @@ export function Movimentacoes() {
 
       await api.post("/movimentacoes", data);
 
+      if (contextoRoteiroMovimentacao?.roteiroItemId) {
+        await api.patch(
+          `/roteiros/itens/${contextoRoteiroMovimentacao.roteiroItemId}/maquinas/${formData.maquina_id}/concluir`,
+        );
+      }
+
       // Movimentação registrada com sucesso: envia automaticamente para o WhatsApp
       await enviarParaWhatsapp();
       resetFluxoWhatsappBypass();
@@ -694,10 +724,20 @@ export function Movimentacoes() {
       limparFotoContadores();
       setEstoqueAnterior(0);
       setFiltroLojaForm("");
+      setBloquearLojaMaquinaRoteiro(false);
+      setContextoRoteiroMovimentacao(null);
       setShowForm(false);
 
       // Recarregar dados
       carregarDados();
+
+      if (contextoRoteiroMovimentacao?.roteiroId) {
+        const params = new URLSearchParams({
+          executarRoteiro: contextoRoteiroMovimentacao.roteiroId,
+          lojaId: contextoRoteiroMovimentacao.lojaId,
+        });
+        navigate(`/roteiros?${params}`);
+      }
     } catch (error) {
       console.error("❌ [handleSubmit] Erro:", error);
       setError(
@@ -1186,7 +1226,10 @@ export function Movimentacoes() {
           <div className="flex flex-wrap gap-3">
             <button
               className="px-6 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 font-bold shadow text-base"
-              onClick={() => setShowForm((v) => !v)}
+              onClick={() => {
+                setBloquearLojaMaquinaRoteiro(false);
+                setShowForm((v) => !v);
+              }}
             >
               {showForm ? "Cancelar" : "Nova Movimentação"}
             </button>
@@ -1381,6 +1424,7 @@ export function Movimentacoes() {
                   <select
                     value={filtroLojaForm}
                     onChange={(e) => {
+                      if (bloquearLojaMaquinaRoteiro) return;
                       setFiltroLojaForm(e.target.value);
                       setFormData({
                         ...formData,
@@ -1390,6 +1434,7 @@ export function Movimentacoes() {
                     }}
                     className="select-field"
                     required
+                    disabled={bloquearLojaMaquinaRoteiro}
                   >
                     <option value="">Selecione uma loja...</option>
                     {lojas
@@ -1412,7 +1457,7 @@ export function Movimentacoes() {
                     onChange={handleChange}
                     className="select-field"
                     required
-                    disabled={!filtroLojaForm}
+                    disabled={!filtroLojaForm || bloquearLojaMaquinaRoteiro}
                   >
                     <option value="">
                       {filtroLojaForm
@@ -1433,7 +1478,9 @@ export function Movimentacoes() {
                   </select>
                   {filtroLojaForm && (
                     <p className="text-xs text-gray-500 mt-1">
-                      💡 Mostrando apenas máquinas da loja selecionada
+                      {bloquearLojaMaquinaRoteiro
+                        ? "Roteiro em execução: loja e máquina bloqueadas"
+                        : "💡 Mostrando apenas máquinas da loja selecionada"}
                     </p>
                   )}
                 </div>
@@ -1858,6 +1905,7 @@ export function Movimentacoes() {
                   onClick={() => {
                     setShowForm(false);
                     setFiltroLojaForm("");
+                    setBloquearLojaMaquinaRoteiro(false);
                     limparFotoContadores();
                     resetFluxoWhatsappBypass();
                   }}

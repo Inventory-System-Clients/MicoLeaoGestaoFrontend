@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
@@ -25,6 +26,7 @@ const formularioInicial = {
 };
 
 const itemInicial = { tipo: "LOJA", lojaId: "", anotacao: "" };
+const configInicial = { diaSemanaReset: 0, horaReset: "23:59" };
 
 const textoDias = (roteiro) => {
   if (roteiro.todosDias) return "Todos os dias";
@@ -42,6 +44,8 @@ const ordenarRoteiro = (roteiro) => ({
 });
 
 export function Roteiros() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === "ADMIN";
   const [loading, setLoading] = useState(true);
@@ -50,10 +54,15 @@ export function Roteiros() {
   const [usuarios, setUsuarios] = useState([]);
   const [veiculos, setVeiculos] = useState([]);
   const [lojas, setLojas] = useState([]);
+  const [maquinas, setMaquinas] = useState([]);
+  const [ultimasMovVeiculos, setUltimasMovVeiculos] = useState({});
+  const [config, setConfig] = useState(configInicial);
   const [form, setForm] = useState(formularioInicial);
   const [itensForm, setItensForm] = useState({});
   const [editando, setEditando] = useState(null);
   const [dragInfo, setDragInfo] = useState(null);
+  const [roteiroEmExecucao, setRoteiroEmExecucao] = useState(null);
+  const [lojaSelecionada, setLojaSelecionada] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -67,21 +76,31 @@ export function Roteiros() {
       setLoading(true);
       setError("");
 
-      const [roteirosRes, lojasRes] = await Promise.all([
-        api.get("/roteiros"),
-        api.get("/lojas"),
-      ]);
+      const [roteirosRes, lojasRes, maquinasRes, veiculosRes, ultimasVeiculosRes] =
+        await Promise.all([
+          api.get("/roteiros"),
+          api.get("/lojas"),
+          api.get("/maquinas"),
+          api.get("/veiculos"),
+          api.get("/movimentacao-veiculos/ultimas").catch(() => ({ data: {} })),
+        ]);
 
       setRoteiros((roteirosRes.data || []).map(ordenarRoteiro));
       setLojas((lojasRes.data || []).filter((loja) => loja.ativo !== false));
+      setMaquinas(maquinasRes.data || []);
+      setVeiculos(veiculosRes.data || []);
+      setUltimasMovVeiculos(ultimasVeiculosRes.data || {});
 
       if (isAdmin) {
-        const [usuariosRes, veiculosRes] = await Promise.all([
+        const [usuariosRes, configRes] = await Promise.all([
           api.get("/usuarios"),
-          api.get("/veiculos"),
+          api.get("/roteiros/configuracao"),
         ]);
         setUsuarios(usuariosRes.data || []);
-        setVeiculos(veiculosRes.data || []);
+        setConfig({
+          diaSemanaReset: configRes.data?.diaSemanaReset ?? 0,
+          horaReset: configRes.data?.horaReset || "23:59",
+        });
       }
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao carregar roteiros.");
@@ -90,10 +109,37 @@ export function Roteiros() {
     }
   };
 
+  const salvarConfiguracao = async () => {
+    try {
+      setError("");
+      await api.put("/roteiros/configuracao", config);
+      setSuccess("Configuração de reinício salva.");
+      await carregarDados();
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao salvar configuração.");
+    }
+  };
+
   useEffect(() => {
     carregarDados();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (loading || !roteiros.length) return;
+
+    const params = new URLSearchParams(location.search);
+    const roteiroId =
+      params.get("iniciarRoteiro") || params.get("executarRoteiro");
+    if (!roteiroId) return;
+
+    const roteiro = roteiros.find((item) => String(item.id) === String(roteiroId));
+    if (!roteiro) return;
+
+    setRoteiroEmExecucao(roteiro);
+    setLojaSelecionada(params.get("lojaId") || null);
+    navigate("/roteiros", { replace: true });
+  }, [loading, location.search, navigate, roteiros]);
 
   const atualizarDias = (dia) => {
     setForm((prev) => {
@@ -228,7 +274,82 @@ export function Roteiros() {
     }
   };
 
+  const funcionarioEstaComVeiculo = (roteiro) => {
+    if (!roteiro.veiculoId) return true;
+    const veiculo = veiculos.find((item) => item.id === roteiro.veiculoId);
+    const ultimaMov = ultimasMovVeiculos[roteiro.veiculoId];
+
+    return (
+      veiculo?.emUso === true &&
+      ultimaMov?.tipo === "retirada" &&
+      String(ultimaMov?.usuarioId || ultimaMov?.usuario?.id) === String(usuario?.id)
+    );
+  };
+
+  const iniciarRoteiro = (roteiro) => {
+    if (roteiro.veiculoId && !funcionarioEstaComVeiculo(roteiro)) {
+      navigate(`/veiculos?roteiroId=${roteiro.id}&veiculoId=${roteiro.veiculoId}`);
+      return;
+    }
+
+    setRoteiroEmExecucao(roteiro);
+    setLojaSelecionada(null);
+  };
+
+  const abrirMovimentacaoRoteiro = (item, maquinaId) => {
+    const params = new URLSearchParams({
+      abrirFormulario: "true",
+      modo: "nova_movimentacao",
+      lojaId: item.lojaId,
+      maquinaId,
+      roteiroId: item.roteiroId,
+      roteiroItemId: item.id,
+      origemRoteiro: "true",
+      bloquearLojaMaquina: "true",
+    });
+
+    navigate(`/movimentacoes?${params}`);
+  };
+
+  const concluirItem = async (item, concluido = true) => {
+    try {
+      await api.patch(`/roteiros/itens/${item.id}/concluir`, { concluido });
+      await carregarDados();
+      setRoteiroEmExecucao((prev) => {
+        if (!prev) return prev;
+        return ordenarRoteiro({
+          ...prev,
+          itens: prev.itens.map((roteiroItem) =>
+            roteiroItem.id === item.id
+              ? {
+                  ...roteiroItem,
+                  concluido,
+                  concluidoEm: concluido ? new Date().toISOString() : null,
+                }
+              : roteiroItem,
+          ),
+        });
+      });
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao atualizar item do roteiro.");
+    }
+  };
+
   if (loading) return <PageLoader />;
+
+  const roteiroExecucaoAtualizado = roteiroEmExecucao
+    ? roteiros.find((roteiro) => roteiro.id === roteiroEmExecucao.id) ||
+      roteiroEmExecucao
+    : null;
+  const lojasDoRoteiro = (roteiroExecucaoAtualizado?.itens || []).filter(
+    (item) => item.tipo === "LOJA",
+  );
+  const itemLojaSelecionada = lojasDoRoteiro.find(
+    (item) => String(item.lojaId) === String(lojaSelecionada),
+  );
+  const maquinasDaLojaSelecionada = lojaSelecionada
+    ? maquinas.filter((maquina) => String(maquina.lojaId) === String(lojaSelecionada))
+    : [];
 
   return (
     <div className="min-h-screen bg-background-light bg-pattern teddy-pattern">
@@ -250,6 +371,223 @@ export function Roteiros() {
             message={success}
             onClose={() => setSuccess("")}
           />
+        )}
+
+        {isAdmin && (
+          <section className="mb-6 rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  Configurações de administrador
+                </h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Define quando os roteiros voltam a ficar pendentes para a
+                  próxima rotina.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[160px_140px_auto]">
+                <select
+                  value={config.diaSemanaReset}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      diaSemanaReset: Number(e.target.value),
+                    })
+                  }
+                  className="select-field"
+                >
+                  {DIAS.map((dia) => (
+                    <option key={dia.value} value={dia.value}>
+                      {dia.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="time"
+                  value={config.horaReset}
+                  onChange={(e) =>
+                    setConfig({ ...config, horaReset: e.target.value })
+                  }
+                  className="input-field"
+                />
+                <button
+                  type="button"
+                  onClick={salvarConfiguracao}
+                  className="btn-primary"
+                >
+                  Salvar reset
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {roteiroExecucaoAtualizado && (
+          <section className="mb-6 rounded-lg border border-orange-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Executando: {roteiroExecucaoAtualizado.nome}
+                </h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Clique na loja, escolha a máquina e lance a movimentação.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setRoteiroEmExecucao(null);
+                  setLojaSelecionada(null);
+                }}
+              >
+                Fechar execução
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,380px)_1fr]">
+              <div className="space-y-2">
+                {(roteiroExecucaoAtualizado.itens || []).map((item, index) => {
+                  const maquinasDaLojaItem =
+                    item.tipo === "LOJA"
+                      ? maquinas.filter(
+                          (maquina) =>
+                            String(maquina.lojaId) === String(item.lojaId),
+                        )
+                      : [];
+                  const maquinasConcluidas = new Set(
+                    (item.maquinasConcluidas || []).map(String),
+                  );
+                  const totalConcluidas = maquinasDaLojaItem.filter((maquina) =>
+                    maquinasConcluidas.has(String(maquina.id)),
+                  ).length;
+                  const lojaConcluida =
+                    item.concluido ||
+                    (maquinasDaLojaItem.length > 0 &&
+                      totalConcluidas === maquinasDaLojaItem.length);
+
+                  return (
+                  <button
+                    type="button"
+                    key={item.id}
+                    onClick={() =>
+                      item.tipo === "LOJA" && setLojaSelecionada(item.lojaId)
+                    }
+                    className={`w-full rounded-lg border p-3 text-left transition ${
+                      lojaConcluida
+                        ? "border-emerald-300 bg-emerald-50"
+                        : item.tipo === "ANOTACAO"
+                          ? "border-blue-200 bg-blue-50"
+                          : String(lojaSelecionada) === String(item.lojaId)
+                            ? "border-orange-400 bg-orange-50"
+                            : "border-slate-200 bg-slate-50 hover:border-orange-200"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-black text-gray-700">
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-bold text-gray-900">
+                          {item.tipo === "ANOTACAO"
+                            ? "Anotação"
+                            : item.loja?.nome || "Loja"}
+                        </span>
+                        <span className="mt-1 block text-sm text-gray-600">
+                          {item.tipo === "ANOTACAO"
+                            ? item.anotacao
+                            : lojaConcluida
+                              ? "Concluída"
+                              : "Abrir máquinas desta loja"}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="mt-3 flex justify-end">
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          concluirItem(item, !item.concluido);
+                        }}
+                        className={`rounded-lg px-3 py-1 text-xs font-bold ${
+                          lojaConcluida
+                            ? "bg-white text-emerald-700"
+                            : "bg-white text-orange-700"
+                        }`}
+                      >
+                        {lojaConcluida ? "ConcluÃ­do" : "Concluir"}
+                      </span>
+                    </div>
+                  </button>
+                  );
+                })}
+
+                {lojasDoRoteiro.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-gray-500">
+                    Este roteiro ainda não tem lojas.
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-slate-200 p-4">
+                {lojaSelecionada ? (
+                  <>
+                    <h3 className="text-lg font-bold text-gray-900">
+                      Máquinas da loja
+                    </h3>
+                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      {maquinasDaLojaSelecionada.map((maquina) => {
+                        const maquinaConcluida = new Set(
+                          (itemLojaSelecionada?.maquinasConcluidas || []).map(
+                            String,
+                          ),
+                        ).has(String(maquina.id));
+
+                        return (
+                        <button
+                          type="button"
+                          key={maquina.id}
+                          className={`rounded-lg border p-4 text-left ${
+                            maquinaConcluida
+                              ? "border-emerald-300 bg-emerald-50"
+                              : "border-slate-200 bg-slate-50 hover:border-orange-300 hover:bg-orange-50"
+                          }`}
+                          onClick={() =>
+                            itemLojaSelecionada &&
+                            abrirMovimentacaoRoteiro(
+                              itemLojaSelecionada,
+                              maquina.id,
+                            )
+                          }
+                        >
+                          <p className="font-bold text-gray-900">
+                            {maquina.nome || maquina.codigo}
+                          </p>
+                          <p className="mt-1 text-sm text-gray-600">
+                            Código: {maquina.codigo}
+                          </p>
+                          {maquinaConcluida && (
+                            <p className="mt-2 text-xs font-black uppercase text-emerald-700">
+                              Concluido
+                            </p>
+                          )}
+                        </button>
+                        );
+                      })}
+                    </div>
+                    {maquinasDaLojaSelecionada.length === 0 && (
+                      <p className="mt-3 text-sm text-gray-500">
+                        Nenhuma máquina cadastrada nesta loja.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex min-h-48 items-center justify-center text-center text-gray-500">
+                    Selecione uma loja do roteiro para ver as máquinas.
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
         )}
 
         {isAdmin && (
@@ -383,8 +721,16 @@ export function Roteiros() {
                     </p>
                   </div>
 
-                  {isAdmin && (
-                    <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn-primary text-sm"
+                      onClick={() => iniciarRoteiro(roteiro)}
+                    >
+                      Iniciar roteiro
+                    </button>
+                    {isAdmin && (
+                      <>
                       <button
                         type="button"
                         className="btn-secondary text-sm"
@@ -413,8 +759,9 @@ export function Roteiros() {
                       >
                         Excluir
                       </button>
-                    </div>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {editandoEste && (
