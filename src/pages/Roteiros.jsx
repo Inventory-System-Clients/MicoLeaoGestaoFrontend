@@ -364,8 +364,7 @@ export function Roteiros() {
       return;
     }
 
-    setRoteiroEmExecucao(roteiro);
-    setLojaSelecionada(null);
+    navigate(`/roteiros/${roteiro.id}/executar`);
   };
 
   const abrirMovimentacaoRoteiro = (item, maquinaId) => {
@@ -544,7 +543,7 @@ export function Roteiros() {
           </section>
         )}
 
-        {roteiroExecucaoAtualizado && (
+        {false && roteiroExecucaoAtualizado && (
           <section className="mb-6 rounded-lg border border-orange-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>

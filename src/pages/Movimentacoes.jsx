@@ -733,10 +733,11 @@ export function Movimentacoes() {
 
       if (contextoRoteiroMovimentacao?.roteiroId) {
         const params = new URLSearchParams({
-          executarRoteiro: contextoRoteiroMovimentacao.roteiroId,
           lojaId: contextoRoteiroMovimentacao.lojaId,
         });
-        navigate(`/roteiros?${params}`);
+        navigate(
+          `/roteiros/${contextoRoteiroMovimentacao.roteiroId}/executar?${params}`,
+        );
       }
     } catch (error) {
       console.error("❌ [handleSubmit] Erro:", error);

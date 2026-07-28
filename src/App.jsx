@@ -20,6 +20,7 @@ import { ProdutosAComprar } from "./pages/ProdutosAComprar";
 import { ProdutoForm } from "./pages/ProdutoForm";
 import { Movimentacoes } from "./pages/Movimentacoes";
 import { Roteiros } from "./pages/Roteiros";
+import { RoteiroExecucao } from "./pages/RoteiroExecucao";
 import ManutencaoPage from "./pages/ManutencaoPage";
 import { Graficos } from "./pages/Graficos";
 import { Relatorios } from "./pages/Relatorios";
@@ -203,6 +204,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Roteiros />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/roteiros/:id/executar"
+            element={
+              <PrivateRoute>
+                <RoteiroExecucao />
               </PrivateRoute>
             }
           />
