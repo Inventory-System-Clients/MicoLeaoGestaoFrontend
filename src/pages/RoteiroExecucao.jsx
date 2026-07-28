@@ -38,6 +38,79 @@ const numeroAnteriorValido = (valor) => {
   return Number.isNaN(numero) ? null : numero;
 };
 
+const calcularSugestaoPorContadores = (form, ultimaMovimentacao, maquina) => {
+  if (!ultimaMovimentacao || form.ignoreInOut) {
+    return { patch: {}, erro: "" };
+  }
+
+  const contadorInAtual = numeroInteiroValido(form.contadorIn);
+  const contadorOutAtual = numeroInteiroValido(form.contadorOut);
+  if (contadorInAtual === null && contadorOutAtual === null) {
+    return { patch: {}, erro: "" };
+  }
+
+  const contadorInAnterior = numeroAnteriorValido(
+    ultimaMovimentacao.ultimoContadorIn ?? ultimaMovimentacao.contadorIn,
+  );
+  const contadorOutAnterior = numeroAnteriorValido(
+    ultimaMovimentacao.ultimoContadorOut ?? ultimaMovimentacao.contadorOut,
+  );
+  const totalPosAnterior = numeroAnteriorValido(ultimaMovimentacao.totalPos);
+  const capacidadePadrao = Number(
+    maquina?.capacidadePadrao || maquina?.capacidade || 0,
+  );
+
+  const saidaCalculada =
+    contadorOutAtual === null || contadorOutAnterior === null
+      ? null
+      : contadorOutAtual - contadorOutAnterior;
+  const fichasCalculadas =
+    contadorInAtual === null || contadorInAnterior === null
+      ? null
+      : contadorInAtual - contadorInAnterior;
+
+  if (
+    (saidaCalculada !== null && saidaCalculada < 0) ||
+    (fichasCalculadas !== null && fichasCalculadas < 0)
+  ) {
+    return {
+      patch: {},
+      erro: "O contador informado esta menor que o contador anterior.",
+    };
+  }
+
+  const totalPreEsperado =
+    saidaCalculada === null || totalPosAnterior === null
+      ? null
+      : Math.max(0, totalPosAnterior - saidaCalculada);
+  const abastecimentoSugerido =
+    totalPreEsperado === null || capacidadePadrao <= 0
+      ? null
+      : Math.max(0, capacidadePadrao - totalPreEsperado);
+
+  const patch = {};
+  if (totalPreEsperado !== null) {
+    patch.quantidadeAtualMaquina = String(totalPreEsperado);
+  }
+  if (abastecimentoSugerido !== null) {
+    patch.quantidadeAdicionada = String(abastecimentoSugerido);
+  }
+  if (fichasCalculadas !== null) {
+    patch.fichas = String(fichasCalculadas);
+  }
+
+  const semBaseOut = contadorOutAtual !== null && contadorOutAnterior === null;
+  const semBaseIn = contadorInAtual !== null && contadorInAnterior === null;
+
+  return {
+    patch,
+    erro:
+      semBaseOut || semBaseIn
+        ? "Nao encontrei contador anterior salvo para calcular automaticamente."
+        : "",
+  };
+};
+
 export function RoteiroExecucao() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -55,6 +128,7 @@ export function RoteiroExecucao() {
   );
   const [ultimaMovimentacao, setUltimaMovimentacao] = useState(null);
   const [salvandoMovimentacao, setSalvandoMovimentacao] = useState(false);
+  const [avisoCalculoContadores, setAvisoCalculoContadores] = useState("");
   const [error, setError] = useState("");
 
   const carregarDados = async () => {
@@ -92,59 +166,16 @@ export function RoteiroExecucao() {
       return;
     }
 
-    const contadorInAtual = numeroInteiroValido(formMovimentacao.contadorIn);
-    const contadorOutAtual = numeroInteiroValido(formMovimentacao.contadorOut);
-    if (contadorInAtual === null && contadorOutAtual === null) return;
-
-    const contadorInAnterior = numeroAnteriorValido(
-      ultimaMovimentacao.ultimoContadorIn ?? ultimaMovimentacao.contadorIn,
+    const { patch, erro } = calcularSugestaoPorContadores(
+      formMovimentacao,
+      ultimaMovimentacao,
+      modalMovimentacao.maquina,
     );
-    const contadorOutAnterior = numeroAnteriorValido(
-      ultimaMovimentacao.ultimoContadorOut ?? ultimaMovimentacao.contadorOut,
-    );
-    const totalPosAnterior = numeroAnteriorValido(ultimaMovimentacao.totalPos);
-    const capacidadePadrao = Number(
-      modalMovimentacao.maquina?.capacidadePadrao ||
-        modalMovimentacao.maquina?.capacidade ||
-        0,
-    );
-
-    const saidaCalculada =
-      contadorOutAtual === null || contadorOutAnterior === null
-        ? null
-        : contadorOutAtual - contadorOutAnterior;
-    const fichasCalculadas =
-      contadorInAtual === null || contadorInAnterior === null
-        ? null
-        : contadorInAtual - contadorInAnterior;
-
-    if (
-      (saidaCalculada !== null && saidaCalculada < 0) ||
-      (fichasCalculadas !== null && fichasCalculadas < 0)
-    ) {
-      return;
-    }
-
-    const totalPreEsperado =
-      saidaCalculada === null || totalPosAnterior === null
-        ? null
-        : Math.max(0, totalPosAnterior - saidaCalculada);
-    const abastecimentoSugerido =
-      totalPreEsperado === null || capacidadePadrao <= 0
-        ? null
-        : Math.max(0, capacidadePadrao - totalPreEsperado);
+    setAvisoCalculoContadores(erro);
 
     setFormMovimentacao((prev) => ({
       ...prev,
-      quantidadeAtualMaquina:
-        totalPreEsperado === null
-          ? prev.quantidadeAtualMaquina
-          : String(totalPreEsperado),
-      quantidadeAdicionada:
-        abastecimentoSugerido === null
-          ? prev.quantidadeAdicionada
-          : String(abastecimentoSugerido),
-      fichas: fichasCalculadas === null ? prev.fichas : String(fichasCalculadas),
+      ...patch,
     }));
   }, [
     formMovimentacao.contadorIn,
@@ -189,6 +220,7 @@ export function RoteiroExecucao() {
     setModalMovimentacao({ item, maquina });
     setFormMovimentacao(formularioMovimentacaoInicial);
     setUltimaMovimentacao(null);
+    setAvisoCalculoContadores("");
 
     try {
       const [ultimaRes, sugestaoRes] = await Promise.all([
@@ -229,6 +261,7 @@ export function RoteiroExecucao() {
     setModalMovimentacao(null);
     setFormMovimentacao(formularioMovimentacaoInicial);
     setUltimaMovimentacao(null);
+    setAvisoCalculoContadores("");
   };
 
   const salvarMovimentacaoRoteiro = async (event) => {
@@ -631,6 +664,12 @@ export function RoteiroExecucao() {
                   Nao preciso informar IN/OUT nesta movimentacao
                 </label>
 
+                {avisoCalculoContadores && (
+                  <p className="rounded-lg border border-yellow-300 bg-yellow-50 p-3 text-sm font-semibold text-yellow-800 md:col-span-3">
+                    {avisoCalculoContadores}
+                  </p>
+                )}
+
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Quantidade Atual na Maquina *
@@ -782,7 +821,8 @@ export function RoteiroExecucao() {
               {ultimaMovimentacao && (
                 <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-gray-600">
                   Ultima movimentacao: total pos{" "}
-                  {ultimaMovimentacao.totalPos ?? 0}, IN{" "}
+                  {ultimaMovimentacao.totalPos ?? 0}. Ultimos contadores salvos:
+                  IN{" "}
                   {ultimaMovimentacao.ultimoContadorIn ??
                     ultimaMovimentacao.contadorIn ??
                     "-"}
