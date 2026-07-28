@@ -516,12 +516,12 @@ export function RoteiroExecucao() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
             <form
               onSubmit={salvarMovimentacaoRoteiro}
-              className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-lg border border-orange-100 bg-white p-5 shadow-2xl"
+              className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-lg border border-orange-200 bg-orange-50/95 p-5 shadow-2xl"
             >
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">
-                    Registrar Movimentacao
+                    📝 Registrar Movimentacao
                   </h2>
                   <p className="mt-1 text-sm text-gray-600">
                     {itemLojaSelecionada?.loja?.nome || "Loja"} -{" "}
@@ -539,15 +539,15 @@ export function RoteiroExecucao() {
                 </button>
               </div>
 
-              <div className="mb-4 rounded border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                <strong>Como funciona:</strong> Informe quantos produtos tem AGORA na
+              <div className="mb-4 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-800 shadow-sm">
+                <strong>💡 Como funciona:</strong> Informe quantos produtos tem AGORA na
                 maquina. Se abastecer, informe quantos foram adicionados.
               </div>
 
-              <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="mb-4 grid grid-cols-1 gap-4 rounded-lg border border-orange-100 bg-white/90 p-4 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Loja
+                    🏪 Loja
                   </label>
                   <input
                     value={itemLojaSelecionada?.loja?.nome || ""}
@@ -557,7 +557,7 @@ export function RoteiroExecucao() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Maquina
+                    🧸 Maquina
                   </label>
                   <input
                     value={`${modalMovimentacao.maquina.nome || ""} ${
@@ -569,9 +569,9 @@ export function RoteiroExecucao() {
                 </div>
               </div>
 
-              <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 shadow-sm">
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Foto dos contadores
+                  📷 Foto dos contadores
                 </label>
                 <label className="inline-flex cursor-pointer items-center rounded bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
                   Tirar foto dos contadores
@@ -583,10 +583,11 @@ export function RoteiroExecucao() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-orange-100 bg-white/90 p-4 shadow-sm">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="md:col-span-1 md:order-last">
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Produto *
+                    🧸 Produto *
                   </label>
                   <select
                     value={formMovimentacao.produtoId}
@@ -609,7 +610,7 @@ export function RoteiroExecucao() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Contador IN (Entrada)
+                    📥 Contador IN (Entrada)
                   </label>
                   <input
                     type="number"
@@ -630,7 +631,7 @@ export function RoteiroExecucao() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Contador OUT (Saida)
+                    📤 Contador OUT (Saida)
                   </label>
                   <input
                     type="number"
@@ -672,7 +673,7 @@ export function RoteiroExecucao() {
 
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Quantidade Atual na Maquina *
+                    📦 Quantidade Atual na Maquina *
                   </label>
                   <input
                     type="number"
@@ -693,7 +694,7 @@ export function RoteiroExecucao() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Quantidade Adicionada
+                    🧺 Quantidade Adicionada
                   </label>
                   <input
                     type="number"
@@ -713,7 +714,7 @@ export function RoteiroExecucao() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Quantidade de Fichas
+                    🎟️ Quantidade de Fichas
                   </label>
                   <input
                     type="number"
@@ -733,7 +734,7 @@ export function RoteiroExecucao() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Retirada de Produto
+                    ❌ Retirada de Produto
                   </label>
                   <input
                     type="number"
@@ -753,7 +754,7 @@ export function RoteiroExecucao() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Valor em Notas (R$)
+                    💵 Valor em Notas (R$)
                   </label>
                   <input
                     type="number"
@@ -771,7 +772,7 @@ export function RoteiroExecucao() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Valor Digital (Pix/Maquininha) (R$)
+                    💳 Valor Digital (Pix/Maquininha) (R$)
                   </label>
                   <input
                     type="number"
@@ -800,11 +801,12 @@ export function RoteiroExecucao() {
                   />
                   Devolver retirada para o estoque da loja
                 </label>
+                </div>
               </div>
 
-              <div className="mt-4">
+              <div className="mt-4 rounded-lg border border-orange-100 bg-white/90 p-4 shadow-sm">
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Observacao
+                  📝 Observacao
                 </label>
                 <textarea
                   value={formMovimentacao.observacao}
