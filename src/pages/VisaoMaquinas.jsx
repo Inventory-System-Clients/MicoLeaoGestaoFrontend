@@ -31,12 +31,6 @@ const statusMaquina = {
     chip: "bg-red-100 text-red-800 border-red-200",
     card: "border-red-200 bg-red-50",
   },
-  EM_TRANSPORTE: {
-    label: "Em transporte",
-    dot: "bg-purple-500",
-    chip: "bg-purple-100 text-purple-800 border-purple-200",
-    card: "border-purple-200 bg-purple-50",
-  },
   SEM_LOJA: {
     label: "Sem loja",
     dot: "bg-slate-500",
@@ -56,7 +50,6 @@ const ordemStatus = [
   "EM_MANUTENCAO",
   "PRONTA_PARA_SAIDA",
   "PARADA",
-  "EM_TRANSPORTE",
   "SEM_LOJA",
   "INATIVA",
 ];
@@ -73,7 +66,8 @@ const formatarData = (valor) => {
 const obterStatusCodigo = (maquina) => {
   if (maquina.ativo === false) return "INATIVA";
   if (!maquina.lojaId) return "SEM_LOJA";
-  return maquina.statusOperacao || maquina.status_operacao || "EM_OPERACAO";
+  const status = maquina.statusOperacao || maquina.status_operacao || "EM_OPERACAO";
+  return status === "EM_TRANSPORTE" ? "PARADA" : status;
 };
 
 export function VisaoMaquinas() {
@@ -228,10 +222,9 @@ export function VisaoMaquinas() {
             <p className="text-sm font-semibold opacity-80">Preparação</p>
             <p className="mt-2 text-3xl font-bold">
               {(totais.PRONTA_PARA_SAIDA || 0) +
-                (totais.EM_TRANSPORTE || 0) +
                 (totais.SEM_LOJA || 0)}
             </p>
-            <p className="mt-1 text-xs opacity-75">saída, transporte ou sem loja</p>
+            <p className="mt-1 text-xs opacity-75">saída ou sem loja</p>
           </div>
         </section>
 

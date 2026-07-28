@@ -21,7 +21,6 @@ const obterStatusMaquina = (maquina) => {
     EM_MANUTENCAO: { label: "Em manutenção", variant: "warning" },
     PRONTA_PARA_SAIDA: { label: "Pronta para saída", variant: "info" },
     PARADA: { label: "Parada", variant: "danger" },
-    EM_TRANSPORTE: { label: "Em transporte", variant: "warning" },
   };
 
   if (status && mapa[status]) return mapa[status];

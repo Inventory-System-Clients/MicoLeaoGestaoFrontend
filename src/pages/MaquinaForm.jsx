@@ -288,7 +288,6 @@ export function MaquinaForm() {
                     <option value="EM_MANUTENCAO">Em manutenção</option>
                     <option value="PRONTA_PARA_SAIDA">Pronta para saída</option>
                     <option value="PARADA">Parada</option>
-                    <option value="EM_TRANSPORTE">Em transporte</option>
                   </select>
                 </div>
               </div>
