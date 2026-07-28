@@ -5,6 +5,7 @@ import { Navbar } from "../components/Navbar";
 import { AlertBox } from "../components/UIComponents";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../services/api";
+import { confirmar } from "../utils/alerts";
 
 const produtoVazio = {
   produtoNome: "",
@@ -149,7 +150,12 @@ export function Fornecedores() {
   };
 
   const excluirFornecedor = async (fornecedor) => {
-    if (!window.confirm(`Remover fornecedor ${fornecedor.nome}?`)) return;
+    const confirmado = await confirmar({
+      title: "Remover fornecedor?",
+      text: `Fornecedor: ${fornecedor.nome}`,
+      confirmButtonText: "Remover",
+    });
+    if (!confirmado) return;
     try {
       await api.delete(`/fornecedores/${fornecedor.id}`);
       setSuccess("Fornecedor removido.");

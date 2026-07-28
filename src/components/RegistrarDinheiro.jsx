@@ -1,5 +1,6 @@
 ﻿import React, { useState } from "react";
 import api from "../services/api";
+import { aviso } from "../utils/alerts";
 
 const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
   const obterMesAnteriorPadrao = () => {
@@ -97,7 +98,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
 
     // Garantir que campos obrigatórios estejam preenchidos corretamente
     if (!lojaSelecionada || !periodoSelecionado) {
-      alert("Preencha todos os campos obrigatórios: loja e mês de fechamento.");
+      aviso("Campos obrigatórios", "Preencha loja e mês de fechamento.");
       return;
     }
 
@@ -106,17 +107,17 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
     const taxaMediaNumero = parseLocaleNumber(percentualTaxaCartaoMedia);
 
     if (valorDinheiro !== "" && dinheiroNumero === null) {
-      alert("Valor de dinheiro inválido.");
+      aviso("Valor inválido", "Valor de dinheiro inválido.");
       return;
     }
 
     if (valorCartaoPix !== "" && cartaoPixNumero === null) {
-      alert("Valor de cartão/pix inválido.");
+      aviso("Valor inválido", "Valor de cartão/pix inválido.");
       return;
     }
 
     if (percentualTaxaCartaoMedia !== "" && taxaMediaNumero === null) {
-      alert("Taxa média de cartão inválida.");
+      aviso("Taxa inválida", "Taxa média de cartão inválida.");
       return;
     }
 
@@ -128,7 +129,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       : [];
 
     if (gastosNormalizados.some((gasto) => gasto.valor === null)) {
-      alert("Preencha os valores dos gastos variáveis corretamente.");
+      aviso("Gastos inválidos", "Preencha os valores dos gastos variáveis corretamente.");
       return;
     }
 
@@ -616,5 +617,3 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
 };
 
 export default RegistrarDinheiro;
-
-

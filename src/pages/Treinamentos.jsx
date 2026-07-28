@@ -5,6 +5,7 @@ import { AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../services/api";
+import { confirmar } from "../utils/alerts";
 
 const videoInicial = {
   titulo: "",
@@ -92,7 +93,12 @@ export function Treinamentos() {
   };
 
   const excluirVideo = async (id) => {
-    if (!window.confirm("Remover este treinamento?")) return;
+    const confirmado = await confirmar({
+      title: "Remover treinamento?",
+      text: "Este vídeo não aparecerá mais para os usuários.",
+      confirmButtonText: "Remover",
+    });
+    if (!confirmado) return;
     try {
       await api.delete(`/treinamentos/videos/${id}`);
       setSuccess("Treinamento removido.");

@@ -6,6 +6,7 @@ import { Footer } from "../components/Footer";
 import { AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { useAuth } from "../contexts/AuthContext";
+import { confirmar } from "../utils/alerts";
 
 const DIAS = [
   { value: 0, label: "Dom" },
@@ -258,7 +259,12 @@ export function Roteiros() {
   };
 
   const excluirRoteiro = async (roteiroId) => {
-    if (!window.confirm("Excluir este roteiro e todos os itens dele?")) return;
+    const confirmado = await confirmar({
+      title: "Excluir roteiro?",
+      text: "Isso remove o roteiro e todos os itens dele.",
+      confirmButtonText: "Excluir",
+    });
+    if (!confirmado) return;
     try {
       await api.delete(`/roteiros/${roteiroId}`);
       setSuccess("Roteiro removido.");

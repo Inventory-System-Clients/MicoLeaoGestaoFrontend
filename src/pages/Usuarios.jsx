@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Navbar } from "../components/Navbar";
 import { IAgarraAssistente } from "../components/IAgarraAssistente";
 import api from "../services/api";
+import { confirmar, erro, sucesso } from "../utils/alerts";
 
 export function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
@@ -23,29 +24,36 @@ export function Usuarios() {
       const response = await api.get(`/usuarios?${params.toString()}`);
       setUsuarios(response.data);
     } catch (error) {
-      console.error("Erro ao carregar usuários:", error);
+      console.error("Erro ao carregar usuÃ¡rios:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDesativar = async (id) => {
-    if (!window.confirm("Deseja realmente desativar este usuário?")) return;
+    const confirmado = await confirmar({
+      title: "Desativar usuário?",
+      text: "Este usuário não conseguirá acessar o sistema até ser reativado.",
+      confirmButtonText: "Desativar",
+    });
+    if (!confirmado) return;
 
     try {
       await api.delete(`/usuarios/${id}`);
+      sucesso("Usuário desativado", "O acesso foi bloqueado com sucesso.");
       carregarUsuarios();
     } catch (error) {
-      alert(error.response?.data?.error || "Erro ao desativar usuário");
+      erro("Erro ao desativar", error.response?.data?.error || "Erro ao desativar usuário");
     }
   };
 
   const handleReativar = async (id) => {
     try {
       await api.patch(`/usuarios/${id}/reativar`);
+      sucesso("Usuário reativado", "O acesso foi liberado novamente.");
       carregarUsuarios();
     } catch (error) {
-      alert(error.response?.data?.error || "Erro ao reativar usuário");
+      erro("Erro ao reativar", error.response?.data?.error || "Erro ao reativar usuário");
     }
   };
 
@@ -67,10 +75,10 @@ export function Usuarios() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            Gestão de Usuários
+            GestÃ£o de UsuÃ¡rios
           </h1>
           <Link to="/usuarios/novo" className="btn-primary">
-            ➕ Novo Usuário
+            âž• Novo UsuÃ¡rio
           </Link>
         </div>
 
@@ -110,7 +118,7 @@ export function Usuarios() {
                 <option value="">Todos</option>
                 <option value="ADMIN">Administrador</option>
                 <option value="DESENVOLVEDOR">Desenvolvedor</option>
-                <option value="FUNCIONARIO">Funcionário</option>
+                <option value="FUNCIONARIO">FuncionÃ¡rio</option>
               </select>
             </div>
 
@@ -133,7 +141,7 @@ export function Usuarios() {
           </div>
         </div>
 
-        {/* Lista de Usuários */}
+        {/* Lista de UsuÃ¡rios */}
         <div className="card">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -158,7 +166,7 @@ export function Usuarios() {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Ações
+                    AÃ§Ãµes
                   </th>
                 </tr>
               </thead>
@@ -187,7 +195,7 @@ export function Usuarios() {
                           ? "Admin"
                           : usuario.role === "DESENVOLVEDOR"
                             ? "Dev"
-                          : "Funcionário"}
+                          : "FuncionÃ¡rio"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-600">
@@ -245,7 +253,7 @@ export function Usuarios() {
 
             {usuarios.length === 0 && (
               <div className="text-center py-12 text-gray-500">
-                Nenhum usuário encontrado
+                Nenhum usuÃ¡rio encontrado
               </div>
             )}
           </div>

@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
+﻿import React, { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import ControleVeiculos from "../components/ControleVeiculos";
 import RegistroVeiculosMovimentacao from "../components/RegistroVeiculosMovimentacao";
 import AlertasVeiculos from "../components/AlertasVeiculos";
 import api from "../services/api";
+import { erro, sucesso } from "../utils/alerts";
 
 const initialFormState = {
   tipo: "moto",
@@ -11,12 +12,12 @@ const initialFormState = {
   modelo: "",
   km: "",
   estado: "Bom",
-  emoji: "🏍️",
+  emoji: "ðŸï¸",
   emUso: false,
   parada: false,
   modo: "trabalho",
   nivelCombustivel: "5 palzinhos",
-  nivelLimpeza: "está limpo",
+  nivelLimpeza: "estÃ¡ limpo",
 };
 
 export default function Veiculos() {
@@ -43,7 +44,7 @@ export default function Veiculos() {
       const { data } = await api.get("/veiculos");
       setVeiculos(data);
     } catch (error) {
-      console.error("Erro ao buscar veículos:", error);
+      console.error("Erro ao buscar veÃ­culos:", error);
       setVeiculos([]);
     } finally {
       setLoading(false);
@@ -58,7 +59,7 @@ export default function Veiculos() {
 
   const fecharModal = () => {
     setModalCadastro(false);
-    setForm(initialFormState); // Reseta o formulário ao fechar
+    setForm(initialFormState); // Reseta o formulÃ¡rio ao fechar
   };
 
   const handleChange = (e) => {
@@ -68,7 +69,7 @@ export default function Veiculos() {
         return {
           ...prev,
           [name]: value,
-          emoji: value === "moto" ? "🏍️" : "🚗",
+          emoji: value === "moto" ? "ðŸï¸" : "ðŸš—",
         };
       }
       return { ...prev, [name]: value };
@@ -81,14 +82,14 @@ export default function Veiculos() {
       await api.post("/veiculos", form);
       fetchVeiculos();
       fecharModal();
-      alert("Veículo cadastrado com sucesso!");
+      sucesso("Veículo cadastrado", "Veículo cadastrado com sucesso.");
     } catch (error) {
       console.error("Erro no cadastro:", error);
-      alert("Erro ao cadastrar veículo");
+      erro("Erro ao cadastrar", "Erro ao cadastrar veículo.");
     }
   };
 
-  // Função auxiliar para formatar a data para o componente filho (se necessário DD/MM/YYYY)
+  // FunÃ§Ã£o auxiliar para formatar a data para o componente filho (se necessÃ¡rio DD/MM/YYYY)
 //   const getDataFormatada = () => {
 //     if (!filtroData) return "";
 //     const [ano, mes, dia] = filtroData.split("-");
@@ -105,10 +106,10 @@ export default function Veiculos() {
               onClick={() => navigate("/dashboard")}
               className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow transition-all duration-150 flex items-center gap-2"
             >
-              <span>←</span> Voltar para o Dashboard
+              <span>â†</span> Voltar para o Dashboard
             </button>
             <h1 className="text-3xl font-bold tracking-tight text-blue-900 drop-shadow-sm hidden sm:block">
-              Veículos
+              VeÃ­culos
             </h1>
           </div>
 
@@ -117,7 +118,7 @@ export default function Veiculos() {
               onClick={abrirModal}
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-medium shadow-sm transition-colors"
             >
-              + Novo Veículo
+              + Novo VeÃ­culo
             </button>
             <button
               onClick={() => setMostrarAlertas(!mostrarAlertas)}
@@ -144,19 +145,19 @@ export default function Veiculos() {
             />
           </div>
 
-          {/* Área de Filtro de Data */}
+          {/* Ãrea de Filtro de Data */}
           <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
             <label className="text-blue-900 font-medium bg-white/50 px-3 py-1 rounded-lg">
-              Ver registro de movimentação de um período:
+              Ver registro de movimentaÃ§Ã£o de um perÃ­odo:
             </label>
             <input
               type="date"
               className="border rounded-lg p-2 focus:ring-2 focus:ring-blue-200 outline-none shadow-sm cursor-pointer"
               value={filtroDataInicio}
               onChange={(e) => setFiltroDataInicio(e.target.value)}
-              placeholder="Data início"
+              placeholder="Data inÃ­cio"
             />
-            <span className="text-gray-500">até</span>
+            <span className="text-gray-500">atÃ©</span>
             <input
               type="date"
               className="border rounded-lg p-2 focus:ring-2 focus:ring-blue-200 outline-none shadow-sm cursor-pointer"
@@ -177,7 +178,7 @@ export default function Veiculos() {
             )}
           </div>
 
-          {/* Tabela de Movimentação */}
+          {/* Tabela de MovimentaÃ§Ã£o */}
           {(filtroDataInicio || filtroDataFim) && (
             <div className="bg-white/90 rounded-xl shadow p-6 border border-gray-100 animate-fadeIn">
               <RegistroVeiculosMovimentacao
@@ -199,7 +200,7 @@ export default function Veiculos() {
             onSubmit={handleSubmit}
           >
             <h2 className="text-2xl font-bold mb-4 text-blue-900">
-              Cadastrar novo veículo
+              Cadastrar novo veÃ­culo
             </h2>
             <div className="space-y-3">
               <div>
@@ -267,8 +268,8 @@ export default function Veiculos() {
                   onChange={handleChange}
                   className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-200"
                 >
-                  <option value="🏍️">Moto 🏍️</option>
-                  <option value="🚗">Carro 🚗</option>
+                  <option value="ðŸï¸">Moto ðŸï¸</option>
+                  <option value="ðŸš—">Carro ðŸš—</option>
                 </select>
               </div>
               <div>
@@ -287,7 +288,7 @@ export default function Veiculos() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 text-blue-900">
-                  Nível de combustível
+                  NÃ­vel de combustÃ­vel
                 </label>
                 <select
                   name="nivelCombustivel"
@@ -305,7 +306,7 @@ export default function Veiculos() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 text-blue-900">
-                  Nível de limpeza
+                  NÃ­vel de limpeza
                 </label>
                 <select
                   name="nivelLimpeza"
@@ -313,7 +314,7 @@ export default function Veiculos() {
                   onChange={handleChange}
                   className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-200"
                 >
-                  <option value="está limpo">Está limpo</option>
+                  <option value="estÃ¡ limpo">EstÃ¡ limpo</option>
                   <option value="precisa limpar">Precisa limpar</option>
                 </select>
               </div>

@@ -1,6 +1,7 @@
-import React from "react";
+﻿import React from "react";
 
 import api from "../services/api";
+import { confirmar, erro } from "../utils/alerts";
 
 export default function TabelaMovimentacoesEstoqueDeLoja({
   movimentacoesEstoqueLoja = [],
@@ -12,21 +13,26 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
   filtroResponsavelEstoque = "",
   setEditandoEstoqueLoja,
   setExcluindoEstoqueLoja,
-  onChangeEstoqueLoja, // Função para recarregar estoque consolidado
+  onChangeEstoqueLoja, // FunÃ§Ã£o para recarregar estoque consolidado
 }) {
-  // Função para deletar movimentação e recarregar estoque consolidado
+  // FunÃ§Ã£o para deletar movimentaÃ§Ã£o e recarregar estoque consolidado
   const handleDelete = async (mov) => {
-    if (!window.confirm("Tem certeza que deseja deletar esta movimentação?"))
-      return;
+    const confirmado = await confirmar({
+      title: "Deletar movimentação?",
+      text: "Esta movimentação de estoque será removida.",
+      confirmButtonText: "Deletar",
+    });
+    if (!confirmado) return;
+
     try {
       await api.delete(`/movimentacao-estoque-loja/${mov.id}`);
       if (typeof onChangeEstoqueLoja === "function") onChangeEstoqueLoja();
     } catch (err) {
-      alert("Erro ao deletar movimentação de estoque de loja.");
+      erro("Erro ao deletar", "Erro ao deletar movimentação de estoque de loja.");
     }
   };
 
-  // Função para editar movimentação (apenas abre modal, recarrega estoque deve ser feito após salvar no modal principal)
+  // FunÃ§Ã£o para editar movimentaÃ§Ã£o (apenas abre modal, recarrega estoque deve ser feito apÃ³s salvar no modal principal)
 
   const movimentacoesFiltradas = movimentacoesEstoqueLoja.filter((mov) => {
     const dataMovimentacao = mov.dataMovimentacao?.slice(0, 10);
@@ -70,7 +76,7 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
                 Loja de Destino
               </th>
               <th className="px-4 py-3 text-center text-sm font-bold uppercase tracking-wide">
-                Responsável
+                ResponsÃ¡vel
               </th>
               <th className="px-4 py-3 text-center text-sm font-bold uppercase tracking-wide">
                 Produtos Enviados
@@ -88,7 +94,7 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
               <tr>
                 <td colSpan={6} className="px-4 py-10 text-center">
                   <p className="text-sm font-semibold text-slate-600">
-                    Nenhuma movimentação encontrada
+                    Nenhuma movimentaÃ§Ã£o encontrada
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
                     Ajuste os filtros para visualizar outros registros.
@@ -140,22 +146,22 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
                         {mov.produtosEnviados.map((prod, index) => {
                           // Debug: log da primeira entrada
                           if (index === 0) {
-                            console.log("📦 Prod:", prod);
+                            console.log("ðŸ“¦ Prod:", prod);
                             console.log(
-                              "📦 Produtos lista:",
+                              "ðŸ“¦ Produtos lista:",
                               produtos.slice(0, 2),
                             );
                           }
 
-                          // Tentar obter o produto de várias formas
+                          // Tentar obter o produto de vÃ¡rias formas
                           let produtoRenderizado = null;
 
-                          // 1. Se já vem o objeto produto completo
+                          // 1. Se jÃ¡ vem o objeto produto completo
                           if (prod.produto?.id) {
                             produtoRenderizado = prod.produto;
                           }
 
-                          // 2. Se não, tenta encontrar pelo ID em múltiplos campos
+                          // 2. Se nÃ£o, tenta encontrar pelo ID em mÃºltiplos campos
                           const prodIdValue = prod.produtoId || prod.produto_id;
                           if (
                             !produtoRenderizado &&
@@ -167,9 +173,9 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
                             );
                           }
 
-                          // 3. Se mesmo assim não achou, usa fallback
+                          // 3. Se mesmo assim nÃ£o achou, usa fallback
                           const emojiDisplay =
-                            produtoRenderizado?.emoji || "📦";
+                            produtoRenderizado?.emoji || "ðŸ“¦";
                           const nomeDisplay =
                             produtoRenderizado?.nome ||
                             prod.produto?.nome ||
@@ -185,7 +191,7 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
                               <span>{nomeDisplay}</span>
                               <span className="font-bold">
                                 {" "}
-                                — {prod.quantidade}
+                                â€” {prod.quantidade}
                               </span>{" "}
                               <span
                                 className={`font-semibold ${

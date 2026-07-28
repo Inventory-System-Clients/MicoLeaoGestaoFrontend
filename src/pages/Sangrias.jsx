@@ -4,6 +4,7 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageHeader } from "../components/UIComponents";
 import { useAuth } from "../contexts/AuthContext";
+import { confirmar } from "../utils/alerts";
 
 const NOTE_VALUES = [2, 5, 10, 20, 50, 100, 200];
 
@@ -430,7 +431,11 @@ export function Sangrias() {
       return;
     }
 
-    const confirmou = window.confirm("Deseja excluir esta sangria?");
+    const confirmou = await confirmar({
+      title: "Excluir sangria?",
+      text: "Este registro será removido do histórico.",
+      confirmButtonText: "Excluir",
+    });
     if (!confirmou) return;
 
     try {
@@ -455,9 +460,11 @@ export function Sangrias() {
       return;
     }
 
-    const confirmou = window.confirm(
-      `Deseja excluir ${selectedIds.length} sangria(s)?`,
-    );
+    const confirmou = await confirmar({
+      title: "Excluir sangrias?",
+      text: `Você selecionou ${selectedIds.length} sangria(s).`,
+      confirmButtonText: "Excluir",
+    });
     if (!confirmou) return;
 
     try {

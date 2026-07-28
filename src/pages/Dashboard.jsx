@@ -1846,10 +1846,12 @@ export function Dashboard() {
       fecharEdicaoEstoque();
     } catch (error) {
       console.error("Erro ao salvar estoque:", error);
-      alert(
-        "Erro ao salvar estoque: " +
-          (error.response?.data?.error || error.message),
-      );
+      Swal.fire({
+        icon: "error",
+        title: "Erro ao salvar estoque",
+        text: error.response?.data?.error || error.message,
+        confirmButtonColor: "#ef3b24",
+      });
     } finally {
       setSalvandoEstoque(false);
     }
@@ -2852,7 +2854,12 @@ export function Dashboard() {
                             quantidade: Number(p.quantidade),
                           })),
                         });
-                        alert("Movimentação registrada com sucesso!");
+                        Swal.fire({
+                          icon: "success",
+                          title: "Movimentação registrada",
+                          text: "Movimentação registrada com sucesso.",
+                          confirmButtonColor: "#ef3b24",
+                        });
                         setMostrarModalMovimentacao(false);
                         setMovimentacaoLojaId("");
                         setProdutosMovimentacao([

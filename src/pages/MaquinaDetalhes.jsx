@@ -6,6 +6,7 @@ import { Navbar } from "../components/Navbar";
 import { useAuth } from "../contexts/AuthContext";
 import { AlertBox, Badge, Modal } from "../components/UIComponents";
 import api from "../services/api";
+import { confirmar } from "../utils/alerts";
 
 const statusMapa = {
   EM_OPERACAO: { label: "Em operação", variant: "success" },
@@ -217,10 +218,12 @@ export function MaquinaDetalhes() {
   };
 
   const deletarMovimentacao = async (movimentacao) => {
-    const confirmar = window.confirm(
-      "Tem certeza que deseja excluir esta movimentação? Essa ação não pode ser desfeita.",
-    );
-    if (!confirmar) return;
+    const confirmado = await confirmar({
+      title: "Excluir movimentação?",
+      text: "Essa ação não pode ser desfeita.",
+      confirmButtonText: "Excluir",
+    });
+    if (!confirmado) return;
 
     try {
       setDeletandoMovimentacaoId(movimentacao.id);

@@ -11,6 +11,7 @@ import {
   ConfirmDialog,
 } from "../components/UIComponents";
 import { LoadingSpinner, EmptyState } from "../components/Loading";
+import { sucesso } from "../utils/alerts";
 
 export function StyleGuide() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -410,7 +411,7 @@ export function StyleGuide() {
       <ConfirmDialog
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        onConfirm={() => alert("Confirmado!")}
+        onConfirm={() => sucesso("Confirmado", "Ação confirmada com sucesso.")}
         title="Confirmar Ação"
         message="Tem certeza que deseja realizar esta ação? Esta operação não pode ser desfeita."
         confirmText="Sim, confirmar"
