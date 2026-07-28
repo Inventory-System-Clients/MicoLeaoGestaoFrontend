@@ -20,6 +20,9 @@ const formularioMovimentacaoInicial = {
   contadorOut: "",
   quantidadeNotasEntrada: "",
   valorEntradaPix: "",
+  retiradaProduto: "",
+  retiradaProdutoDevolverEstoque: false,
+  ignoreInOut: false,
   observacao: "",
 };
 
@@ -75,7 +78,13 @@ export function RoteiroExecucao() {
   }, [id]);
 
   useEffect(() => {
-    if (!modalMovimentacao || !ultimaMovimentacao) return;
+    if (
+      !modalMovimentacao ||
+      !ultimaMovimentacao ||
+      formMovimentacao.ignoreInOut
+    ) {
+      return;
+    }
 
     const contadorInAtual = numeroInteiroValido(formMovimentacao.contadorIn);
     const contadorOutAtual = numeroInteiroValido(formMovimentacao.contadorOut);
@@ -126,6 +135,7 @@ export function RoteiroExecucao() {
   }, [
     formMovimentacao.contadorIn,
     formMovimentacao.contadorOut,
+    formMovimentacao.ignoreInOut,
     modalMovimentacao,
     ultimaMovimentacao,
   ]);
@@ -209,9 +219,12 @@ export function RoteiroExecucao() {
     const totalPre = Number.parseInt(formMovimentacao.quantidadeAtualMaquina, 10) || 0;
     const quantidadeAdicionada =
       Number.parseInt(formMovimentacao.quantidadeAdicionada, 10) || 0;
+    const retiradaProduto =
+      Number.parseInt(formMovimentacao.retiradaProduto, 10) || 0;
     const fichas = Number.parseInt(formMovimentacao.fichas, 10) || 0;
     const ultimoTotalPos = Number(ultimaMovimentacao?.totalPos || 0);
     const quantidadeSaiu = Math.max(0, ultimoTotalPos - totalPre);
+    const observacaoFinal = formMovimentacao.observacao.trim() || null;
 
     if (!formMovimentacao.produtoId) {
       setError("Selecione o produto da movimentacao.");
@@ -227,10 +240,14 @@ export function RoteiroExecucao() {
         totalPre,
         sairam: quantidadeSaiu,
         abastecidas: quantidadeAdicionada,
-        totalPos: totalPre + quantidadeAdicionada,
+        totalPos: totalPre + quantidadeAdicionada - retiradaProduto,
         fichas,
-        contadorIn: Number.parseInt(formMovimentacao.contadorIn, 10) || null,
-        contadorOut: Number.parseInt(formMovimentacao.contadorOut, 10) || null,
+        contadorIn: formMovimentacao.ignoreInOut
+          ? null
+          : Number.parseInt(formMovimentacao.contadorIn, 10) || null,
+        contadorOut: formMovimentacao.ignoreInOut
+          ? null
+          : Number.parseInt(formMovimentacao.contadorOut, 10) || null,
         quantidade_notas_entrada: formMovimentacao.quantidadeNotasEntrada
           ? Number.parseFloat(formMovimentacao.quantidadeNotasEntrada)
           : null,
@@ -239,13 +256,15 @@ export function RoteiroExecucao() {
           : null,
         retiradaEstoque: false,
         contadorMaquina: null,
-        observacoes: formMovimentacao.observacao.trim() || null,
+        observacoes: observacaoFinal,
         produtos: [
           {
             produtoId: formMovimentacao.produtoId,
             quantidadeSaiu,
             quantidadeAbastecida: quantidadeAdicionada,
-            retiradaProduto: 0,
+            retiradaProduto,
+            retiradaProdutoDevolverEstoque:
+              formMovimentacao.retiradaProdutoDevolverEstoque,
           },
         ],
       });
@@ -420,12 +439,12 @@ export function RoteiroExecucao() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
             <form
               onSubmit={salvarMovimentacaoRoteiro}
-              className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-lg border border-orange-100 bg-white p-5 shadow-2xl"
+              className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-lg border border-orange-100 bg-white p-5 shadow-2xl"
             >
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">
-                    Movimentacao da maquina
+                    Registrar Movimentacao
                   </h2>
                   <p className="mt-1 text-sm text-gray-600">
                     {itemLojaSelecionada?.loja?.nome || "Loja"} -{" "}
@@ -441,6 +460,11 @@ export function RoteiroExecucao() {
                 >
                   Fechar
                 </button>
+              </div>
+
+              <div className="mb-4 rounded border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                <strong>Como funciona:</strong> Informe quantos produtos tem AGORA na
+                maquina. Se abastecer, informe quantos foram adicionados.
               </div>
 
               <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -468,8 +492,22 @@ export function RoteiroExecucao() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
+              <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Foto dos contadores
+                </label>
+                <label className="inline-flex cursor-pointer items-center rounded bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
+                  Tirar foto dos contadores
+                  <input type="file" accept="image/*" capture="environment" className="sr-only" />
+                </label>
+                <p className="mt-2 text-xs text-gray-500">
+                  No celular, o botao abre a camera para fotografar os dois
+                  contadores. Confira e ajuste se precisar.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="md:col-span-1 md:order-last">
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
                     Produto *
                   </label>
@@ -494,29 +532,13 @@ export function RoteiroExecucao() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Fichas
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formMovimentacao.fichas}
-                    onChange={(e) =>
-                      setFormMovimentacao({
-                        ...formMovimentacao,
-                        fichas: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Contador IN
+                    Contador IN (Entrada)
                   </label>
                   <input
                     type="number"
                     min="0"
                     value={formMovimentacao.contadorIn}
+                    disabled={formMovimentacao.ignoreInOut}
                     onChange={(e) =>
                       setFormMovimentacao({
                         ...formMovimentacao,
@@ -525,15 +547,19 @@ export function RoteiroExecucao() {
                     }
                     className="input-field"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Numero do contador IN da maquina
+                  </p>
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Contador OUT
+                    Contador OUT (Saida)
                   </label>
                   <input
                     type="number"
                     min="0"
                     value={formMovimentacao.contadorOut}
+                    disabled={formMovimentacao.ignoreInOut}
                     onChange={(e) =>
                       setFormMovimentacao({
                         ...formMovimentacao,
@@ -542,10 +568,28 @@ export function RoteiroExecucao() {
                     }
                     className="input-field"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Numero do contador OUT da maquina
+                  </p>
                 </div>
+
+                <label className="flex items-center gap-2 text-sm text-gray-700 md:col-span-3">
+                  <input
+                    type="checkbox"
+                    checked={formMovimentacao.ignoreInOut}
+                    onChange={(e) =>
+                      setFormMovimentacao({
+                        ...formMovimentacao,
+                        ignoreInOut: e.target.checked,
+                      })
+                    }
+                  />
+                  Nao preciso informar IN/OUT nesta movimentacao
+                </label>
+
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Quanto tem na maquina *
+                    Quantidade Atual na Maquina *
                   </label>
                   <input
                     type="number"
@@ -560,10 +604,13 @@ export function RoteiroExecucao() {
                     className="input-field"
                     required
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Quantos produtos tem agora
+                  </p>
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Quanto abastecer
+                    Quantidade Adicionada
                   </label>
                   <input
                     type="number"
@@ -577,10 +624,53 @@ export function RoteiroExecucao() {
                     }
                     className="input-field"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Quantos produtos foram adicionados
+                  </p>
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Dinheiro contado
+                    Quantidade de Fichas
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formMovimentacao.fichas}
+                    onChange={(e) =>
+                      setFormMovimentacao({
+                        ...formMovimentacao,
+                        fichas: e.target.value,
+                      })
+                    }
+                    className="input-field"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Fichas coletadas da maquina
+                  </p>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Retirada de Produto
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formMovimentacao.retiradaProduto}
+                    onChange={(e) =>
+                      setFormMovimentacao({
+                        ...formMovimentacao,
+                        retiradaProduto: e.target.value,
+                      })
+                    }
+                    className="input-field"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Quantidade retirada sem contar como saida financeira
+                  </p>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                    Valor em Notas (R$)
                   </label>
                   <input
                     type="number"
@@ -598,7 +688,7 @@ export function RoteiroExecucao() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Pix/maquininha
+                    Valor Digital (Pix/Maquininha) (R$)
                   </label>
                   <input
                     type="number"
@@ -614,6 +704,19 @@ export function RoteiroExecucao() {
                     className="input-field"
                   />
                 </div>
+                <label className="flex items-center gap-2 text-sm text-gray-700 md:col-span-3">
+                  <input
+                    type="checkbox"
+                    checked={formMovimentacao.retiradaProdutoDevolverEstoque}
+                    onChange={(e) =>
+                      setFormMovimentacao({
+                        ...formMovimentacao,
+                        retiradaProdutoDevolverEstoque: e.target.checked,
+                      })
+                    }
+                  />
+                  Devolver retirada para o estoque da loja
+                </label>
               </div>
 
               <div className="mt-4">
