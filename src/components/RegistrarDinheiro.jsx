@@ -570,56 +570,65 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
           />
         </div>
       </div>
-      <div style={{ marginBottom: 18 }}>
-        <label style={{ fontWeight: 600, color: "#a67c52" }}>
-          Dinheiro (R$):
-        </label>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={valorDinheiro}
-          onChange={(e) => setValorDinheiro(e.target.value)}
-          placeholder="Ex: 10,50"
-          style={{
-            width: "100%",
-            marginTop: 6,
-            padding: "10px 12px",
-            borderRadius: 8,
-            border: "1.5px solid #e2cfa3",
-            background: "#fdf6e9",
-            color: "#a67c52",
-            fontWeight: 500,
-            fontSize: 16,
-          }}
-        />
-      </div>
-      <div style={{ marginBottom: 18 }}>
-        <label style={{ fontWeight: 600, color: "#a67c52" }}>
-          Cartão / Pix (R$):
-        </label>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={valorCartaoPix}
-          onChange={(e) => setValorCartaoPix(e.target.value)}
-          placeholder="Ex: 25,90"
-          style={{
-            width: "100%",
-            marginTop: 6,
-            padding: "10px 12px",
-            borderRadius: 8,
-            border: "1.5px solid #e2cfa3",
-            background: "#fdf6e9",
-            color: "#a67c52",
-            fontWeight: 500,
-            fontSize: 16,
-          }}
-        />
-      </div>
+      {!registrarTotalLoja && (
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ fontWeight: 600, color: "#a67c52" }}>
+            Dinheiro (R$):
+          </label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={valorDinheiro}
+            onChange={(e) => setValorDinheiro(e.target.value)}
+            placeholder="Ex: 10,50"
+            style={{
+              width: "100%",
+              marginTop: 6,
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1.5px solid #e2cfa3",
+              background: "#fdf6e9",
+              color: "#a67c52",
+              fontWeight: 500,
+              fontSize: 16,
+            }}
+          />
+        </div>
+      )}
+      {!registrarTotalLoja && (
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ fontWeight: 600, color: "#a67c52" }}>
+            Cartão / Pix (R$):
+          </label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={valorCartaoPix}
+            onChange={(e) => setValorCartaoPix(e.target.value)}
+            placeholder="Ex: 25,90"
+            style={{
+              width: "100%",
+              marginTop: 6,
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1.5px solid #e2cfa3",
+              background: "#fdf6e9",
+              color: "#a67c52",
+              fontWeight: 500,
+              fontSize: 16,
+            }}
+          />
+        </div>
+      )}
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>
           Blink (R$):
         </label>
+        {registrarTotalLoja && (
+          <p style={{ margin: "2px 0 6px", fontSize: 13, color: "#a67c52" }}>
+            Valor total vindo da trocadora (sistema Blink) no período.
+          </p>
+        )}
         <input
           type="text"
           inputMode="decimal"
@@ -683,29 +692,31 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
           )}
         </div>
       )}
-      <div style={{ marginBottom: 18 }}>
-        <label style={{ fontWeight: 600, color: "#a67c52" }}>
-          Taxa média de cartão (%):
-        </label>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={percentualTaxaCartaoMedia}
-          onChange={(e) => setPercentualTaxaCartaoMedia(e.target.value)}
-          placeholder="Ex: 4,99"
-          style={{
-            width: "100%",
-            marginTop: 6,
-            padding: "10px 12px",
-            borderRadius: 8,
-            border: "1.5px solid #e2cfa3",
-            background: "#fdf6e9",
-            color: "#a67c52",
-            fontWeight: 500,
-            fontSize: 16,
-          }}
-        />
-      </div>
+      {!registrarTotalLoja && (
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ fontWeight: 600, color: "#a67c52" }}>
+            Taxa média de cartão (%):
+          </label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={percentualTaxaCartaoMedia}
+            onChange={(e) => setPercentualTaxaCartaoMedia(e.target.value)}
+            placeholder="Ex: 4,99"
+            style={{
+              width: "100%",
+              marginTop: 6,
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1.5px solid #e2cfa3",
+              background: "#fdf6e9",
+              color: "#a67c52",
+              fontWeight: 500,
+              fontSize: 16,
+            }}
+          />
+        </div>
+      )}
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>
           Quem conferiu (opcional):
