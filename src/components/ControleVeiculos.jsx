@@ -4,6 +4,26 @@ import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../contexts/AuthContext";
 
 import api from "../services/api";
+const combustivelCurto = (valor) =>
+  String(valor || "-")
+    .replace(" palzinhos", "/5")
+    .replace(" palzinho", "/5");
+
+const campoClasse =
+  "w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+
+const statusVeiculo = (veiculo, mov) => {
+  if (veiculo.emUso) {
+    return { label: "Em uso", className: "bg-blue-100 text-blue-800" };
+  }
+  if (mov?.estado?.toLowerCase() === "ruim") {
+    return { label: "Atenção", className: "bg-red-100 text-red-800" };
+  }
+  if (mov?.nivel_limpeza?.toLowerCase().includes("precisa")) {
+    return { label: "Limpeza", className: "bg-amber-100 text-amber-800" };
+  }
+  return { label: "Disponível", className: "bg-emerald-100 text-emerald-800" };
+};
 const emojiVeiculo = (tipo, emoji) => emoji || (tipo === "moto" ? "🏍️" : "🚗");
 export default function ControleVeiculos({
   veiculos = [],
@@ -234,7 +254,7 @@ export default function ControleVeiculos({
   if (loading) return <div className="p-6">Carregando veículos...</div>;
 
   return (
-    <div className="flex flex-wrap gap-6 p-6">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {veiculos.map((veiculo) => {
         const mov = ultimasMovs[veiculo.id];
         const isRuim = mov?.estado?.toLowerCase() === "ruim";
@@ -242,61 +262,72 @@ export default function ControleVeiculos({
           ?.toLowerCase()
           .includes("precisa");
         let cardClass = veiculo.emUso
-          ? "filter grayscale opacity-70"
+          ? "bg-blue-50 border-blue-200"
           : "bg-white";
         if (isRuim && precisaLimpar) {
-          cardClass += " bg-red-100 border-2 border-red-400";
+          cardClass += " bg-red-50 border-red-200";
         } else if (isRuim) {
-          cardClass += " bg-red-100 border-2 border-red-400";
+          cardClass += " bg-red-50 border-red-200";
         } else if (precisaLimpar) {
-          cardClass += " bg-yellow-100 border-2 border-yellow-400";
+          cardClass += " bg-amber-50 border-amber-200";
         }
+        const status = statusVeiculo(veiculo, mov);
         return (
           <div
             key={veiculo.id}
-            className={`rounded-lg shadow-md p-4 w-64 transition-all relative ${cardClass}`}
+            className={`rounded-lg border border-slate-200 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${cardClass}`}
           >
-            <div className="flex items-center gap-2 text-2xl mb-2">
-              <span>{emojiVeiculo(veiculo.tipo, veiculo.emoji)}</span>
-              <span className="font-bold text-lg">{veiculo.nome}</span>
-            </div>
-            <div className="text-gray-600 text-sm mb-2">
-              Modelo: {veiculo.modelo}
-            </div>
-            <div className="flex gap-4 mb-2">
-              <div>
-                <div className="text-xs text-gray-500">Estado</div>
-                <div>{veiculo.estado}</div>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-slate-900 text-xl text-white">
+                  {emojiVeiculo(veiculo.tipo, veiculo.emoji)}
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-base font-bold text-slate-900">
+                    {veiculo.nome}
+                  </div>
+                  <div className="truncate text-sm text-slate-500">
+                    {veiculo.modelo || "Modelo não informado"}
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500">Km</div>
-                <div>{veiculo.km}</div>
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-bold ${status.className}`}
+              >
+                {status.label}
+              </span>
+            </div>
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              <div className="rounded-md bg-white/70 p-2">
+                <div className="text-[11px] font-semibold uppercase text-slate-500">Estado</div>
+                <div className="text-sm font-bold text-slate-900">{veiculo.estado}</div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500">Gasolina</div>
-                <div>
-                  {veiculo.nivelCombustivel || veiculo.combustivel || "-"}
+              <div className="rounded-md bg-white/70 p-2">
+                <div className="text-[11px] font-semibold uppercase text-slate-500">Km</div>
+                <div className="text-sm font-bold text-slate-900">{veiculo.km}</div>
+              </div>
+              <div className="rounded-md bg-white/70 p-2">
+                <div className="text-[11px] font-semibold uppercase text-slate-500">Comb.</div>
+                <div className="text-sm font-bold text-slate-900">
+                  {combustivelCurto(veiculo.nivelCombustivel || veiculo.combustivel)}
                 </div>
               </div>
             </div>
             {!veiculo.emUso ? (
               <button
-                className="mt-2 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                className="mt-2 w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
                 onClick={() => abrirModal(veiculo)}
                 disabled={veiculo.emUso}
               >
-                Pilotar
+                Registrar retirada
               </button>
             ) : (
               <>
-                <div className="absolute top-2 right-2 bg-black text-white text-xs px-2 py-1 rounded">
-                  Em uso
-                </div>
                 <button
-                  className="mt-2 px-4 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                  className="mt-2 w-full rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
                   onClick={() => abrirModalFinalizar(veiculo)}
                 >
-                  Finalizar
+                  Registrar devolução
                 </button>
               </>
             )}
@@ -305,11 +336,14 @@ export default function ControleVeiculos({
       })}
       {/* Modal Finalizar */}
       {modalFinalizarAberto && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-lg relative">
-            <h2 className="text-lg font-bold mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-bold text-slate-900 mb-1">
               Finalizar uso de {veiculoSelecionado?.nome}
             </h2>
+            <p className="mb-5 text-sm text-slate-500">
+              Registre as condições do veículo na devolução.
+            </p>
             <div className="mb-3">
               <label className="block text-sm font-medium">
                 Estado da moto
@@ -318,7 +352,7 @@ export default function ControleVeiculos({
                 name="estado"
                 value={formFinalizar.estado}
                 onChange={handleFormFinalizarChange}
-                className="w-full border rounded p-1"
+                className={campoClasse}
               >
                 <option value="Bom">Sem avaria</option>
                 <option value="Ruim">Com avaria</option>
@@ -330,7 +364,7 @@ export default function ControleVeiculos({
                 name="obs"
                 value={formFinalizar.obs}
                 onChange={handleFormFinalizarChange}
-                className="w-full border rounded p-1"
+                className={campoClasse}
                 placeholder="Descreva o problema (opcional)"
               />
             </div>
@@ -341,7 +375,7 @@ export default function ControleVeiculos({
                 type="number"
                 value={formFinalizar.km}
                 onChange={handleFormFinalizarChange}
-                className="w-full border rounded p-1"
+                className={campoClasse}
                 min={kmAtualSelecionado}
                 required
                 onWheel={(e) => e.target.blur()}
@@ -359,7 +393,7 @@ export default function ControleVeiculos({
                 name="combustivel"
                 value={formFinalizar.combustivel}
                 onChange={handleFormFinalizarChange}
-                className="w-full border rounded p-1"
+                className={campoClasse}
               >
                 <option value="5">5 palzinhos</option>
                 <option value="4">4 palzinhos</option>
@@ -377,7 +411,7 @@ export default function ControleVeiculos({
                 name="limpeza"
                 value={formFinalizar.limpeza}
                 onChange={handleFormFinalizarChange}
-                className="w-full border rounded p-1"
+                className={campoClasse}
               >
                 <option value="esta limpo">Está limpo</option>
                 <option value="precisa limpar">Precisa limpar</option>
@@ -385,14 +419,14 @@ export default function ControleVeiculos({
             </div>
             <div className="flex justify-end gap-2">
               <button
-                className="px-4 py-1 bg-gray-300 rounded hover:bg-gray-400"
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 onClick={fecharModalFinalizar}
                 disabled={finalizando}
               >
                 Cancelar
               </button>
               <button
-                className="px-4 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={finalizarVeiculo}
                 disabled={finalizando || !kmFinalizarValido}
               >
@@ -405,11 +439,14 @@ export default function ControleVeiculos({
 
       {/* Modal */}
       {modalAberto && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-lg relative">
-            <h2 className="text-lg font-bold mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-bold text-slate-900 mb-1">
               Pilotar {veiculoSelecionado?.nome}
             </h2>
+            <p className="mb-5 text-sm text-slate-500">
+              Informe a quilometragem e as condições no momento da retirada.
+            </p>
             <div className="mb-3">
               <label className="block text-sm font-medium">
                 Estado da moto
@@ -418,7 +455,7 @@ export default function ControleVeiculos({
                 name="estado"
                 value={form.estado}
                 onChange={handleFormChange}
-                className="w-full border rounded p-1"
+                className={campoClasse}
               >
                 <option value="Bom">Sem avaria</option>
                 <option value="Ruim">Com avaria</option>
@@ -430,7 +467,7 @@ export default function ControleVeiculos({
                 name="obs"
                 value={form.obs}
                 onChange={handleFormChange}
-                className="w-full border rounded p-1"
+                className={campoClasse}
                 placeholder="Descreva o problema (opcional)"
               />
             </div>
@@ -441,7 +478,7 @@ export default function ControleVeiculos({
                 type="number"
                 value={form.km}
                 onChange={handleFormChange}
-                className="w-full border rounded p-1"
+                className={campoClasse}
                 min={kmAtualSelecionado}
                 required
                 onWheel={(e) => e.target.blur()}
@@ -457,7 +494,7 @@ export default function ControleVeiculos({
                 name="modo"
                 value={form.modo}
                 onChange={handleFormChange}
-                className="w-full border rounded p-1"
+                className={campoClasse}
               >
                 <option value="trabalho">Trabalho</option>
                 <option value="emprestado">Emprestado</option>
@@ -471,7 +508,7 @@ export default function ControleVeiculos({
                 name="combustivel"
                 value={form.combustivel}
                 onChange={handleFormChange}
-                className="w-full border rounded p-1"
+                className={campoClasse}
               >
                 <option value="5">5 palzinhos</option>
                 <option value="4">4 palzinhos</option>
@@ -489,7 +526,7 @@ export default function ControleVeiculos({
                 name="limpeza"
                 value={form.limpeza}
                 onChange={handleFormChange}
-                className="w-full border rounded p-1"
+                className={campoClasse}
               >
                 <option value="esta limpo">Está limpo</option>
                 <option value="precisa limpar">Precisa limpar</option>
@@ -497,14 +534,14 @@ export default function ControleVeiculos({
             </div>
             <div className="flex justify-end gap-2">
               <button
-                className="px-4 py-1 bg-gray-300 rounded hover:bg-gray-400"
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 onClick={fecharModal}
                 disabled={salvando}
               >
                 Cancelar
               </button>
               <button
-                className="px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={pilotarVeiculo}
                 disabled={salvando || !kmPilotarValido}
               >
