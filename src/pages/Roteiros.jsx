@@ -18,14 +18,30 @@ const DIAS = [
   { value: 6, label: "Sáb" },
 ];
 
+const resetVazio = () => ({ diaSemana: 0, hora: "23:59" });
+
 const formularioInicial = {
   nome: "",
   usuarioId: "",
   veiculoId: "",
   todosDias: true,
   diasSemana: [],
-  diaSemanaReset: 0,
-  horaReset: "23:59",
+  resetsAgendados: [resetVazio()],
+};
+
+const textoResets = (roteiro) => {
+  const resets = Array.isArray(roteiro.resetsAgendados)
+    ? roteiro.resetsAgendados
+    : [];
+  if (!resets.length) return "Sem reset definido";
+  return resets
+    .map((reset) => {
+      const label = DIAS.find(
+        (dia) => dia.value === Number(reset.diaSemana ?? 0),
+      )?.label;
+      return `${label || "-"} ${reset.hora || "23:59"}`;
+    })
+    .join(", ");
 };
 
 const itemInicial = { tipo: "LOJA", lojaId: "", anotacao: "" };
@@ -156,17 +172,6 @@ export function Roteiros() {
     }
   };
 
-  const salvarConfiguracao = async () => {
-    try {
-      setError("");
-      await api.put("/roteiros/configuracao", config);
-      setSuccess("Configuração de reinício salva.");
-      await carregarDados();
-    } catch (err) {
-      setError(err.response?.data?.error || "Erro ao salvar configuração.");
-    }
-  };
-
   useEffect(() => {
     carregarDados();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -195,6 +200,29 @@ export function Roteiros() {
       else atual.add(dia);
       return { ...prev, diasSemana: [...atual].sort() };
     });
+  };
+
+  const adicionarReset = (setState) => {
+    setState((prev) => ({
+      ...prev,
+      resetsAgendados: [...(prev.resetsAgendados || []), resetVazio()],
+    }));
+  };
+
+  const removerReset = (setState, index) => {
+    setState((prev) => ({
+      ...prev,
+      resetsAgendados: prev.resetsAgendados.filter((_, i) => i !== index),
+    }));
+  };
+
+  const atualizarReset = (setState, index, campo, valor) => {
+    setState((prev) => ({
+      ...prev,
+      resetsAgendados: prev.resetsAgendados.map((reset, i) =>
+        i === index ? { ...reset, [campo]: valor } : reset,
+      ),
+    }));
   };
 
   const atualizarFiltroDia = (dia) => {
@@ -498,55 +526,6 @@ export function Roteiros() {
             message={success}
             onClose={() => setSuccess("")}
           />
-        )}
-
-        {false && (
-          <section className="mb-6 rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">
-                  Configurações de administrador
-                </h2>
-                <p className="mt-1 text-sm text-gray-600">
-                  Define quando os roteiros voltam a ficar pendentes para a
-                  próxima rotina.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[160px_140px_auto]">
-                <select
-                  value={config.diaSemanaReset}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      diaSemanaReset: Number(e.target.value),
-                    })
-                  }
-                  className="select-field"
-                >
-                  {DIAS.map((dia) => (
-                    <option key={dia.value} value={dia.value}>
-                      {dia.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="time"
-                  value={config.horaReset}
-                  onChange={(e) =>
-                    setConfig({ ...config, horaReset: e.target.value })
-                  }
-                  className="input-field"
-                />
-                <button
-                  type="button"
-                  onClick={salvarConfiguracao}
-                  className="btn-primary"
-                >
-                  Salvar reset
-                </button>
-              </div>
-            </div>
-          </section>
         )}
 
         {false && roteiroExecucaoAtualizado && (
@@ -917,44 +896,70 @@ export function Roteiros() {
             </div>
 
             <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="mb-3 text-sm font-bold text-gray-800">
-                Reset deste roteiro
-              </p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Dia do reset
-                  </label>
-                  <select
-                    value={form.diaSemanaReset}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        diaSemanaReset: Number(e.target.value),
-                      })
-                    }
-                    className="select-field"
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-bold text-gray-800">
+                  Reset deste roteiro
+                </p>
+                <button
+                  type="button"
+                  onClick={() => adicionarReset(setForm)}
+                  className="btn-secondary text-xs"
+                >
+                  + Adicionar dia/horário
+                </button>
+              </div>
+              <div className="space-y-2">
+                {form.resetsAgendados.map((reset, index) => (
+                  <div
+                    key={index}
+                    className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
                   >
-                    {DIAS.map((dia) => (
-                      <option key={dia.value} value={dia.value}>
-                        {dia.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Horario do reset
-                  </label>
-                  <input
-                    type="time"
-                    value={form.horaReset}
-                    onChange={(e) =>
-                      setForm({ ...form, horaReset: e.target.value })
-                    }
-                    className="input-field"
-                  />
-                </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-700">
+                        Dia do reset
+                      </label>
+                      <select
+                        value={reset.diaSemana}
+                        onChange={(e) =>
+                          atualizarReset(
+                            setForm,
+                            index,
+                            "diaSemana",
+                            Number(e.target.value),
+                          )
+                        }
+                        className="select-field"
+                      >
+                        {DIAS.map((dia) => (
+                          <option key={dia.value} value={dia.value}>
+                            {dia.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-700">
+                        Horário do reset
+                      </label>
+                      <input
+                        type="time"
+                        value={reset.hora}
+                        onChange={(e) =>
+                          atualizarReset(setForm, index, "hora", e.target.value)
+                        }
+                        className="input-field"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removerReset(setForm, index)}
+                      disabled={form.resetsAgendados.length === 1}
+                      className="btn-secondary text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -1042,11 +1047,7 @@ export function Roteiros() {
                       {textoDias(roteiro)}
                     </p>
                     <p className="mt-1 text-xs font-semibold text-emerald-700">
-                      Reset:{" "}
-                      {DIAS.find(
-                        (dia) => dia.value === Number(roteiro.diaSemanaReset ?? 0),
-                      )?.label || "Dom"}{" "}
-                      {roteiro.horaReset || "23:59"}
+                      Reset: {textoResets(roteiro)}
                     </p>
                   </div>
 
@@ -1067,8 +1068,11 @@ export function Roteiros() {
                                   veiculoId: roteiro.veiculoId || "",
                                   todosDias: roteiro.todosDias,
                                   diasSemana: roteiro.diasSemana || [],
-                                  diaSemanaReset: roteiro.diaSemanaReset ?? 0,
-                                  horaReset: roteiro.horaReset || "23:59",
+                                  resetsAgendados:
+                                    Array.isArray(roteiro.resetsAgendados) &&
+                                    roteiro.resetsAgendados.length > 0
+                                      ? roteiro.resetsAgendados
+                                      : [resetVazio()],
                                   ativo: roteiro.ativo,
                                 },
                           )
@@ -1140,40 +1144,66 @@ export function Roteiros() {
                         Todos os dias
                       </label>
                     </div>
-                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                      <div>
-                        <label className="mb-2 block text-xs font-bold text-gray-700">
-                          Dia do reset
-                        </label>
-                        <select
-                          value={editando.diaSemanaReset}
-                          onChange={(e) =>
-                            setEditando({
-                              ...editando,
-                              diaSemanaReset: Number(e.target.value),
-                            })
-                          }
-                          className="select-field"
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-xs font-bold text-gray-700">
+                          Dias e horários de reset
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => adicionarReset(setEditando)}
+                          className="btn-secondary text-xs"
                         >
-                          {DIAS.map((dia) => (
-                            <option key={dia.value} value={dia.value}>
-                              {dia.label}
-                            </option>
-                          ))}
-                        </select>
+                          + Adicionar
+                        </button>
                       </div>
-                      <div>
-                        <label className="mb-2 block text-xs font-bold text-gray-700">
-                          Horario do reset
-                        </label>
-                        <input
-                          type="time"
-                          value={editando.horaReset}
-                          onChange={(e) =>
-                            setEditando({ ...editando, horaReset: e.target.value })
-                          }
-                          className="input-field"
-                        />
+                      <div className="space-y-2">
+                        {editando.resetsAgendados.map((reset, index) => (
+                          <div
+                            key={index}
+                            className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+                          >
+                            <select
+                              value={reset.diaSemana}
+                              onChange={(e) =>
+                                atualizarReset(
+                                  setEditando,
+                                  index,
+                                  "diaSemana",
+                                  Number(e.target.value),
+                                )
+                              }
+                              className="select-field"
+                            >
+                              {DIAS.map((dia) => (
+                                <option key={dia.value} value={dia.value}>
+                                  {dia.label}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="time"
+                              value={reset.hora}
+                              onChange={(e) =>
+                                atualizarReset(
+                                  setEditando,
+                                  index,
+                                  "hora",
+                                  e.target.value,
+                                )
+                              }
+                              className="input-field"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removerReset(setEditando, index)}
+                              disabled={editando.resetsAgendados.length === 1}
+                              className="btn-secondary text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
                     {!editando.todosDias && (
