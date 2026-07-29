@@ -226,7 +226,11 @@ export function Usuarios() {
                       {usuario.telefone || "-"}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {["ADMIN", "DESENVOLVEDOR"].includes(usuario.role) ? (
+                      {[
+                        "ADMIN",
+                        "DESENVOLVEDOR",
+                        "FUNCIONARIO_ESTOQUE",
+                      ].includes(usuario.role) ? (
                         <span className="text-gray-400 italic">Todas</span>
                       ) : usuario.permissoesLojas?.length > 0 ? (
                         <span>{usuario.permissoesLojas.length} loja(s)</span>

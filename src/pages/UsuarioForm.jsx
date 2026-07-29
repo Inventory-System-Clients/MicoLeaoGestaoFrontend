@@ -104,7 +104,7 @@ export function UsuarioForm() {
     }
 
     if (
-      ["FUNCIONARIO", "FUNCIONARIO_ESTOQUE"].includes(formData.role) &&
+      formData.role === "FUNCIONARIO" &&
       formData.lojasPermitidas.length === 0
     ) {
       setError("Funcionários devem ter acesso a pelo menos uma loja");
@@ -119,9 +119,7 @@ export function UsuarioForm() {
         email: formData.email,
         telefone: formData.telefone,
         role: formData.role,
-        lojasPermitidas: ["FUNCIONARIO", "FUNCIONARIO_ESTOQUE"].includes(
-          formData.role,
-        )
+        lojasPermitidas: formData.role === "FUNCIONARIO"
           ? formData.lojasPermitidas
           : [],
       };
@@ -304,16 +302,30 @@ export function UsuarioForm() {
                     : formData.role === "DESENVOLVEDOR"
                       ? "Desenvolvedores têm acesso de admin e controle do desenvolvimento"
                       : formData.role === "FUNCIONARIO_ESTOQUE"
-                        ? "Além do acesso de funcionário, também vê estoque, monta envios/carrinhos e vê a lista de compras — sem acesso a financeiro ou edição de usuários/lojas"
+                        ? "Além do acesso de funcionário, também vê estoque, monta envios/carrinhos, vê a lista de compras e acessa todas as lojas — sem acesso a financeiro ou edição de usuários/lojas"
                         : "Funcionários têm acesso limitado às lojas autorizadas"}
                 </p>
               </div>
             </div>
 
-            {/* Lojas Permitidas (para Funcionários e Funcionários de Estoque) */}
-            {["FUNCIONARIO", "FUNCIONARIO_ESTOQUE"].includes(
-              formData.role,
-            ) && (
+            {formData.role === "FUNCIONARIO_ESTOQUE" && (
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  Lojas Autorizadas
+                </h2>
+                <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                  <p className="text-sm font-semibold text-gray-900">
+                    Todas as lojas
+                  </p>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Este perfil recebe acesso automatico a todas as lojas.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Lojas Permitidas (para Funcionários) */}
+            {formData.role === "FUNCIONARIO" && (
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
                   Lojas Autorizadas *
