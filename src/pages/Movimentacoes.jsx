@@ -56,6 +56,7 @@ export function Movimentacoes() {
   const [produtos, setProdutos] = useState([]);
   const [lojas, setLojas] = useState([]);
   const [veiculos, setVeiculos] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
 
   // UI States
   const [loading, setLoading] = useState(true);
@@ -391,13 +392,16 @@ export function Movimentacoes() {
   const carregarDados = async () => {
     try {
       setLoading(true);
-      const [movRes, maqRes, prodRes, lojasRes, veiculosRes] =
+      const [movRes, maqRes, prodRes, lojasRes, veiculosRes, usuariosRes] =
         await Promise.all([
           api.get("/movimentacoes"),
           api.get("/maquinas"),
           api.get("/produtos"),
           api.get("/lojas"),
           api.get("/veiculos"),
+          // /usuarios é restrito a ADMIN; funcionários não conseguem listar,
+          // então isso não pode derrubar o carregamento do resto da página.
+          api.get("/usuarios").catch(() => ({ data: [] })),
         ]);
 
       setMovimentacoes(movRes.data || []);
@@ -405,6 +409,7 @@ export function Movimentacoes() {
       setProdutos(prodRes.data || []);
       setLojas(lojasRes.data || []);
       setVeiculos(veiculosRes.data || []);
+      setUsuarios(usuariosRes.data || []);
     } catch (err) {
       console.error("Erro ao carregar dados:", err);
       setError("Erro ao carregar dados iniciais.");
@@ -1327,12 +1332,18 @@ export function Movimentacoes() {
               <RegistrarDinheiro
                 lojas={lojas}
                 maquinas={maquinas}
+                usuarios={usuarios}
                 onSubmit={async (data) => {
                   try {
                     setError("");
                     setSuccess("");
-                    await api.post("/registro-dinheiro", data);
-                    setSuccess("Registro de dinheiro salvo com sucesso!");
+                    const response = await api.post("/registro-dinheiro", data);
+                    const diferenca = Number(response.data?.diferenca || 0);
+                    setSuccess(
+                      Math.abs(diferenca) >= 0.01
+                        ? `Registro salvo, mas com divergência de R$ ${diferenca.toFixed(2)} em relação ao valor esperado pelo sistema.`
+                        : "Registro de dinheiro salvo com sucesso, sem divergência!",
+                    );
                     setModalRegistrarDinheiro(false);
                   } catch (err) {
                     setError(

@@ -126,12 +126,30 @@ function ItemGenerico({ item, tipo }) {
             Ver loja →
           </Link>
         )}
-        {tipo.id === "manutencao" && (
+        {["manutencao", "manutencao-atrasada", "manutencao-recorrente"].includes(
+          tipo.id,
+        ) && (
           <Link
             to="/manutencao"
             className="text-sm font-bold text-yellow-700 hover:text-yellow-900"
           >
             Ver manutenção →
+          </Link>
+        )}
+        {tipo.id === "carrinho-transito" && (
+          <Link
+            to="/envios"
+            className="text-sm font-bold text-blue-700 hover:text-blue-900"
+          >
+            Ver envios →
+          </Link>
+        )}
+        {tipo.id === "compra-pendente" && (
+          <Link
+            to="/produtos-a-comprar"
+            className="text-sm font-bold text-amber-700 hover:text-amber-900"
+          >
+            Ver compras →
           </Link>
         )}
         {tipo.id === "veiculos" && (

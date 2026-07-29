@@ -1,8 +1,8 @@
-﻿import React, { useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import api from "../services/api";
 import { aviso } from "../utils/alerts";
 
-const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
+const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
   const obterMesAnteriorPadrao = () => {
     const hoje = new Date();
     const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
@@ -18,10 +18,15 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
   const [mesReferencia, setMesReferencia] = useState(obterMesAnteriorPadrao);
   const [valorDinheiro, setValorDinheiro] = useState("");
   const [valorCartaoPix, setValorCartaoPix] = useState("");
+  const [valorBlink, setValorBlink] = useState("");
   const [percentualTaxaCartaoMedia, setPercentualTaxaCartaoMedia] =
     useState("");
   const [observacoes, setObservacoes] = useState("");
   const [gastosVariaveis, setGastosVariaveis] = useState([]);
+  const [conferidoPorId, setConferidoPorId] = useState("");
+  const [comprovanteUrl, setComprovanteUrl] = useState("");
+  const [valorEsperado, setValorEsperado] = useState(null);
+  const [carregandoEsperado, setCarregandoEsperado] = useState(false);
 
   const obterPeriodoDoMes = (valorMes) => {
     if (!valorMes) return null;
@@ -91,6 +96,58 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
     setMaquinaSelecionada("");
   };
 
+  // Busca o valor esperado pelo sistema (fichas x valor da ficha) assim que
+  // loja/máquina/período estiverem preenchidos, pra já mostrar a divergência
+  // em tempo real enquanto a pessoa conta o dinheiro.
+  useEffect(() => {
+    const periodoSelecionado = obterPeriodoDoMes(mesReferencia);
+
+    if (
+      !lojaSelecionada ||
+      !periodoSelecionado ||
+      (!registrarTotalLoja && !maquinaSelecionada)
+    ) {
+      setValorEsperado(null);
+      return undefined;
+    }
+
+    let cancelado = false;
+    setCarregandoEsperado(true);
+
+    api
+      .get("/registro-dinheiro/valor-esperado", {
+        params: {
+          lojaId: lojaSelecionada,
+          maquinaId: registrarTotalLoja ? undefined : maquinaSelecionada,
+          registrarTotalLoja,
+          inicio: periodoSelecionado.inicio,
+          fim: periodoSelecionado.fim,
+        },
+      })
+      .then((response) => {
+        if (!cancelado) {
+          setValorEsperado(response.data?.valorEsperadoSistema ?? 0);
+        }
+      })
+      .catch(() => {
+        if (!cancelado) setValorEsperado(null);
+      })
+      .finally(() => {
+        if (!cancelado) setCarregandoEsperado(false);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [lojaSelecionada, maquinaSelecionada, registrarTotalLoja, mesReferencia]);
+
+  const valorContadoTotal =
+    (parseLocaleNumber(valorDinheiro) || 0) +
+    (parseLocaleNumber(valorCartaoPix) || 0) +
+    (parseLocaleNumber(valorBlink) || 0);
+
+  const diferenca =
+    valorEsperado !== null ? Number((valorContadoTotal - valorEsperado).toFixed(2)) : null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -104,6 +161,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
 
     const dinheiroNumero = parseLocaleNumber(valorDinheiro);
     const cartaoPixNumero = parseLocaleNumber(valorCartaoPix);
+    const blinkNumero = parseLocaleNumber(valorBlink);
     const taxaMediaNumero = parseLocaleNumber(percentualTaxaCartaoMedia);
 
     if (valorDinheiro !== "" && dinheiroNumero === null) {
@@ -113,6 +171,11 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
 
     if (valorCartaoPix !== "" && cartaoPixNumero === null) {
       aviso("Valor inválido", "Valor de cartão/pix inválido.");
+      return;
+    }
+
+    if (valorBlink !== "" && blinkNumero === null) {
+      aviso("Valor inválido", "Valor do Blink inválido.");
       return;
     }
 
@@ -141,8 +204,11 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       fim: periodoSelecionado.fim,
       valorDinheiro: dinheiroNumero,
       valorCartaoPix: cartaoPixNumero,
+      valorBlink: blinkNumero,
       percentualTaxaCartaoMedia: taxaMediaNumero,
       observacoes: observacoes === "" ? null : observacoes,
+      conferidoPorId: conferidoPorId || null,
+      comprovanteUrl: comprovanteUrl.trim() === "" ? null : comprovanteUrl.trim(),
       gastosVariaveis: gastosNormalizados,
     });
   };
@@ -529,6 +595,73 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
       </div>
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>
+          Blink (R$):
+        </label>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={valorBlink}
+          onChange={(e) => setValorBlink(e.target.value)}
+          placeholder="Ex: 15,00"
+          style={{
+            width: "100%",
+            marginTop: 6,
+            padding: "10px 12px",
+            borderRadius: 8,
+            border: "1.5px solid #e2cfa3",
+            background: "#fdf6e9",
+            color: "#a67c52",
+            fontWeight: 500,
+            fontSize: 16,
+          }}
+        />
+      </div>
+      {(valorEsperado !== null || carregandoEsperado) && (
+        <div
+          style={{
+            marginBottom: 18,
+            borderRadius: 10,
+            padding: 14,
+            border: `2px solid ${
+              diferenca === null
+                ? "#e2cfa3"
+                : Math.abs(diferenca) < 0.01
+                  ? "#7cb87c"
+                  : "#d9534f"
+            }`,
+            background:
+              diferenca === null
+                ? "#fdf6e9"
+                : Math.abs(diferenca) < 0.01
+                  ? "#eef8ee"
+                  : "#fdecec",
+          }}
+        >
+          {carregandoEsperado ? (
+            <span style={{ color: "#a67c52" }}>Calculando valor esperado...</span>
+          ) : (
+            <>
+              <p style={{ margin: 0, color: "#a67c52", fontWeight: 600 }}>
+                Esperado pelo sistema: R$ {valorEsperado.toFixed(2)} · Contado:
+                R$ {valorContadoTotal.toFixed(2)}
+              </p>
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontWeight: 800,
+                  color: Math.abs(diferenca) < 0.01 ? "#3c763d" : "#a94442",
+                }}
+              >
+                {Math.abs(diferenca) < 0.01
+                  ? "✅ Sem divergência"
+                  : `⚠️ Divergência de R$ ${diferenca.toFixed(2)}`}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+      <div style={{ marginBottom: 18 }}>
+        <label style={{ fontWeight: 600, color: "#a67c52" }}>
           Taxa média de cartão (%):
         </label>
         <input
@@ -537,6 +670,56 @@ const RegistrarDinheiro = ({ lojas, maquinas, onSubmit }) => {
           value={percentualTaxaCartaoMedia}
           onChange={(e) => setPercentualTaxaCartaoMedia(e.target.value)}
           placeholder="Ex: 4,99"
+          style={{
+            width: "100%",
+            marginTop: 6,
+            padding: "10px 12px",
+            borderRadius: 8,
+            border: "1.5px solid #e2cfa3",
+            background: "#fdf6e9",
+            color: "#a67c52",
+            fontWeight: 500,
+            fontSize: 16,
+          }}
+        />
+      </div>
+      <div style={{ marginBottom: 18 }}>
+        <label style={{ fontWeight: 600, color: "#a67c52" }}>
+          Quem conferiu (opcional):
+        </label>
+        <select
+          value={conferidoPorId}
+          onChange={(e) => setConferidoPorId(e.target.value)}
+          style={{
+            width: "100%",
+            marginTop: 6,
+            padding: "10px 12px",
+            borderRadius: 8,
+            border: "1.5px solid #e2cfa3",
+            background: "#fdf6e9",
+            color: "#a67c52",
+            fontWeight: 500,
+            fontSize: 16,
+          }}
+        >
+          <option value="">Ninguém conferiu junto</option>
+          {usuarios &&
+            usuarios.map((usuario) => (
+              <option key={usuario.id} value={usuario.id}>
+                {usuario.nome}
+              </option>
+            ))}
+        </select>
+      </div>
+      <div style={{ marginBottom: 18 }}>
+        <label style={{ fontWeight: 600, color: "#a67c52" }}>
+          Foto/comprovante (URL, opcional):
+        </label>
+        <input
+          type="text"
+          value={comprovanteUrl}
+          onChange={(e) => setComprovanteUrl(e.target.value)}
+          placeholder="Link da foto do comprovante"
           style={{
             width: "100%",
             marginTop: 6,

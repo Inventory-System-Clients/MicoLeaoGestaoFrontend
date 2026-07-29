@@ -20,6 +20,12 @@ const DEFINICAO_TIPOS = [
   { id: "abastecimento-incompleto", label: "Abastecimento incompleto", icone: "📦", cor: "amber" },
   { id: "desempenho", label: "Pelúcias fora do esperado", icone: "⚠️", cor: "rose" },
   { id: "manutencao", label: "Manutenção pendente", icone: "🛠️", cor: "yellow" },
+  { id: "manutencao-atrasada", label: "Manutenção atrasada", icone: "⏰", cor: "red" },
+  { id: "manutencao-recorrente", label: "Manutenção recorrente", icone: "🔁", cor: "rose" },
+  { id: "maquina-parada", label: "Máquina sem movimentação", icone: "⏸️", cor: "orange" },
+  { id: "extintor", label: "Extintor vencendo", icone: "🧯", cor: "red" },
+  { id: "carrinho-transito", label: "Carrinho não conferido", icone: "🔏", cor: "blue" },
+  { id: "compra-pendente", label: "Compra pendente", icone: "🛒", cor: "amber" },
   { id: "veiculos", label: "Veículos", icone: "🚗", cor: "blue" },
 ];
 
@@ -55,6 +61,12 @@ export function AlertasProvider({ children }) {
         lojasRes,
         manutencaoRes,
         veiculosRes,
+        manutencaoAtrasadaRes,
+        manutencaoRecorrenteRes,
+        maquinaParadaRes,
+        extintorRes,
+        carrinhoTransitoRes,
+        comprasPendentesRes,
       ] = await Promise.all([
         api.get("/relatorios/alertas-estoque").catch(() => ({ data: { alertas: [] } })),
         api
@@ -72,6 +84,24 @@ export function AlertasProvider({ children }) {
         api.get("/lojas").catch(() => ({ data: [] })),
         api.get("/manutencoes").catch(() => ({ data: [] })),
         api.get("/alertas-veiculos").catch(() => ({ data: [] })),
+        api
+          .get("/manutencoes/alertas/atrasadas")
+          .catch(() => ({ data: { alertas: [] } })),
+        api
+          .get("/manutencoes/alertas/recorrentes")
+          .catch(() => ({ data: { alertas: [] } })),
+        api
+          .get("/relatorios/alertas-maquina-parada")
+          .catch(() => ({ data: { alertas: [] } })),
+        api
+          .get("/relatorios/alertas-extintor")
+          .catch(() => ({ data: { alertas: [] } })),
+        api
+          .get("/lacres/alertas/em-transito")
+          .catch(() => ({ data: { alertas: [] } })),
+        api
+          .get("/lista-compras-pendentes")
+          .catch(() => ({ data: [] })),
       ]);
 
       const lojas = Array.isArray(lojasRes.data) ? lojasRes.data : [];
@@ -95,9 +125,26 @@ export function AlertasProvider({ children }) {
         ...extrairAlertas(movInRes.data),
       ];
       const manutencaoItens = Array.isArray(manutencaoRes.data)
-        ? manutencaoRes.data.filter((item) => item.status !== "RESOLVIDA")
+        ? manutencaoRes.data.filter((item) => item.status !== "CONCLUIDA")
         : [];
       const veiculosItens = Array.isArray(veiculosRes.data) ? veiculosRes.data : [];
+
+      const comprasPendentesListas = Array.isArray(comprasPendentesRes.data)
+        ? comprasPendentesRes.data
+        : [];
+      const compraPendenteItens = comprasPendentesListas.flatMap((lista) =>
+        (lista.lojas || []).flatMap((lojaLista) =>
+          (lojaLista.produtos || []).map((produto) => ({
+            id: produto.id,
+            produtoNome: produto.produtoNome,
+            quantidade: produto.quantidade,
+            lojaNome: lojaLista.lojaNome,
+            lojaId: lojaLista.lojaId,
+            mensagem: `${produto.quantidade}x pendente`,
+            createdAt: lista.criadoEm,
+          })),
+        ),
+      );
 
       const resultados = [
         { id: "movimentacao", itens: movimentacaoItens },
@@ -109,6 +156,21 @@ export function AlertasProvider({ children }) {
         },
         { id: "desempenho", itens: extrairAlertas(desempenhoRes.data) },
         { id: "manutencao", itens: manutencaoItens },
+        {
+          id: "manutencao-atrasada",
+          itens: extrairAlertas(manutencaoAtrasadaRes.data),
+        },
+        {
+          id: "manutencao-recorrente",
+          itens: extrairAlertas(manutencaoRecorrenteRes.data),
+        },
+        { id: "maquina-parada", itens: extrairAlertas(maquinaParadaRes.data) },
+        { id: "extintor", itens: extrairAlertas(extintorRes.data) },
+        {
+          id: "carrinho-transito",
+          itens: extrairAlertas(carrinhoTransitoRes.data),
+        },
+        { id: "compra-pendente", itens: compraPendenteItens },
         { id: "veiculos", itens: veiculosItens },
       ].map((resultado) => {
         const definicao = DEFINICAO_TIPOS.find((tipo) => tipo.id === resultado.id);
