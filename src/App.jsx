@@ -2,6 +2,7 @@ import Veiculos from "./pages/Veiculos";
 import Alertas from "./pages/Alertas";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { useAuth } from "./contexts/AuthContext";
 import { AlertasProvider } from "./contexts/AlertasContext";
 import { PrivateRoute } from "./components/PrivateRoute";
 import { Login } from "./pages/Login";
@@ -40,6 +41,14 @@ import { StyleGuide } from "./pages/StyleGuide";
 import { AnaliseEstoque } from "./pages/AnaliseEstoque";
 import "./App.css";
 
+function HomeRoute() {
+  const { usuario } = useAuth();
+  if (usuario?.role === "ENTREGADOR") {
+    return <Navigate to="/envios" replace />;
+  }
+  return <Dashboard />;
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -71,7 +80,7 @@ function App() {
             path="/"
             element={
               <PrivateRoute>
-                <Dashboard />
+                <HomeRoute />
               </PrivateRoute>
             }
           />
@@ -227,7 +236,12 @@ function App() {
             path="/envios"
             element={
               <PrivateRoute
-                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"]}
+                roles={[
+                  "ADMIN",
+                  "DESENVOLVEDOR",
+                  "FUNCIONARIO_ESTOQUE",
+                  "ENTREGADOR",
+                ]}
               >
                 <Envios />
               </PrivateRoute>

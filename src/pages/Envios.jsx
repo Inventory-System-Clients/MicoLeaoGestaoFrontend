@@ -27,10 +27,17 @@ const formatarDataHora = (dataIso) => {
   return data.toLocaleString("pt-BR");
 };
 
+const numeroLacrePendente = (numero) =>
+  String(numero || "").startsWith("PENDENTE-");
+
+const formatarNumeroLacre = (numero) =>
+  numeroLacrePendente(numero) ? "Aguardando lacre" : numero;
+
 export default function Envios() {
   const { usuario, loading: authLoading } = useAuth();
   const location = useLocation();
   const prefill = location.state;
+  const isEntregador = usuario?.role === "ENTREGADOR";
 
   const [envios, setEnvios] = useState([]);
   const [lojas, setLojas] = useState([]);
@@ -40,6 +47,7 @@ export default function Envios() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [numerosRetirada, setNumerosRetirada] = useState({});
 
   const [form, setForm] = useState({
     lojaDestinoId: prefill?.lojaDestinoId || "",
@@ -63,6 +71,13 @@ export default function Envios() {
   const carregarDados = useCallback(async () => {
     try {
       setError("");
+      if (isEntregador) {
+        const enviosRes = await api.get("/envios");
+        setEnvios(Array.isArray(enviosRes.data) ? enviosRes.data : []);
+        setLoading(false);
+        return;
+      }
+
       const [enviosRes, lojasRes, usuariosRes, produtosRes, divergentesRes] =
         await Promise.all([
           api.get("/envios"),
@@ -74,7 +89,11 @@ export default function Envios() {
 
       setEnvios(Array.isArray(enviosRes.data) ? enviosRes.data : []);
       setLojas(filtrarLojasOperacionais(Array.isArray(lojasRes.data) ? lojasRes.data : []));
-      setUsuarios(Array.isArray(usuariosRes.data) ? usuariosRes.data : []);
+      setUsuarios(
+        Array.isArray(usuariosRes.data)
+          ? usuariosRes.data.filter((user) => user.role === "ENTREGADOR")
+          : [],
+      );
       setProdutos(Array.isArray(produtosRes.data) ? produtosRes.data : []);
       setDivergentes(
         Array.isArray(divergentesRes.data) ? divergentesRes.data : [],
@@ -84,7 +103,7 @@ export default function Envios() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isEntregador]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -189,10 +208,17 @@ export default function Envios() {
     }
   };
 
-  const handleDespachar = async (envioId) => {
+  const handleDespachar = async (envio) => {
     try {
       setError("");
-      await api.patch(`/envios/${envioId}/despachar`);
+      await api.patch(`/envios/${envio.id}/despachar`, {
+        lacres: envio.lacres.map((lacre) => ({
+          id: lacre.id,
+          numero:
+            numerosRetirada[lacre.id] ||
+            (numeroLacrePendente(lacre.numero) ? "" : lacre.numero),
+        })),
+      });
       await carregarDados();
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao despachar envio");
@@ -219,7 +245,7 @@ export default function Envios() {
 
       <div className="mx-auto max-w-5xl space-y-4 px-4 py-8 sm:px-6 lg:px-8">
         <PageHeader
-          title="Envios"
+          title={isEntregador ? "Minhas Entregas" : "Envios"}
           subtitle={`Usuário: ${usuario?.nome || "-"} (${usuario?.role || "-"})`}
           icon="📦"
         />
@@ -228,13 +254,14 @@ export default function Envios() {
           <AlertBox type="error" message={error} onClose={() => setError("")} />
         )}
 
-        {prefill?.produtoId && (
+        {!isEntregador && prefill?.produtoId && (
           <AlertBox
             type="info"
             message="Loja e produto pré-preenchidos a partir da compra recebida. Informe o número do lacre e o transportador para montar o envio."
           />
         )}
 
+        {!isEntregador && (
         <form onSubmit={handleCriarEnvio} className="card">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">
             Montar novo envio
@@ -415,10 +442,11 @@ export default function Envios() {
             </button>
           </div>
         </form>
+        )}
 
         <div className="card">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Envios ({envios.length})
+            {isEntregador ? "Entregas atribuídas" : "Envios"} ({envios.length})
           </h2>
 
           {envios.length === 0 ? (
@@ -443,10 +471,10 @@ export default function Envios() {
                     {!envio.despachadoEm ? (
                       <button
                         type="button"
-                        onClick={() => handleDespachar(envio.id)}
+                        onClick={() => handleDespachar(envio)}
                         className="btn-primary text-sm"
                       >
-                        Despachar
+                        {isEntregador ? "Registrar retirada" : "Despachar"}
                       </button>
                     ) : (
                       <Badge variant="info" size="sm">
@@ -466,7 +494,7 @@ export default function Envios() {
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-semibold text-gray-800">
-                              Lacre {lacre.numero}
+                              Lacre {formatarNumeroLacre(lacre.numero)}
                             </span>
                             <Badge variant={statusInfo.variant} size="sm">
                               {statusInfo.label}
@@ -480,6 +508,29 @@ export default function Envios() {
                               )
                               .join(", ")}
                           </p>
+                          {!envio.despachadoEm && (
+                            <div className="mt-2">
+                              <label className="mb-1 block text-[11px] font-medium text-gray-700">
+                                Número físico do lacre
+                              </label>
+                              <input
+                                value={
+                                  numerosRetirada[lacre.id] ??
+                                  (numeroLacrePendente(lacre.numero)
+                                    ? ""
+                                    : lacre.numero)
+                                }
+                                onChange={(event) =>
+                                  setNumerosRetirada((prev) => ({
+                                    ...prev,
+                                    [lacre.id]: event.target.value,
+                                  }))
+                                }
+                                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                placeholder="Digite o lacre que está levando"
+                              />
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -490,6 +541,7 @@ export default function Envios() {
           )}
         </div>
 
+        {!isEntregador && (
         <div className="card">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">
             Lacres divergentes
@@ -524,6 +576,7 @@ export default function Envios() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       <Footer />

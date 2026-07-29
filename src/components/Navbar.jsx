@@ -20,6 +20,8 @@ export function Navbar() {
         ? "Administrador"
         : usuario?.role === "FUNCIONARIO_ESTOQUE"
           ? "Funcionário de Estoque"
+          : usuario?.role === "ENTREGADOR"
+            ? "Entregador"
           : "Funcionário";
 
   const handleLogout = () => {
@@ -29,10 +31,18 @@ export function Navbar() {
 
   const closeMenu = () => setIsMenuOpen(false);
 
-  const itensSoltos = [{ to: "/", label: "Dashboard", icon: "📊" }];
+  const itensSoltos = [
+    {
+      to: "/",
+      label: "Dashboard",
+      icon: "📊",
+      roles: ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO", "FUNCIONARIO_ESTOQUE"],
+    },
+  ];
 
   const ADMIN_ROLES = ["ADMIN", "DESENVOLVEDOR"];
   const ESTOQUE_ROLES = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"];
+  const ENVIO_ROLES = [...ESTOQUE_ROLES, "ENTREGADOR"];
 
   const grupos = [
     {
@@ -51,7 +61,7 @@ export function Navbar() {
       icon: "📦",
       itens: [
         { to: "/estoque", label: "Estoque", icon: "📦", roles: ESTOQUE_ROLES },
-        { to: "/envios", label: "Envios", icon: "📦", roles: ESTOQUE_ROLES },
+        { to: "/envios", label: "Envios", icon: "📦", roles: ENVIO_ROLES },
         { to: "/compras", label: "Compras", icon: "🛒", roles: ESTOQUE_ROLES },
         {
           to: "/fabricacao-pelucia",
@@ -227,7 +237,9 @@ export function Navbar() {
         <div className="border-t border-white/10 bg-neutral-950">
           <div className="mx-auto max-w-7xl space-y-3 px-4 py-3 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {itensSoltos.map((item) => {
+              {itensSoltos
+                .filter((item) => !item.roles || item.roles.includes(usuario?.role))
+                .map((item) => {
                 const active = isActive(item.to);
                 return (
                   <Link
