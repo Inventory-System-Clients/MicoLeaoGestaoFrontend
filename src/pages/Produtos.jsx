@@ -106,11 +106,14 @@ export function Produtos() {
       gradient: "bg-gradient-to-br from-blue-500 to-blue-600",
     },
     {
-      label: "Valor Médio",
+      label: "Custo Médio",
       value:
         produtos.length > 0
           ? `R$ ${(
-              produtos.reduce((sum, p) => sum + Number(p.preco || 0), 0) /
+              produtos.reduce(
+                (sum, p) => sum + Number(p.custoUnitario || p.preco || 0),
+                0,
+              ) /
               produtos.length
             ).toFixed(2)}`
           : "R$ 0,00",
@@ -134,10 +137,10 @@ export function Produtos() {
     { key: "categoria", label: "Categoria" },
     {
       key: "preco",
-      label: "Preço",
+      label: "Custo",
       render: (produto) => (
         <span className="font-semibold text-green-600">
-          R$ {Number(produto.preco || 0).toFixed(2)}
+          R$ {Number(produto.custoUnitario || produto.preco || 0).toFixed(2)}
         </span>
       ),
     },
@@ -145,7 +148,7 @@ export function Produtos() {
       key: "jogadas_2_50",
       label: "💰 Jogadas R$ 2,50",
       render: (produto) => {
-        const preco = Number(produto.preco || 0);
+        const preco = Number(produto.custoUnitario || produto.preco || 0);
         const jogadas = Math.ceil(preco / 2.5);
         return (
           <div className="text-center">
@@ -161,7 +164,7 @@ export function Produtos() {
       key: "jogadas_5_00",
       label: "💎 Jogadas R$ 5,00",
       render: (produto) => {
-        const preco = Number(produto.preco || 0);
+        const preco = Number(produto.custoUnitario || produto.preco || 0);
         const jogadas = Math.ceil(preco / 5);
         return (
           <div className="text-center">
@@ -171,16 +174,6 @@ export function Produtos() {
             </span>
           </div>
         );
-      },
-    },
-    {
-      key: "estoque",
-      label: "Estoque",
-      render: (produto) => {
-        const estoque = produto.estoqueAtual || 0;
-        const cor =
-          estoque < 10 ? "error" : estoque < 30 ? "warning" : "success";
-        return <Badge type={cor}>{estoque}</Badge>;
       },
     },
     {

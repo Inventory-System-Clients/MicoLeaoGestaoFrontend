@@ -38,11 +38,9 @@ export function ProdutoForm() {
     codigo: "",
     nome: "",
     categoria: "",
-    preco: "",
+    custoUnitario: "",
     descricao: "",
     emoji: "🧸",
-    estoque_minimo: "",
-    estoque_atual: "",
     ativo: true,
   });
 
@@ -66,11 +64,9 @@ export function ProdutoForm() {
         codigo: response.data.codigo || "",
         nome: response.data.nome || "",
         categoria: response.data.categoria || "",
-        preco: response.data.preco || "",
+        custoUnitario: response.data.custoUnitario || response.data.preco || "",
         descricao: response.data.descricao || "",
         emoji: response.data.emoji || "🧸",
-        estoque_minimo: response.data.estoque_minimo || "",
-        estoque_atual: response.data.estoque_atual || "",
         ativo: response.data.ativo !== undefined ? response.data.ativo : true,
       });
     } catch (error) {
@@ -115,14 +111,9 @@ export function ProdutoForm() {
         codigo: formData.codigo.trim(),
         nome: formData.nome.trim(),
         categoria: formData.categoria.trim(),
-        preco: parseFloat(formData.preco),
+        preco: parseFloat(formData.custoUnitario),
+        custoUnitario: parseFloat(formData.custoUnitario),
         emoji: formData.emoji,
-        estoque_minimo: formData.estoque_minimo
-          ? parseInt(formData.estoque_minimo)
-          : null,
-        estoque_atual: formData.estoque_atual
-          ? parseInt(formData.estoque_atual)
-          : 0,
         descricao: formData.descricao?.trim() || null,
         ativo: formData.ativo,
       };
@@ -285,7 +276,7 @@ export function ProdutoForm() {
               </div>
             </div>
 
-            {/* Precificação */}
+            {/* Custo */}
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <svg
@@ -300,13 +291,13 @@ export function ProdutoForm() {
                     clipRule="evenodd"
                   />
                 </svg>
-                Precificação
+                Custo
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Preço de Venda *
+                    Preço de Custo *
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">
@@ -314,8 +305,8 @@ export function ProdutoForm() {
                     </span>
                     <input
                       type="number"
-                      name="preco"
-                      value={formData.preco}
+                      name="custoUnitario"
+                      value={formData.custoUnitario}
                       onChange={handleChange}
                       className="input-field pl-10"
                       placeholder="0.00"
@@ -328,15 +319,15 @@ export function ProdutoForm() {
               </div>
 
               {/* Análise de Lucro por Ficha */}
-              {formData.preco && (
+              {formData.custoUnitario && (
                 <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg">
                   <h4 className="text-sm font-bold text-green-900 mb-3 flex items-center gap-2">
                     <span className="text-xl">🎯</span>
-                    Análise de Jogadas para Lucro
+                    Análise de Jogadas para Recuperar o Custo
                   </h4>
                   <p className="text-xs text-green-700 mb-4">
-                    Quantidade mínima de jogadas necessárias para ter lucro
-                    neste produto
+                    Quantidade mínima de jogadas para recuperar o custo deste
+                    produto
                   </p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -352,17 +343,17 @@ export function ProdutoForm() {
                       </div>
                       <div className="text-center">
                         <p className="text-3xl font-bold text-green-600">
-                          {Math.ceil(parseFloat(formData.preco) / 2.5)}
+                          {Math.ceil(parseFloat(formData.custoUnitario) / 2.5)}
                         </p>
                         <p className="text-xs text-gray-600 mt-1">
-                          {Math.ceil(parseFloat(formData.preco) / 2.5) === 1
+                          {Math.ceil(parseFloat(formData.custoUnitario) / 2.5) === 1
                             ? "jogada mínima"
                             : "jogadas mínimas"}
                         </p>
                         <p className="text-xs text-gray-500 mt-2">
                           Faturamento: R${" "}
                           {(
-                            Math.ceil(parseFloat(formData.preco) / 2.5) * 2.5
+                            Math.ceil(parseFloat(formData.custoUnitario) / 2.5) * 2.5
                           ).toFixed(2)}
                         </p>
                       </div>
@@ -380,17 +371,17 @@ export function ProdutoForm() {
                       </div>
                       <div className="text-center">
                         <p className="text-3xl font-bold text-blue-600">
-                          {Math.ceil(parseFloat(formData.preco) / 5)}
+                          {Math.ceil(parseFloat(formData.custoUnitario) / 5)}
                         </p>
                         <p className="text-xs text-gray-600 mt-1">
-                          {Math.ceil(parseFloat(formData.preco) / 5) === 1
+                          {Math.ceil(parseFloat(formData.custoUnitario) / 5) === 1
                             ? "jogada mínima"
                             : "jogadas mínimas"}
                         </p>
                         <p className="text-xs text-gray-500 mt-2">
                           Faturamento: R${" "}
                           {(
-                            Math.ceil(parseFloat(formData.preco) / 5) * 5
+                            Math.ceil(parseFloat(formData.custoUnitario) / 5) * 5
                           ).toFixed(2)}
                         </p>
                       </div>
@@ -402,7 +393,7 @@ export function ProdutoForm() {
                       <span>💡</span>
                       <span>
                         <strong>Dica:</strong> Quanto menor o número de jogadas,
-                        mais rápido você recupera o investimento. Com ficha de
+                        mais rápido você recupera o custo. Com ficha de
                         R$ 5,00, o lucro é mais rápido!
                       </span>
                     </p>
@@ -411,6 +402,8 @@ export function ProdutoForm() {
               )}
             </div>
 
+            {false && (
+              <>
             {/* Estoque */}
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -462,6 +455,9 @@ export function ProdutoForm() {
                 </div>
               </div>
             </div>
+
+              </>
+            )}
 
             {/* Descrição */}
             <div>
