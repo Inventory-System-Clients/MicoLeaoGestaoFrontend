@@ -124,6 +124,14 @@ export function Movimentacoes() {
   const [estoqueAnterior, setEstoqueAnterior] = useState(0);
   const [alertaDivergencia, setAlertaDivergencia] = useState(null);
 
+  const maquinaSelecionada = maquinas.find(
+    (m) => String(m.id) === String(formData.maquina_id),
+  );
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  const ehDiaAuditoria = Boolean(
+    maquinaSelecionada?.datasAuditoria?.includes(hojeISO),
+  );
+
   // --- EFEITOS ---
   useEffect(() => {
     carregarDados();
@@ -236,7 +244,7 @@ export function Movimentacoes() {
     let ativo = true;
 
     const calcularMovimentacaoPorContadores = async () => {
-      if (!formData.maquina_id || formData.ignoreInOut) {
+      if (!formData.maquina_id || formData.ignoreInOut || ehDiaAuditoria) {
         setAlertaDivergencia(null);
         return;
       }
@@ -358,6 +366,7 @@ export function Movimentacoes() {
     formData.quantidadeAtualMaquina,
     formData.ignoreInOut,
     maquinas,
+    ehDiaAuditoria,
   ]);
 
   // Sugere produto automaticamente ao escolher máquina, mas permite troca manual
@@ -1490,6 +1499,18 @@ export function Movimentacoes() {
                 </div>
               </div>
 
+              {ehDiaAuditoria && (
+                <div className="rounded-lg border-2 border-red-500 bg-red-50 p-4 text-center shadow-md animate-pulse">
+                  <p className="text-lg font-black text-red-700">
+                    🔍 AUDITORIA HOJE
+                  </p>
+                  <p className="text-sm font-semibold text-red-600">
+                    Nada é sugerido automaticamente. Conte tudo fisicamente e
+                    digite os valores reais.
+                  </p>
+                </div>
+              )}
+
               <div className="p-4 bg-white border border-blue-100 rounded-lg">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Foto dos contadores
@@ -1627,7 +1648,9 @@ export function Movimentacoes() {
                   <p className="text-xs text-gray-500 mt-1">
                     Quantos produtos tem agora
                   </p>
-                  {formData.quantidadeAtualMaquina && estoqueAnterior > 0 && (
+                  {!ehDiaAuditoria &&
+                    formData.quantidadeAtualMaquina &&
+                    estoqueAnterior > 0 && (
                     <p className="text-xs font-semibold text-red-600 mt-1">
                       🔻 Saíram:{" "}
                       {Math.max(
@@ -1673,7 +1696,8 @@ export function Movimentacoes() {
                   <p className="text-xs text-gray-500 mt-1">
                     Quantos produtos foram adicionados
                   </p>
-                  {formData.quantidadeAtualMaquina &&
+                  {!ehDiaAuditoria &&
+                    formData.quantidadeAtualMaquina &&
                     formData.quantidadeAdicionada && (
                       <p className="text-xs font-semibold text-blue-600 mt-1">
                         Sugestão para completar a máquina

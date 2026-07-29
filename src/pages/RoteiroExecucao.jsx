@@ -131,6 +131,11 @@ export function RoteiroExecucao() {
   const [avisoCalculoContadores, setAvisoCalculoContadores] = useState("");
   const [error, setError] = useState("");
 
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  const ehDiaAuditoria = Boolean(
+    modalMovimentacao?.maquina?.datasAuditoria?.includes(hojeISO),
+  );
+
   const carregarDados = async () => {
     try {
       setLoading(true);
@@ -161,8 +166,10 @@ export function RoteiroExecucao() {
     if (
       !modalMovimentacao ||
       !ultimaMovimentacao ||
-      formMovimentacao.ignoreInOut
+      formMovimentacao.ignoreInOut ||
+      ehDiaAuditoria
     ) {
+      if (ehDiaAuditoria) setAvisoCalculoContadores("");
       return;
     }
 
@@ -183,6 +190,7 @@ export function RoteiroExecucao() {
     formMovimentacao.ignoreInOut,
     modalMovimentacao,
     ultimaMovimentacao,
+    ehDiaAuditoria,
   ]);
 
   if (loading) return <PageLoader />;
@@ -233,12 +241,16 @@ export function RoteiroExecucao() {
       ]);
 
       const ultima = ultimaRes.data || null;
+      const ehAuditoriaDestaMaquina = Boolean(
+        maquina?.datasAuditoria?.includes(new Date().toISOString().slice(0, 10)),
+      );
       setUltimaMovimentacao(ultima);
       setFormMovimentacao((prev) => ({
         ...prev,
         produtoId: sugestaoRes.data?.produtoSugerido?.id || "",
-        quantidadeAtualMaquina:
-          ultima?.totalPos !== undefined && ultima?.totalPos !== null
+        quantidadeAtualMaquina: ehAuditoriaDestaMaquina
+          ? ""
+          : ultima?.totalPos !== undefined && ultima?.totalPos !== null
             ? String(ultima.totalPos)
             : String(maquina.estoqueAtual || 0),
       }));
@@ -539,6 +551,18 @@ export function RoteiroExecucao() {
                 </button>
               </div>
 
+              {ehDiaAuditoria && (
+                <div className="mb-4 rounded-lg border-2 border-red-500 bg-red-50 p-4 text-center shadow-md animate-pulse">
+                  <p className="text-lg font-black text-red-700">
+                    🔍 AUDITORIA HOJE
+                  </p>
+                  <p className="text-sm font-semibold text-red-600">
+                    Nada é sugerido automaticamente. Conte tudo fisicamente e
+                    digite os valores reais.
+                  </p>
+                </div>
+              )}
+
               <div className="mb-4 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-800 shadow-sm">
                 <strong>💡 Como funciona:</strong> Informe quantos produtos tem AGORA na
                 maquina. Se abastecer, informe quantos foram adicionados.
@@ -820,7 +844,7 @@ export function RoteiroExecucao() {
                 />
               </div>
 
-              {ultimaMovimentacao && (
+              {!ehDiaAuditoria && ultimaMovimentacao && (
                 <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-gray-600">
                   Ultima movimentacao: total pos{" "}
                   {ultimaMovimentacao.totalPos ?? 0}. Ultimos contadores salvos:
