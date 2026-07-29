@@ -119,6 +119,9 @@ export function Usuarios() {
                 <option value="ADMIN">Administrador</option>
                 <option value="DESENVOLVEDOR">Desenvolvedor</option>
                 <option value="FUNCIONARIO">Funcionário</option>
+                <option value="FUNCIONARIO_ESTOQUE">
+                  Funcionário de Estoque
+                </option>
               </select>
             </div>
 
@@ -188,14 +191,18 @@ export function Usuarios() {
                             ? "bg-primary/20 text-primary"
                             : usuario.role === "DESENVOLVEDOR"
                               ? "bg-purple-100 text-purple-800"
-                            : "bg-blue-100 text-blue-800"
+                              : usuario.role === "FUNCIONARIO_ESTOQUE"
+                                ? "bg-orange-100 text-orange-800"
+                                : "bg-blue-100 text-blue-800"
                         }`}
                       >
                         {usuario.role === "ADMIN"
                           ? "Admin"
                           : usuario.role === "DESENVOLVEDOR"
                             ? "Dev"
-                          : "Funcionário"}
+                            : usuario.role === "FUNCIONARIO_ESTOQUE"
+                              ? "Func. Estoque"
+                              : "Funcionário"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-600">

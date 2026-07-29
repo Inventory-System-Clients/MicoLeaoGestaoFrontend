@@ -18,7 +18,9 @@ export function Navbar() {
       ? "Desenvolvedor"
       : usuario?.role === "ADMIN"
         ? "Administrador"
-        : "Funcionário";
+        : usuario?.role === "FUNCIONARIO_ESTOQUE"
+          ? "Funcionário de Estoque"
+          : "Funcionário";
 
   const handleLogout = () => {
     logout();
@@ -36,20 +38,26 @@ export function Navbar() {
     { to: "/movimentacoes", label: "Movimentações", icon: "📦" },
     { to: "/manutencao", label: "Manutenção", icon: "🛠️", alert: true },
     { to: "/conferencia-lacre", label: "Conferência de Lacre", icon: "🔏" },
-    ...(usuario?.role !== "FUNCIONARIO"
+    ...(["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"].includes(
+      usuario?.role,
+    )
       ? [
           { to: "/estoque", label: "Estoque", icon: "📦" },
+          { to: "/envios", label: "Envios", icon: "📦" },
+          { to: "/produtos-a-comprar", label: "Produtos a Comprar", icon: "🛒" },
+        ]
+      : []),
+    ...(["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)
+      ? [
           {
             to: "/fabricacao-pelucia",
             label: "Fabricação de Pelúcia",
             icon: "🧵",
           },
           { to: "/pecas", label: "Peças", icon: "🔧" },
-          { to: "/envios", label: "Envios", icon: "📦" },
           { to: "/maquinas", label: "Máquinas", icon: "🎮" },
           { to: "/lojas", label: "Lojas", icon: "🏪" },
           { to: "/produtos", label: "Produtos", icon: "🧸" },
-          { to: "/produtos-a-comprar", label: "Produtos a Comprar", icon: "🛒" },
         ]
       : []),
     ...(["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)

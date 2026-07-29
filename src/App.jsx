@@ -199,7 +199,9 @@ function App() {
           <Route
             path="/estoque"
             element={
-              <PrivateRoute adminOnly>
+              <PrivateRoute
+                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"]}
+              >
                 <Estoque />
               </PrivateRoute>
             }
@@ -223,7 +225,9 @@ function App() {
           <Route
             path="/envios"
             element={
-              <PrivateRoute adminOnly>
+              <PrivateRoute
+                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"]}
+              >
                 <Envios />
               </PrivateRoute>
             }

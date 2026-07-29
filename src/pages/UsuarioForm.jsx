@@ -103,7 +103,7 @@ export function UsuarioForm() {
     }
 
     if (
-      formData.role === "FUNCIONARIO" &&
+      ["FUNCIONARIO", "FUNCIONARIO_ESTOQUE"].includes(formData.role) &&
       formData.lojasPermitidas.length === 0
     ) {
       setError("Funcionários devem ter acesso a pelo menos uma loja");
@@ -118,8 +118,11 @@ export function UsuarioForm() {
         email: formData.email,
         telefone: formData.telefone,
         role: formData.role,
-        lojasPermitidas:
-          formData.role === "FUNCIONARIO" ? formData.lojasPermitidas : [],
+        lojasPermitidas: ["FUNCIONARIO", "FUNCIONARIO_ESTOQUE"].includes(
+          formData.role,
+        )
+          ? formData.lojasPermitidas
+          : [],
       };
 
       // Só incluir senha se foi preenchida
@@ -288,6 +291,9 @@ export function UsuarioForm() {
                   required
                 >
                   <option value="FUNCIONARIO">Funcionário</option>
+                  <option value="FUNCIONARIO_ESTOQUE">
+                    Funcionário de Estoque
+                  </option>
                   <option value="ADMIN">Administrador</option>
                   <option value="DESENVOLVEDOR">Desenvolvedor</option>
                 </select>
@@ -296,13 +302,17 @@ export function UsuarioForm() {
                     ? "Administradores têm acesso total ao sistema"
                     : formData.role === "DESENVOLVEDOR"
                       ? "Desenvolvedores têm acesso de admin e controle do desenvolvimento"
-                      : "Funcionários têm acesso limitado às lojas autorizadas"}
+                      : formData.role === "FUNCIONARIO_ESTOQUE"
+                        ? "Além do acesso de funcionário, também vê estoque, monta envios/carrinhos e vê a lista de compras — sem acesso a financeiro ou edição de usuários/lojas"
+                        : "Funcionários têm acesso limitado às lojas autorizadas"}
                 </p>
               </div>
             </div>
 
-            {/* Lojas Permitidas (apenas para Funcionários) */}
-            {formData.role === "FUNCIONARIO" && (
+            {/* Lojas Permitidas (para Funcionários e Funcionários de Estoque) */}
+            {["FUNCIONARIO", "FUNCIONARIO_ESTOQUE"].includes(
+              formData.role,
+            ) && (
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
                   Lojas Autorizadas *
