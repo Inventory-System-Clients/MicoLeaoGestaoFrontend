@@ -110,7 +110,7 @@ function App() {
           <Route
             path="/visao-lojas"
             element={
-              <PrivateRoute>
+              <PrivateRoute roles={["ADMIN", "DESENVOLVEDOR"]}>
                 <VisaoLojas />
               </PrivateRoute>
             }
@@ -118,7 +118,7 @@ function App() {
           <Route
             path="/visao-maquinas"
             element={
-              <PrivateRoute>
+              <PrivateRoute roles={["ADMIN", "DESENVOLVEDOR"]}>
                 <VisaoMaquinas />
               </PrivateRoute>
             }
