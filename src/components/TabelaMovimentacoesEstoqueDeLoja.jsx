@@ -13,9 +13,9 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
   filtroResponsavelEstoque = "",
   setEditandoEstoqueLoja,
   setExcluindoEstoqueLoja,
-  onChangeEstoqueLoja, // FunÃ§Ã£o para recarregar estoque consolidado
+  onChangeEstoqueLoja, // Função para recarregar estoque consolidado
 }) {
-  // FunÃ§Ã£o para deletar movimentaÃ§Ã£o e recarregar estoque consolidado
+  // Função para deletar movimentação e recarregar estoque consolidado
   const handleDelete = async (mov) => {
     const confirmado = await confirmar({
       title: "Deletar movimentação?",
@@ -32,7 +32,7 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
     }
   };
 
-  // FunÃ§Ã£o para editar movimentaÃ§Ã£o (apenas abre modal, recarrega estoque deve ser feito apÃ³s salvar no modal principal)
+  // Função para editar movimentação (apenas abre modal, recarrega estoque deve ser feito após salvar no modal principal)
 
   const movimentacoesFiltradas = movimentacoesEstoqueLoja.filter((mov) => {
     const dataMovimentacao = mov.dataMovimentacao?.slice(0, 10);
@@ -76,7 +76,7 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
                 Loja de Destino
               </th>
               <th className="px-4 py-3 text-center text-sm font-bold uppercase tracking-wide">
-                ResponsÃ¡vel
+                Responsável
               </th>
               <th className="px-4 py-3 text-center text-sm font-bold uppercase tracking-wide">
                 Produtos Enviados
@@ -94,7 +94,7 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
               <tr>
                 <td colSpan={6} className="px-4 py-10 text-center">
                   <p className="text-sm font-semibold text-slate-600">
-                    Nenhuma movimentaÃ§Ã£o encontrada
+                    Nenhuma movimentação encontrada
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
                     Ajuste os filtros para visualizar outros registros.
@@ -146,22 +146,22 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
                         {mov.produtosEnviados.map((prod, index) => {
                           // Debug: log da primeira entrada
                           if (index === 0) {
-                            console.log("ðŸ“¦ Prod:", prod);
+                            console.log("📦 Prod:", prod);
                             console.log(
-                              "ðŸ“¦ Produtos lista:",
+                              "📦 Produtos lista:",
                               produtos.slice(0, 2),
                             );
                           }
 
-                          // Tentar obter o produto de vÃ¡rias formas
+                          // Tentar obter o produto de várias formas
                           let produtoRenderizado = null;
 
-                          // 1. Se jÃ¡ vem o objeto produto completo
+                          // 1. Se já vem o objeto produto completo
                           if (prod.produto?.id) {
                             produtoRenderizado = prod.produto;
                           }
 
-                          // 2. Se nÃ£o, tenta encontrar pelo ID em mÃºltiplos campos
+                          // 2. Se não, tenta encontrar pelo ID em múltiplos campos
                           const prodIdValue = prod.produtoId || prod.produto_id;
                           if (
                             !produtoRenderizado &&
@@ -173,9 +173,9 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
                             );
                           }
 
-                          // 3. Se mesmo assim nÃ£o achou, usa fallback
+                          // 3. Se mesmo assim não achou, usa fallback
                           const emojiDisplay =
-                            produtoRenderizado?.emoji || "ðŸ“¦";
+                            produtoRenderizado?.emoji || "📦";
                           const nomeDisplay =
                             produtoRenderizado?.nome ||
                             prod.produto?.nome ||
@@ -191,7 +191,7 @@ export default function TabelaMovimentacoesEstoqueDeLoja({
                               <span>{nomeDisplay}</span>
                               <span className="font-bold">
                                 {" "}
-                                â€” {prod.quantidade}
+                                — {prod.quantidade}
                               </span>{" "}
                               <span
                                 className={`font-semibold ${

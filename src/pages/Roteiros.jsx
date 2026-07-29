@@ -641,7 +641,7 @@ export function Roteiros() {
                             : "bg-white text-orange-700"
                         }`}
                       >
-                        {lojaConcluida ? "ConcluÃ­do" : "Concluir"}
+                        {lojaConcluida ? "Concluído" : "Concluir"}
                       </span>
                     </div>
                   </button>

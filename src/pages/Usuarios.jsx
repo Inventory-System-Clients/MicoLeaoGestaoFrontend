@@ -24,7 +24,7 @@ export function Usuarios() {
       const response = await api.get(`/usuarios?${params.toString()}`);
       setUsuarios(response.data);
     } catch (error) {
-      console.error("Erro ao carregar usuÃ¡rios:", error);
+      console.error("Erro ao carregar usuários:", error);
     } finally {
       setLoading(false);
     }
@@ -75,10 +75,10 @@ export function Usuarios() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            GestÃ£o de UsuÃ¡rios
+            Gestão de Usuários
           </h1>
           <Link to="/usuarios/novo" className="btn-primary">
-            âž• Novo UsuÃ¡rio
+            ➕ Novo Usuário
           </Link>
         </div>
 
@@ -118,7 +118,7 @@ export function Usuarios() {
                 <option value="">Todos</option>
                 <option value="ADMIN">Administrador</option>
                 <option value="DESENVOLVEDOR">Desenvolvedor</option>
-                <option value="FUNCIONARIO">FuncionÃ¡rio</option>
+                <option value="FUNCIONARIO">Funcionário</option>
               </select>
             </div>
 
@@ -141,7 +141,7 @@ export function Usuarios() {
           </div>
         </div>
 
-        {/* Lista de UsuÃ¡rios */}
+        {/* Lista de Usuários */}
         <div className="card">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -166,7 +166,7 @@ export function Usuarios() {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    AÃ§Ãµes
+                    Ações
                   </th>
                 </tr>
               </thead>
@@ -195,7 +195,7 @@ export function Usuarios() {
                           ? "Admin"
                           : usuario.role === "DESENVOLVEDOR"
                             ? "Dev"
-                          : "FuncionÃ¡rio"}
+                          : "Funcionário"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-600">
@@ -253,7 +253,7 @@ export function Usuarios() {
 
             {usuarios.length === 0 && (
               <div className="text-center py-12 text-gray-500">
-                Nenhum usuÃ¡rio encontrado
+                Nenhum usuário encontrado
               </div>
             )}
           </div>

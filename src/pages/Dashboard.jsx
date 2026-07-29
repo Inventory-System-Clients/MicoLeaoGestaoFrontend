@@ -1798,7 +1798,7 @@ export function Dashboard() {
             );
           } else {
             console.log(
-              `âž• Criando novo produto ${item.produtoNome} no estoque`,
+              `➕ Criando novo produto ${item.produtoNome} no estoque`,
             );
             await api.post(`/estoque-lojas/${estoqueEditando.lojaId}`, {
               produtoId: item.produtoId,
@@ -2350,9 +2350,9 @@ export function Dashboard() {
                       >
                         <span>
                           {statusComparativoLucro === "acima"
-                            ? "â–²"
+                            ? "▲"
                             : statusComparativoLucro === "abaixo"
-                              ? "â–¼"
+                              ? "▼"
                               : "="}
                         </span>
                         <span>{textoPercentualComparativoLucro}</span>
@@ -2744,7 +2744,7 @@ export function Dashboard() {
                     ativas
                   </p>
                   <button className="mt-2 text-xs text-pink-600 font-semibold hover:text-pink-700 flex items-center gap-1">
-                    {mostrarDetalhesProdutos ? "â–¼ Ocultar" : "â–¶ Ver detalhes"}
+                    {mostrarDetalhesProdutos ? "▼ Ocultar" : "▶ Ver detalhes"}
                   </button>
                 </div>
               </div>
