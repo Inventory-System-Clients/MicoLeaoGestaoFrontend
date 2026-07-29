@@ -15,6 +15,7 @@ import LancarGastoVariavel from "../components/LancarGastoVariavel";
 import { PageLoader, EmptyState } from "../components/Loading";
 import { useAuth } from "../contexts/AuthContext";
 import AvisosMaquinasFaltam from "../components/AvisosMaquinasFaltam";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 import TabelaMovimentacoesEstoqueDeLoja from "../components/TabelaMovimentacoesEstoqueDeLoja";
 import {
   salvarFotoUltimaMovimentacao,
@@ -416,7 +417,7 @@ export function Movimentacoes() {
       setMovimentacoes(movRes.data || []);
       setMaquinas(maqRes.data || []);
       setProdutos(prodRes.data || []);
-      setLojas(lojasRes.data || []);
+      setLojas(filtrarLojasOperacionais(lojasRes.data || []));
       setVeiculos(veiculosRes.data || []);
       setUsuarios(usuariosRes.data || []);
     } catch (err) {

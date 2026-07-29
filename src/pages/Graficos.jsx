@@ -10,6 +10,7 @@ import {
   ResponsiveContainer, AreaChart, Area, Cell,
   ReferenceLine,
 } from "recharts";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const NENHUMA_LOJA_VALUE = "";
@@ -101,7 +102,7 @@ export function Graficos() {
         setLojas([
           { id: NENHUMA_LOJA_VALUE, nome: "Nenhum" },
           { id: TODAS_LOJAS_VALUE,  nome: "Todas as lojas" },
-          ...(res.data || []),
+          ...filtrarLojasOperacionais(res.data || []),
         ]);
       })
       .catch(() => setErro("Erro ao carregar lista de lojas."))

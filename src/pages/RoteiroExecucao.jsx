@@ -5,11 +5,48 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
+import { obterEntradaMaquinaConcluida } from "../utils/roteiroMaquinas";
 
 const ordenarRoteiro = (roteiro) => ({
   ...roteiro,
   itens: [...(roteiro.itens || [])].sort((a, b) => a.ordem - b.ordem),
 });
+
+const montarMensagemWhatsappDaMovimentacao = (mov) => {
+  const produto = mov.detalhesProdutos?.[0]?.produto;
+  const totalPre = Number(mov.totalPre || 0);
+  const abastecidas = Number(mov.abastecidas || 0);
+  const totalPos = mov.totalPos ?? totalPre + abastecidas;
+
+  let mensagem = ` *Movimentação de Máquina*\n`;
+  mensagem += `━━━━━━━━━━━━━━━━━━━\n\n`;
+  mensagem += `->  *Loja:* ${mov.maquina?.loja?.nome || "Não informada"}\n`;
+  mensagem += `->  *Máquina:* ${
+    mov.maquina ? `${mov.maquina.nome || ""} - ${mov.maquina.codigo || ""}`.trim() : "Não informada"
+  }\n`;
+  mensagem += `->  *Produto:* ${
+    produto ? `${produto.emoji || ""} ${produto.nome}`.trim() : "Não informado"
+  }\n`;
+
+  if (mov.contadorIn !== null || mov.contadorOut !== null) {
+    mensagem += `\n━━━━━━━━━━━━━━━━━━━\n`;
+    mensagem += `->  *Contador IN:* ${mov.contadorIn ?? "0"}\n`;
+    mensagem += `->  *Contador OUT:* ${mov.contadorOut ?? "0"}\n`;
+  }
+
+  mensagem += `\n━━━━━━━━━━━━━━━━━━━\n`;
+  mensagem += `->  *Quantidade atual na máquina:* ${totalPre}\n`;
+  mensagem += `->  *Quantidade adicionada:* ${abastecidas}\n`;
+  mensagem += `->  *Total após abastecimento:* ${totalPos}\n`;
+  mensagem += `->  *Fichas:* ${mov.fichas ?? "0"}\n`;
+
+  if (mov.observacoes?.trim()) {
+    mensagem += `\n━━━━━━━━━━━━━━━━━━━\n`;
+    mensagem += `->  *Observação:* ${mov.observacoes.trim()}\n`;
+  }
+
+  return mensagem;
+};
 
 const formularioMovimentacaoInicial = {
   produtoId: "",
@@ -130,6 +167,7 @@ export function RoteiroExecucao() {
   const [salvandoMovimentacao, setSalvandoMovimentacao] = useState(false);
   const [avisoCalculoContadores, setAvisoCalculoContadores] = useState("");
   const [error, setError] = useState("");
+  const [enviandoWhatsappMaquinaId, setEnviandoWhatsappMaquinaId] = useState(null);
 
   const hojeISO = new Date().toISOString().slice(0, 10);
   const ehDiaAuditoria = Boolean(
@@ -259,6 +297,32 @@ export function RoteiroExecucao() {
     }
   };
 
+  const enviarLeituraWhatsapp = async (movimentacaoId, maquinaId, event) => {
+    event.stopPropagation();
+    if (!movimentacaoId) {
+      setError(
+        "Essa máquina foi concluída antes dessa opção existir, não tem uma movimentação salva pra reenviar.",
+      );
+      return;
+    }
+
+    setEnviandoWhatsappMaquinaId(maquinaId);
+    setError("");
+    try {
+      const response = await api.get(`/movimentacoes/${movimentacaoId}`);
+      const mensagem = montarMensagemWhatsappDaMovimentacao(response.data);
+      const url = `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setError(
+        err.response?.data?.error ||
+          "Erro ao buscar a movimentação para reenviar a leitura.",
+      );
+    } finally {
+      setEnviandoWhatsappMaquinaId(null);
+    }
+  };
+
   const concluirItem = async (item, concluido = true) => {
     try {
       await api.patch(`/roteiros/itens/${item.id}/concluir`, { concluido });
@@ -299,7 +363,7 @@ export function RoteiroExecucao() {
     setError("");
 
     try {
-      await api.post("/movimentacoes", {
+      const movimentacaoResponse = await api.post("/movimentacoes", {
         maquinaId: modalMovimentacao.maquina.id,
         totalPre,
         sairam: quantidadeSaiu,
@@ -333,8 +397,12 @@ export function RoteiroExecucao() {
         ],
       });
 
+      // Salva o id da movimentação junto da conclusão, mesmo que o envio pro
+      // WhatsApp falhe depois — assim o botão "Reenviar leitura" sempre pega
+      // a movimentação certa, mesmo se a mesma máquina aparecer de novo no roteiro.
       await api.patch(
         `/roteiros/itens/${modalMovimentacao.item.id}/maquinas/${modalMovimentacao.maquina.id}/concluir`,
+        { movimentacaoId: movimentacaoResponse.data?.id || null },
       );
 
       setModalMovimentacao(null);
@@ -380,11 +448,9 @@ export function RoteiroExecucao() {
                         (maquina) => String(maquina.lojaId) === String(item.lojaId),
                       )
                     : [];
-                const maquinasConcluidas = new Set(
-                  (item.maquinasConcluidas || []).map(String),
-                );
-                const totalConcluidas = maquinasDaLojaItem.filter((maquina) =>
-                  maquinasConcluidas.has(String(maquina.id)),
+                const totalConcluidas = maquinasDaLojaItem.filter(
+                  (maquina) =>
+                    obterEntradaMaquinaConcluida(item, maquina.id).concluida,
                 ).length;
                 const lojaConcluida =
                   item.concluido ||
@@ -476,15 +542,20 @@ export function RoteiroExecucao() {
                   <h2 className="text-lg font-bold text-gray-900">Maquinas da loja</h2>
                   <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                     {maquinasDaLojaSelecionada.map((maquina) => {
-                      const maquinaConcluida = new Set(
-                        (itemLojaSelecionada?.maquinasConcluidas || []).map(String),
-                      ).has(String(maquina.id));
+                      const { concluida: maquinaConcluida, movimentacaoId } =
+                        obterEntradaMaquinaConcluida(
+                          itemLojaSelecionada,
+                          maquina.id,
+                        );
+                      const enviandoWhatsappDestaMaquina =
+                        enviandoWhatsappMaquinaId === maquina.id;
 
                       return (
-                        <button
-                          type="button"
+                        <div
                           key={maquina.id}
-                          className={`rounded-lg border p-4 text-left ${
+                          role="button"
+                          tabIndex={0}
+                          className={`rounded-lg border p-4 text-left cursor-pointer ${
                             maquinaConcluida
                               ? "border-emerald-300 bg-emerald-50"
                               : "border-slate-200 bg-slate-50 hover:border-orange-300 hover:bg-orange-50"
@@ -493,6 +564,13 @@ export function RoteiroExecucao() {
                             itemLojaSelecionada &&
                             abrirMovimentacaoRoteiro(itemLojaSelecionada, maquina)
                           }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              itemLojaSelecionada &&
+                                abrirMovimentacaoRoteiro(itemLojaSelecionada, maquina);
+                            }
+                          }}
                         >
                           <p className="font-bold text-gray-900">
                             {maquina.nome || maquina.codigo}
@@ -501,11 +579,30 @@ export function RoteiroExecucao() {
                             Codigo: {maquina.codigo}
                           </p>
                           {maquinaConcluida && (
-                            <p className="mt-2 text-xs font-black uppercase text-emerald-700">
-                              Concluido
-                            </p>
+                            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-xs font-black uppercase text-emerald-700">
+                                Concluido
+                              </p>
+                              <button
+                                type="button"
+                                disabled={enviandoWhatsappDestaMaquina}
+                                onClick={(event) =>
+                                  enviarLeituraWhatsapp(
+                                    movimentacaoId,
+                                    maquina.id,
+                                    event,
+                                  )
+                                }
+                                className="rounded bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                title="Reenviar a leitura dessa movimentação pro WhatsApp"
+                              >
+                                {enviandoWhatsappDestaMaquina
+                                  ? "Enviando..."
+                                  : "📲 Reenviar leitura"}
+                              </button>
+                            </div>
                           )}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>

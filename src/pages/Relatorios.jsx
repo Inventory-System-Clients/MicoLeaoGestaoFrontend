@@ -6,6 +6,7 @@ import { Footer } from "../components/Footer";
 import { PageHeader } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { RelatorioTodasLojas } from "../components/RelatorioTodasLojas";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 import Swal from "sweetalert2";
 
 const TODAS_LOJAS_VALUE = "__TODAS_AS_LOJAS__";
@@ -126,7 +127,7 @@ export function Relatorios() {
     try {
       setLoadingLojas(true);
       const response = await api.get("/lojas");
-      setLojas(response.data || []);
+      setLojas(filtrarLojasOperacionais(response.data || []));
     } catch (error) {
       console.error("Erro ao carregar lojas:", error);
       setError("Erro ao carregar lojas");

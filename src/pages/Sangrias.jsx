@@ -5,6 +5,7 @@ import { Footer } from "../components/Footer";
 import { PageHeader } from "../components/UIComponents";
 import { useAuth } from "../contexts/AuthContext";
 import { confirmar } from "../utils/alerts";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 const NOTE_VALUES = [2, 5, 10, 20, 50, 100, 200];
 
@@ -146,7 +147,7 @@ export function Sangrias() {
     try {
       setLoadingLojas(true);
       const response = await api.get("/lojas");
-      setLojas(Array.isArray(response.data) ? response.data : []);
+      setLojas(filtrarLojasOperacionais(Array.isArray(response.data) ? response.data : []));
     } catch (err) {
       console.error("Erro ao carregar lojas:", err);
       setError("Erro ao carregar lojas.");

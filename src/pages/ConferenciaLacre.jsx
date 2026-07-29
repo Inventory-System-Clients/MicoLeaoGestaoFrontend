@@ -5,6 +5,7 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { AlertBox, PageHeader } from "../components/UIComponents";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 const formatarDataHora = (dataIso) => {
   if (!dataIso) return "-";
@@ -29,7 +30,9 @@ export default function ConferenciaLacre() {
     try {
       setError("");
       const response = await api.get("/lojas");
-      const lojasData = Array.isArray(response.data) ? response.data : [];
+      const lojasData = filtrarLojasOperacionais(
+        Array.isArray(response.data) ? response.data : [],
+      );
       setLojas(lojasData);
       setLojaId((atual) => atual || lojasData[0]?.id || "");
     } catch (err) {

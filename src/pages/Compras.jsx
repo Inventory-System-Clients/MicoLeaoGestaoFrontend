@@ -8,6 +8,7 @@ import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
 import { enviarImagemParaCloudinary } from "../utils/cloudinary";
 import { confirmar } from "../utils/alerts";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 const STATUS_OPCOES = [
   { value: "PESQUISANDO", label: "Pesquisando", variant: "info" },
@@ -150,7 +151,7 @@ export default function Compras() {
         Array.isArray(fornecedoresRes.data) ? fornecedoresRes.data : [],
       );
       setComparacoes(Array.isArray(comparacoesRes.data) ? comparacoesRes.data : []);
-      setLojas(Array.isArray(lojasRes.data) ? lojasRes.data : []);
+      setLojas(filtrarLojasOperacionais(Array.isArray(lojasRes.data) ? lojasRes.data : []));
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao carregar dados");
     } finally {

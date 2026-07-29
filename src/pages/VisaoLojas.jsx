@@ -4,6 +4,7 @@ import api from "../services/api";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 const DIAS_SEM_MOVIMENTACAO = 15;
 
@@ -117,7 +118,7 @@ export function VisaoLojas() {
           api.get("/manutencoes").catch(() => ({ data: [] })),
         ]);
 
-        const lojas = lojasRes.data || [];
+        const lojas = filtrarLojasOperacionais(lojasRes.data || []);
         const maquinas = maquinasRes.data || [];
         const manutencoes = manutencoesRes.data || [];
 

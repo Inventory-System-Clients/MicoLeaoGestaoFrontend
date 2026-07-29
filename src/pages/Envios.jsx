@@ -6,6 +6,7 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 const STATUS_LACRE = {
   SEPARADO: { label: "Separado", variant: "warning" },
@@ -72,7 +73,7 @@ export default function Envios() {
         ]);
 
       setEnvios(Array.isArray(enviosRes.data) ? enviosRes.data : []);
-      setLojas(Array.isArray(lojasRes.data) ? lojasRes.data : []);
+      setLojas(filtrarLojasOperacionais(Array.isArray(lojasRes.data) ? lojasRes.data : []));
       setUsuarios(Array.isArray(usuariosRes.data) ? usuariosRes.data : []);
       setProdutos(Array.isArray(produtosRes.data) ? produtosRes.data : []);
       setDivergentes(

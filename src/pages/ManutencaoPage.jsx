@@ -5,6 +5,7 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 const TIPOS_PROBLEMA = [
   { value: "MECANICO", label: "Mecânico" },
@@ -148,7 +149,7 @@ export default function ManutencaoPage() {
         setFuncionarios(
           Array.isArray(funcionariosData) ? funcionariosData : [],
         );
-        setLojas(Array.isArray(lojasData) ? lojasData : []);
+        setLojas(filtrarLojasOperacionais(Array.isArray(lojasData) ? lojasData : []));
         setMaquinas(Array.isArray(maquinasData) ? maquinasData : []);
         setUsuariosFiltro(Array.isArray(usuariosData) ? usuariosData : []);
         setAlertasMovimentacao(Array.isArray(alertasData) ? alertasData : []);

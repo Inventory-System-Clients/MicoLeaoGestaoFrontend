@@ -6,6 +6,7 @@ import { Footer } from "../components/Footer";
 import { PageHeader, DataTable, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import LancarGastoVariavel from "../components/LancarGastoVariavel";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 const formatCurrency = (value) =>
   Number(value || 0).toLocaleString("pt-BR", {
@@ -101,7 +102,7 @@ export function GastosVariaveis() {
           api.get("/lojas"),
           api.get("/veiculos"),
         ]);
-        setLojas(lojasRes.data || []);
+        setLojas(filtrarLojasOperacionais(lojasRes.data || []));
         setVeiculos(veiculosRes.data || []);
       } catch (err) {
         console.error("Erro ao carregar lojas/veículos:", err);

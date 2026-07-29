@@ -5,6 +5,7 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageHeader, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 export function MaquinaForm() {
   const { id } = useParams();
@@ -28,7 +29,6 @@ export function MaquinaForm() {
     jogadasPremium: "",
     percentualAlertaEstoque: "",
     localizacao: "",
-    datasAuditoria: [],
     ativo: true,
   });
 
@@ -51,7 +51,7 @@ export function MaquinaForm() {
   const carregarLojas = async () => {
     try {
       const response = await api.get("/lojas");
-      setLojas(response.data.filter((l) => l.ativo));
+      setLojas(filtrarLojasOperacionais(response.data.filter((l) => l.ativo)));
     } catch (error) {
       setError(
         "Erro ao carregar lojas: " +
@@ -86,9 +86,6 @@ export function MaquinaForm() {
         jogadasPremium: response.data.jogadasPremium || "",
         percentualAlertaEstoque: response.data.percentualAlertaEstoque || 20,
         localizacao: response.data.localizacao || "",
-        datasAuditoria: Array.isArray(response.data.datasAuditoria)
-          ? response.data.datasAuditoria
-          : [],
         ativo: response.data.ativo !== undefined ? response.data.ativo : true,
       });
     } catch (error) {
@@ -113,29 +110,6 @@ export function MaquinaForm() {
     setFormData({
       ...novosDados,
     });
-  };
-
-  const adicionarDataAuditoria = () => {
-    setFormData((prev) => ({
-      ...prev,
-      datasAuditoria: [...prev.datasAuditoria, ""],
-    }));
-  };
-
-  const atualizarDataAuditoria = (index, valor) => {
-    setFormData((prev) => ({
-      ...prev,
-      datasAuditoria: prev.datasAuditoria.map((data, i) =>
-        i === index ? valor : data,
-      ),
-    }));
-  };
-
-  const removerDataAuditoria = (index) => {
-    setFormData((prev) => ({
-      ...prev,
-      datasAuditoria: prev.datasAuditoria.filter((_, i) => i !== index),
-    }));
   };
 
   const handleSubmit = async (e) => {
@@ -186,7 +160,6 @@ export function MaquinaForm() {
         percentualAlertaEstoque:
           parseInt(formData.percentualAlertaEstoque, 10) || 20,
         localizacao: formData.localizacao?.trim() || null,
-        datasAuditoria: formData.datasAuditoria.filter(Boolean),
         ativo: formData.ativo,
       };
 
@@ -557,54 +530,6 @@ export function MaquinaForm() {
                     Descrição da localização da máquina na loja
                   </p>
                 </div>
-              </div>
-            </div>
-
-            {/* Datas de Auditoria */}
-            <div className="border-t border-gray-200 pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <span className="text-xl">🔍</span>
-                  Datas de auditoria
-                </h3>
-                <button
-                  type="button"
-                  onClick={adicionarDataAuditoria}
-                  className="btn-secondary text-sm"
-                >
-                  + Adicionar data
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mb-3">
-                Nessas datas, o registro de movimentação desta máquina fica
-                100% manual: o sistema não sugere quanto tem, quanto abastecer
-                nem a quantidade de fichas.
-              </p>
-              <div className="space-y-2">
-                {formData.datasAuditoria.map((data, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={data}
-                      onChange={(e) =>
-                        atualizarDataAuditoria(index, e.target.value)
-                      }
-                      className="input-field max-w-xs"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removerDataAuditoria(index)}
-                      className="btn-secondary text-xs"
-                    >
-                      Remover
-                    </button>
-                  </div>
-                ))}
-                {formData.datasAuditoria.length === 0 && (
-                  <p className="text-xs text-gray-400">
-                    Nenhuma data de auditoria cadastrada.
-                  </p>
-                )}
               </div>
             </div>
 

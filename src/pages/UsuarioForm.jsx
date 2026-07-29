@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Navbar } from "../components/Navbar";
 import api from "../services/api";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 export function UsuarioForm() {
   const { id } = useParams();
@@ -33,7 +34,7 @@ export function UsuarioForm() {
   const carregarLojas = async () => {
     try {
       const response = await api.get("/lojas");
-      setLojas(response.data);
+      setLojas(filtrarLojasOperacionais(response.data));
     } catch (error) {
       console.error("Erro ao carregar lojas:", error);
     }

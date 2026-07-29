@@ -2,6 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import mascoteMicoLeao from "../assets/MascoteMicoLeao.png";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 export function IAgarraAssistente() {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ export function IAgarraAssistente() {
         ]);
 
         if (!ativo) return;
-        setLojas(lojasRes.data || []);
+        setLojas(filtrarLojasOperacionais(lojasRes.data || []));
         setMaquinas(maquinasRes.data || []);
       } catch {
         if (!ativo) return;

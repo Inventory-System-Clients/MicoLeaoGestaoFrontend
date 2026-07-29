@@ -10,6 +10,7 @@ import { Badge } from "../components/UIComponents";
 import AlertAdmin from "../components/AlertAdmin";
 import LancarGastoVariavel from "../components/LancarGastoVariavel";
 import { useAuth } from "../contexts/AuthContext";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 import Swal from "sweetalert2";
 
@@ -950,13 +951,14 @@ export function Dashboard() {
         gastoVariavelMes,
         loading: false,
       });
-      setLojas(lojasRes.data || []);
+      const lojasOperacionais = filtrarLojasOperacionais(lojasRes.data || []);
+      setLojas(lojasOperacionais);
       setMaquinas(maquinasRes.data || []);
       setProdutos(produtosRes.data || []);
       setAlertasBomDesempenho(alertasBomDesempenhoRes.data?.alertas || []);
       // Carregar alertas de estoque de lojas (para todos os usuários)
-      if (lojasRes.data && lojasRes.data.length > 0) {
-        carregarAlertasEstoqueLoja(lojasRes.data);
+      if (lojasOperacionais.length > 0) {
+        carregarAlertasEstoqueLoja(lojasOperacionais);
       }
     } catch (error) {
       console.error("Erro ao carregar dados:", error);

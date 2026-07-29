@@ -5,6 +5,7 @@ import { PageLoader } from "../components/Loading";
 import { Navbar } from "../components/Navbar";
 import { AlertBox } from "../components/UIComponents";
 import api from "../services/api";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 const statusMaquina = {
   EM_OPERACAO: {
@@ -93,7 +94,7 @@ export function VisaoMaquinas() {
 
         const maquinas = maquinasRes.data || [];
         const manutencoes = manutencoesRes.data || [];
-        setLojas(lojasRes.data || []);
+        setLojas(filtrarLojasOperacionais(lojasRes.data || []));
 
         const resumos = await Promise.all(
           maquinas.map(async (maquina) => {

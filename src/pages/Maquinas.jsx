@@ -13,6 +13,7 @@ import {
   AlertBox,
 } from "../components/UIComponents";
 import { PageLoader, EmptyState } from "../components/Loading";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 const obterStatusMaquina = (maquina) => {
   const status = maquina.statusOperacao || maquina.status_operacao;
@@ -60,7 +61,7 @@ export function Maquinas() {
       console.log("Máquinas recebidas:", maquinasRes.data);
       console.log("Lojas recebidas:", lojasRes.data);
       setMaquinas(maquinasRes.data);
-      setLojas(lojasRes.data);
+      setLojas(filtrarLojasOperacionais(lojasRes.data));
     } catch (error) {
       setError(
         "Erro ao carregar dados: " +

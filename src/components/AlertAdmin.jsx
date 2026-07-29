@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { AlertBox } from "./UIComponents";
+import { filtrarLojasOperacionais } from "../utils/lojas";
 
 const formatarDataHora = (valor) => {
   if (!valor) return "-";
@@ -311,7 +312,7 @@ export default function AlertAdmin() {
         api.get("/lojas").catch(() => ({ data: [] })),
         api.get("/usuarios").catch(() => ({ data: [] })),
       ]);
-      setLojas(lojasRes.data || []);
+      setLojas(filtrarLojasOperacionais(lojasRes.data || []));
       setUsuarios(usuariosRes.data || []);
     } catch (e) {
       console.error("Erro ao carregar lojas e usuários:", e);
