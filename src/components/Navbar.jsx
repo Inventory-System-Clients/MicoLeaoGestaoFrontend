@@ -29,45 +29,96 @@ export function Navbar() {
 
   const closeMenu = () => setIsMenuOpen(false);
 
-  const menuItems = [
-    { to: "/desenvolvimento", label: "Desenvolvimento", icon: "</>" },
-    { to: "/treinamentos", label: "Treinamentos", icon: "▶" },
-    { to: "/roteiros", label: "Roteiros", icon: "🗺️" },
+  const itensSoltos = [
     { to: "/", label: "Dashboard", icon: "📊" },
     { to: "/movimentacoes", label: "Movimentações", icon: "📦" },
-    { to: "/manutencao", label: "Manutenção", icon: "🛠️", alert: true },
-    { to: "/conferencia-lacre", label: "Conferência de Lacre", icon: "🔏" },
-    ...(["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"].includes(
-      usuario?.role,
-    )
-      ? [
-          { to: "/estoque", label: "Estoque", icon: "📦" },
-          { to: "/envios", label: "Envios", icon: "📦" },
-          { to: "/compras", label: "Compras", icon: "🛒" },
-        ]
-      : []),
-    ...(["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)
-      ? [
-          {
-            to: "/fabricacao-pelucia",
-            label: "Fabricação de Pelúcia",
-            icon: "🧵",
-          },
-          { to: "/pecas", label: "Peças", icon: "🔧" },
-          { to: "/maquinas", label: "Máquinas", icon: "🎮" },
-          { to: "/lojas", label: "Lojas", icon: "🏪" },
-          { to: "/produtos", label: "Produtos", icon: "🧸" },
-        ]
-      : []),
-    ...(["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)
-      ? [
-          { to: "/analise-estoque", label: "Estoque Detalhado", icon: "📦" },
-          { to: "/graficos", label: "Gráficos", icon: "📈" },
-          { to: "/relatorios", label: "Relatórios", icon: "📄" },
-          { to: "/usuarios", label: "Usuários", icon: "👥" },
-        ]
-      : []),
   ];
+
+  const ADMIN_ROLES = ["ADMIN", "DESENVOLVEDOR"];
+  const ESTOQUE_ROLES = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"];
+
+  const grupos = [
+    {
+      id: "operacional",
+      label: "Operacional",
+      icon: "🛠️",
+      itens: [
+        { to: "/roteiros", label: "Roteiros", icon: "🗺️" },
+        { to: "/manutencao", label: "Manutenção", icon: "🛠️", alert: true },
+        { to: "/conferencia-lacre", label: "Conferência de Lacre", icon: "🔏" },
+      ],
+    },
+    {
+      id: "estoque-compras",
+      label: "Estoque e Compras",
+      icon: "📦",
+      itens: [
+        { to: "/estoque", label: "Estoque", icon: "📦", roles: ESTOQUE_ROLES },
+        { to: "/envios", label: "Envios", icon: "📦", roles: ESTOQUE_ROLES },
+        { to: "/compras", label: "Compras", icon: "🛒", roles: ESTOQUE_ROLES },
+        {
+          to: "/fabricacao-pelucia",
+          label: "Fabricação de Pelúcia",
+          icon: "🧵",
+          roles: ADMIN_ROLES,
+        },
+        { to: "/pecas", label: "Peças", icon: "🔧", roles: ADMIN_ROLES },
+      ],
+    },
+    {
+      id: "cadastros",
+      label: "Cadastros",
+      icon: "🗂️",
+      itens: [
+        { to: "/lojas", label: "Lojas", icon: "🏪", roles: ADMIN_ROLES },
+        { to: "/maquinas", label: "Máquinas", icon: "🎮", roles: ADMIN_ROLES },
+        { to: "/produtos", label: "Produtos", icon: "🧸", roles: ADMIN_ROLES },
+        { to: "/usuarios", label: "Usuários", icon: "👥", roles: ADMIN_ROLES },
+      ],
+    },
+    {
+      id: "analise",
+      label: "Análise",
+      icon: "📈",
+      itens: [
+        {
+          to: "/analise-estoque",
+          label: "Estoque Detalhado",
+          icon: "📦",
+          roles: ADMIN_ROLES,
+        },
+        { to: "/graficos", label: "Gráficos", icon: "📈", roles: ADMIN_ROLES },
+        { to: "/relatorios", label: "Relatórios", icon: "📄", roles: ADMIN_ROLES },
+      ],
+    },
+    {
+      id: "suporte",
+      label: "Suporte",
+      icon: "🆘",
+      itens: [
+        {
+          to: "/desenvolvimento",
+          label: "Desenvolvimento",
+          icon: "</>",
+          roles: ADMIN_ROLES,
+        },
+        { to: "/treinamentos", label: "Treinamentos", icon: "▶" },
+      ],
+    },
+  ];
+
+  const gruposVisiveis = grupos
+    .map((grupo) => ({
+      ...grupo,
+      itens: grupo.itens.filter(
+        (item) => !item.roles || item.roles.includes(usuario?.role),
+      ),
+    }))
+    .filter((grupo) => grupo.itens.length > 0);
+
+  const [gruposAbertos, setGruposAbertos] = useState({});
+  const toggleGrupo = (id) =>
+    setGruposAbertos((prev) => ({ ...prev, [id]: !prev[id] }));
 
   return (
     <nav className="bg-linear-to-r from-black via-neutral-900 to-red-950 text-white shadow-2xl border-b-4 border-primary">
@@ -171,40 +222,112 @@ export function Navbar() {
 
       {isMenuOpen && (
         <div className="border-t border-white/10 bg-neutral-950">
-          <div className="mx-auto grid max-w-7xl gap-2 px-4 py-3 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:px-8">
-            {menuItems.map((item) => {
-              const active = isActive(item.to);
-              const alert = item.alert && temAlertaManutencao;
-
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={closeMenu}
-                  className={`relative flex min-h-12 items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition-all ${
-                    alert
-                      ? "text-white animate-blink-alert"
-                      : active
+          <div className="mx-auto max-w-7xl space-y-3 px-4 py-3 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {itensSoltos.map((item) => {
+                const active = isActive(item.to);
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={closeMenu}
+                    className={`relative flex min-h-12 items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition-all ${
+                      active
                         ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
                         : "text-gray-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <span className="flex min-w-0 items-center gap-3">
-                    <span className="text-lg" aria-hidden="true">
-                      {item.icon}
+                    }`}
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span className="text-lg" aria-hidden="true">
+                        {item.icon}
+                      </span>
+                      <span className="truncate">{item.label}</span>
                     </span>
-                    <span className="truncate">{item.label}</span>
-                  </span>
-                  {alert && (
-                    <span className="ml-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-red-600 shadow">
-                      {alertasManutencaoCount}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+                  </Link>
+                );
+              })}
+            </div>
 
-            <div className="border-t border-white/10 pt-3 sm:col-span-2 lg:col-span-3">
+            <div className="space-y-2">
+              {gruposVisiveis.map((grupo) => {
+                const aberto = Boolean(gruposAbertos[grupo.id]);
+                const grupoTemAlerta = grupo.itens.some(
+                  (item) => item.alert && temAlertaManutencao,
+                );
+
+                return (
+                  <div
+                    key={grupo.id}
+                    className="overflow-hidden rounded-lg border border-white/10"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleGrupo(grupo.id)}
+                      className="flex w-full items-center justify-between px-4 py-3 text-sm font-bold text-gray-200 transition-colors hover:bg-white/10"
+                      aria-expanded={aberto}
+                    >
+                      <span className="flex items-center gap-3">
+                        <span className="text-lg" aria-hidden="true">
+                          {grupo.icon}
+                        </span>
+                        {grupo.label}
+                        {grupoTemAlerta && !aberto && (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                            {alertasManutencaoCount}
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className={`text-xs transition-transform duration-200 ${
+                          aberto ? "rotate-90" : ""
+                        }`}
+                        aria-hidden="true"
+                      >
+                        ▶
+                      </span>
+                    </button>
+
+                    {aberto && (
+                      <div className="grid grid-cols-1 gap-2 border-t border-white/10 bg-black/20 p-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {grupo.itens.map((item) => {
+                          const active = isActive(item.to);
+                          const alert = item.alert && temAlertaManutencao;
+
+                          return (
+                            <Link
+                              key={item.to}
+                              to={item.to}
+                              onClick={closeMenu}
+                              className={`relative flex min-h-12 items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition-all ${
+                                alert
+                                  ? "text-white animate-blink-alert"
+                                  : active
+                                    ? "bg-linear-to-r from-primary to-accent-yellow text-white shadow-lg"
+                                    : "text-gray-300 hover:bg-white/10 hover:text-white"
+                              }`}
+                            >
+                              <span className="flex min-w-0 items-center gap-3">
+                                <span className="text-lg" aria-hidden="true">
+                                  {item.icon}
+                                </span>
+                                <span className="truncate">{item.label}</span>
+                              </span>
+                              {alert && (
+                                <span className="ml-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-red-600 shadow">
+                                  {alertasManutencaoCount}
+                                </span>
+                              )}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="border-t border-white/10 pt-3">
               <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 sm:hidden">
                 <div className="truncate text-sm font-semibold text-white">
                   {usuario?.nome}
