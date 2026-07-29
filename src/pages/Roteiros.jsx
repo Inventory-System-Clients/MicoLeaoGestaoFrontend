@@ -102,7 +102,7 @@ const obterStatusRoteiro = (roteiro, maquinas = []) => {
 const textoBotaoRoteiro = {
   nao_iniciado: "Iniciar roteiro",
   em_andamento: "Continuar roteiro",
-  finalizado: "Finalizado",
+  finalizado: "Rever roteiro",
 };
 
 export function Roteiros() {
@@ -504,8 +504,14 @@ export function Roteiros() {
     );
   };
 
-  const iniciarRoteiro = (roteiro) => {
-    if (roteiro.veiculoId && !funcionarioEstaComVeiculo(roteiro)) {
+  const iniciarRoteiro = (roteiro, statusRoteiro) => {
+    // Ao rever um roteiro já finalizado não faz sentido travar por causa do
+    // veículo — ele já deve ter sido devolvido nesse ponto.
+    if (
+      statusRoteiro !== "finalizado" &&
+      roteiro.veiculoId &&
+      !funcionarioEstaComVeiculo(roteiro)
+    ) {
       navigate(`/veiculos?roteiroId=${roteiro.id}&veiculoId=${roteiro.veiculoId}`);
       return;
     }
@@ -1720,11 +1726,10 @@ export function Roteiros() {
                     type="button"
                     className={`px-5 py-3 text-sm font-bold shadow-sm ${
                       statusRoteiro === "finalizado"
-                        ? "rounded-lg bg-emerald-100 text-emerald-800"
+                        ? "rounded-lg bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
                         : "btn-primary"
                     }`}
-                    onClick={() => iniciarRoteiro(roteiro)}
-                    disabled={statusRoteiro === "finalizado"}
+                    onClick={() => iniciarRoteiro(roteiro, statusRoteiro)}
                   >
                     {textoBotaoRoteiro[statusRoteiro]}
                   </button>
