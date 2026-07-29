@@ -29,10 +29,7 @@ export function Navbar() {
 
   const closeMenu = () => setIsMenuOpen(false);
 
-  const itensSoltos = [
-    { to: "/", label: "Dashboard", icon: "📊" },
-    { to: "/movimentacoes", label: "Movimentações", icon: "📦" },
-  ];
+  const itensSoltos = [{ to: "/", label: "Dashboard", icon: "📊" }];
 
   const ADMIN_ROLES = ["ADMIN", "DESENVOLVEDOR"];
   const ESTOQUE_ROLES = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"];
@@ -81,6 +78,7 @@ export function Navbar() {
       label: "Análise",
       icon: "📈",
       itens: [
+        { to: "/movimentacoes", label: "Histórico de Movimentações", icon: "🔄" },
         {
           to: "/analise-estoque",
           label: "Estoque Detalhado",

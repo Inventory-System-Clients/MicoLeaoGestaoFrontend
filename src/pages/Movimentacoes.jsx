@@ -1224,7 +1224,7 @@ export function Movimentacoes() {
         {/* Header com dois botões lado a lado */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <PageHeader
-            title="Movimentações"
+            title="Histórico de Movimentações"
             subtitle="Registre entradas e saídas de produtos nas máquinas"
             icon="🔄"
             action={null}
