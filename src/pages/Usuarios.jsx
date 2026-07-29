@@ -47,6 +47,23 @@ export function Usuarios() {
     }
   };
 
+  const handleExcluirInativo = async (usuario) => {
+    const confirmado = await confirmar({
+      title: "Excluir usuário inativo?",
+      text: `Esta ação tenta excluir "${usuario.nome}" permanentemente. Se houver histórico vinculado, ele continuará apenas desativado.`,
+      confirmButtonText: "Excluir",
+    });
+    if (!confirmado) return;
+
+    try {
+      await api.delete(`/usuarios/${usuario.id}`);
+      sucesso("Usuário excluído", "O usuário inativo foi removido permanentemente.");
+      carregarUsuarios();
+    } catch (error) {
+      erro("Erro ao excluir", error.response?.data?.error || "Erro ao excluir usuário");
+    }
+  };
+
   const handleReativar = async (id) => {
     try {
       await api.patch(`/usuarios/${id}/reativar`);
@@ -244,12 +261,20 @@ export function Usuarios() {
                             Desativar
                           </button>
                         ) : (
-                          <button
-                            onClick={() => handleReativar(usuario.id)}
-                            className="text-green-600 hover:text-green-800 font-semibold"
-                          >
-                            Reativar
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleReativar(usuario.id)}
+                              className="text-green-600 hover:text-green-800 font-semibold"
+                            >
+                              Reativar
+                            </button>
+                            <button
+                              onClick={() => handleExcluirInativo(usuario)}
+                              className="text-red-600 hover:text-red-800 font-semibold"
+                            >
+                              Excluir
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
