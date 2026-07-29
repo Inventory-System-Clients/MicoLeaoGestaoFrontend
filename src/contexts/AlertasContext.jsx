@@ -100,7 +100,7 @@ export function AlertasProvider({ children }) {
           .get("/lacres/alertas/em-transito")
           .catch(() => ({ data: { alertas: [] } })),
         api
-          .get("/lista-compras-pendentes")
+          .get("/compras", { params: { status: "PESQUISANDO,APROVADO" } })
           .catch(() => ({ data: [] })),
       ]);
 
@@ -129,22 +129,19 @@ export function AlertasProvider({ children }) {
         : [];
       const veiculosItens = Array.isArray(veiculosRes.data) ? veiculosRes.data : [];
 
-      const comprasPendentesListas = Array.isArray(comprasPendentesRes.data)
-        ? comprasPendentesRes.data
+      const compraPendenteItens = Array.isArray(comprasPendentesRes.data)
+        ? comprasPendentesRes.data.map((compra) => ({
+            id: compra.id,
+            produtoNome: compra.produto?.nome || compra.insumo?.nome || compra.nomeItem,
+            quantidade: compra.quantidade,
+            lojaNome: compra.loja?.nome,
+            lojaId: compra.loja?.id,
+            mensagem: `${compra.quantidade}x — ${
+              compra.status === "APROVADO" ? "aprovada, aguardando compra" : "em pesquisa"
+            }`,
+            createdAt: compra.createdAt,
+          }))
         : [];
-      const compraPendenteItens = comprasPendentesListas.flatMap((lista) =>
-        (lista.lojas || []).flatMap((lojaLista) =>
-          (lojaLista.produtos || []).map((produto) => ({
-            id: produto.id,
-            produtoNome: produto.produtoNome,
-            quantidade: produto.quantidade,
-            lojaNome: lojaLista.lojaNome,
-            lojaId: lojaLista.lojaId,
-            mensagem: `${produto.quantidade}x pendente`,
-            createdAt: lista.criadoEm,
-          })),
-        ),
-      );
 
       const resultados = [
         { id: "movimentacao", itens: movimentacaoItens },

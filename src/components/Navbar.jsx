@@ -31,7 +31,6 @@ export function Navbar() {
 
   const menuItems = [
     { to: "/desenvolvimento", label: "Desenvolvimento", icon: "</>" },
-    { to: "/fornecedores", label: "Fornecedores", icon: "$" },
     { to: "/treinamentos", label: "Treinamentos", icon: "▶" },
     { to: "/roteiros", label: "Roteiros", icon: "🗺️" },
     { to: "/", label: "Dashboard", icon: "📊" },
@@ -44,7 +43,7 @@ export function Navbar() {
       ? [
           { to: "/estoque", label: "Estoque", icon: "📦" },
           { to: "/envios", label: "Envios", icon: "📦" },
-          { to: "/produtos-a-comprar", label: "Produtos a Comprar", icon: "🛒" },
+          { to: "/compras", label: "Compras", icon: "🛒" },
         ]
       : []),
     ...(["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)

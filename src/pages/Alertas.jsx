@@ -146,7 +146,7 @@ function ItemGenerico({ item, tipo }) {
         )}
         {tipo.id === "compra-pendente" && (
           <Link
-            to="/produtos-a-comprar"
+            to="/compras"
             className="text-sm font-bold text-amber-700 hover:text-amber-900"
           >
             Ver compras →

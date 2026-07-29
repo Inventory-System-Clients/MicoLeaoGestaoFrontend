@@ -18,14 +18,12 @@ import { Maquinas } from "./pages/Maquinas";
 import { MaquinaForm } from "./pages/MaquinaForm";
 import { MaquinaDetalhes } from "./pages/MaquinaDetalhes";
 import { Produtos } from "./pages/Produtos";
-import { ProdutosAComprar } from "./pages/ProdutosAComprar";
 import { ProdutoForm } from "./pages/ProdutoForm";
 import { Estoque } from "./pages/Estoque";
 import { Movimentacoes } from "./pages/Movimentacoes";
 import { Roteiros } from "./pages/Roteiros";
 import { RoteiroExecucao } from "./pages/RoteiroExecucao";
 import { Treinamentos } from "./pages/Treinamentos";
-import { Fornecedores } from "./pages/Fornecedores";
 import { Desenvolvimento } from "./pages/Desenvolvimento";
 import { ModoSeguranca } from "./pages/ModoSeguranca";
 import ManutencaoPage from "./pages/ManutencaoPage";
@@ -33,6 +31,7 @@ import FabricacaoPelucia from "./pages/FabricacaoPelucia";
 import Pecas from "./pages/Pecas";
 import Envios from "./pages/Envios";
 import ConferenciaLacre from "./pages/ConferenciaLacre";
+import Compras from "./pages/Compras";
 import { Graficos } from "./pages/Graficos";
 import { Relatorios } from "./pages/Relatorios";
 import { Sangrias } from "./pages/Sangrias";
@@ -189,10 +188,12 @@ function App() {
             }
           />
           <Route
-            path="/produtos-a-comprar"
+            path="/compras"
             element={
-              <PrivateRoute>
-                <ProdutosAComprar />
+              <PrivateRoute
+                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"]}
+              >
+                <Compras />
               </PrivateRoute>
             }
           />
@@ -285,14 +286,6 @@ function App() {
             element={
               <PrivateRoute>
                 <Treinamentos />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/fornecedores"
-            element={
-              <PrivateRoute>
-                <Fornecedores />
               </PrivateRoute>
             }
           />

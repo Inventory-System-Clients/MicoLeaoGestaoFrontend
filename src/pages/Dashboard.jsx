@@ -2275,12 +2275,12 @@ export function Dashboard() {
                 <span className="text-gradient">Dashboard</span> 🧸
               </h1>
               <button
-                onClick={() => navigate("/produtos-a-comprar")}
+                onClick={() => navigate("/compras")}
                 className="btn-primary flex items-center gap-2"
-                title="Abrir lista de compra"
+                title="Abrir compras"
               >
                 <span className="text-base">🛒</span>
-                Lista de compra
+                Compras
               </button>
             </div>
             <p className="text-gray-600">
