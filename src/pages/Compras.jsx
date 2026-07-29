@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { Navbar } from "../components/Navbar";
@@ -98,6 +99,7 @@ const limparPayloadFornecedor = (form) => ({
 
 export default function Compras() {
   const { usuario, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
 
   const [compras, setCompras] = useState([]);
   const [produtos, setProdutos] = useState([]);
@@ -224,6 +226,16 @@ export default function Compras() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleCriarEnvioDaCompra = (compra) => {
+    navigate("/envios", {
+      state: {
+        lojaDestinoId: compra.lojaId,
+        produtoId: compra.produtoId,
+        quantidade: compra.quantidade,
+      },
+    });
   };
 
   const handleAtualizarStatus = async (id, novoStatus) => {
@@ -524,6 +536,13 @@ export default function Compras() {
                   </option>
                 ))}
               </select>
+              {form.lojaId && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Ao marcar como "Recebido" o produto entra no Depósito
+                  Principal; a ida até a loja é feita depois por um envio com
+                  lacre.
+                </p>
+              )}
             </div>
 
             <div>
@@ -711,6 +730,19 @@ export default function Compras() {
                         />
                       </a>
                     )}
+
+                    {compra.status === "RECEBIDO" &&
+                      compra.produtoId &&
+                      compra.lojaId && (
+                        <button
+                          type="button"
+                          onClick={() => handleCriarEnvioDaCompra(compra)}
+                          className="mt-3 text-sm font-bold text-primary hover:text-primary/80"
+                        >
+                          Está no Depósito Principal — criar envio com lacre
+                          para {compra.loja?.nome} →
+                        </button>
+                      )}
 
                     <div className="mt-3 flex items-center gap-2">
                       <label className="text-xs font-medium text-gray-700">

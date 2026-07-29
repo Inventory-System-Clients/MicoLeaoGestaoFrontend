@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { Navbar } from "../components/Navbar";
@@ -27,6 +28,8 @@ const formatarDataHora = (dataIso) => {
 
 export default function Envios() {
   const { usuario, loading: authLoading } = useAuth();
+  const location = useLocation();
+  const prefill = location.state;
 
   const [envios, setEnvios] = useState([]);
   const [lojas, setLojas] = useState([]);
@@ -38,10 +41,22 @@ export default function Envios() {
   const [error, setError] = useState("");
 
   const [form, setForm] = useState({
-    lojaDestinoId: "",
+    lojaDestinoId: prefill?.lojaDestinoId || "",
     transportadorId: "",
     observacao: "",
-    lacres: [novoLacreVazio()],
+    lacres: [
+      prefill?.produtoId
+        ? {
+            numero: "",
+            itens: [
+              {
+                produtoId: prefill.produtoId,
+                quantidade: prefill.quantidade || "",
+              },
+            ],
+          }
+        : novoLacreVazio(),
+    ],
   });
 
   const carregarDados = useCallback(async () => {
@@ -210,6 +225,13 @@ export default function Envios() {
 
         {error && (
           <AlertBox type="error" message={error} onClose={() => setError("")} />
+        )}
+
+        {prefill?.produtoId && (
+          <AlertBox
+            type="info"
+            message="Loja e produto pré-preenchidos a partir da compra recebida. Informe o número do lacre e o transportador para montar o envio."
+          />
         )}
 
         <form onSubmit={handleCriarEnvio} className="card">
