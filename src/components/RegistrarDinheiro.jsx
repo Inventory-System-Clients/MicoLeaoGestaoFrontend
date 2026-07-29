@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useState } from "react";
 import api from "../services/api";
 import { aviso } from "../utils/alerts";
+import { enviarImagemParaCloudinary } from "../utils/cloudinary";
 
 const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
   const obterMesAnteriorPadrao = () => {
@@ -25,6 +26,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
   const [gastosVariaveis, setGastosVariaveis] = useState([]);
   const [conferidoPorId, setConferidoPorId] = useState("");
   const [comprovanteUrl, setComprovanteUrl] = useState("");
+  const [enviandoComprovante, setEnviandoComprovante] = useState(false);
   const [valorEsperado, setValorEsperado] = useState(null);
   const [carregandoEsperado, setCarregandoEsperado] = useState(false);
 
@@ -96,6 +98,22 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
     setMaquinaSelecionada("");
   };
 
+  const handleSelecionarComprovante = async (e) => {
+    const arquivo = e.target.files?.[0];
+    if (!arquivo) return;
+
+    try {
+      setEnviandoComprovante(true);
+      const url = await enviarImagemParaCloudinary(arquivo);
+      setComprovanteUrl(url);
+    } catch {
+      aviso("Erro no upload", "Não foi possível enviar a foto. Tente novamente.");
+    } finally {
+      setEnviandoComprovante(false);
+      e.target.value = "";
+    }
+  };
+
   // Busca o valor esperado pelo sistema (fichas x valor da ficha) assim que
   // loja/máquina/período estiverem preenchidos, pra já mostrar a divergência
   // em tempo real enquanto a pessoa conta o dinheiro.
@@ -156,6 +174,11 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
     // Garantir que campos obrigatórios estejam preenchidos corretamente
     if (!lojaSelecionada || !periodoSelecionado) {
       aviso("Campos obrigatórios", "Preencha loja e mês de fechamento.");
+      return;
+    }
+
+    if (enviandoComprovante) {
+      aviso("Aguarde", "A foto ainda está sendo enviada.");
       return;
     }
 
@@ -713,13 +736,13 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
       </div>
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>
-          Foto/comprovante (URL, opcional):
+          Foto/comprovante (opcional):
         </label>
         <input
-          type="text"
-          value={comprovanteUrl}
-          onChange={(e) => setComprovanteUrl(e.target.value)}
-          placeholder="Link da foto do comprovante"
+          type="file"
+          accept="image/*"
+          onChange={handleSelecionarComprovante}
+          disabled={enviandoComprovante}
           style={{
             width: "100%",
             marginTop: 6,
@@ -729,9 +752,46 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
             background: "#fdf6e9",
             color: "#a67c52",
             fontWeight: 500,
-            fontSize: 16,
+            fontSize: 15,
           }}
         />
+        {enviandoComprovante && (
+          <p style={{ marginTop: 6, fontSize: 14, color: "#a67c52" }}>
+            Enviando foto...
+          </p>
+        )}
+        {!enviandoComprovante && comprovanteUrl && (
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
+            <img
+              src={comprovanteUrl}
+              alt="Comprovante"
+              style={{
+                width: 56,
+                height: 56,
+                objectFit: "cover",
+                borderRadius: 8,
+                border: "1.5px solid #e2cfa3",
+              }}
+            />
+            <span style={{ fontSize: 14, color: "#3c763d", fontWeight: 600 }}>
+              ✅ Foto anexada
+            </span>
+            <button
+              type="button"
+              onClick={() => setComprovanteUrl("")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#a94442",
+                fontWeight: 600,
+                cursor: "pointer",
+                fontSize: 14,
+              }}
+            >
+              Remover
+            </button>
+          </div>
+        )}
       </div>
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontWeight: 600, color: "#a67c52" }}>
