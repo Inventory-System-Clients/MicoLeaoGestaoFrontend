@@ -264,20 +264,12 @@ export function GastosVariaveis() {
         )}
 
         {modalAberto && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 shadow-lg relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+            <div className="relative w-full max-w-md rounded-lg border border-orange-100 bg-white p-6 shadow-2xl">
               <button
+                type="button"
                 onClick={() => setModalAberto(false)}
-                style={{
-                  position: "absolute",
-                  top: 12,
-                  right: 16,
-                  fontSize: 22,
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#888",
-                }}
+                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                 aria-label="Fechar"
               >
                 ×

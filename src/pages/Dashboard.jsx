@@ -2182,14 +2182,18 @@ export function Dashboard() {
               <h1 className="text-4xl font-bold">
                 <span className="text-gradient">Dashboard</span> 🧸
               </h1>
-              <button
-                onClick={() => navigate("/compras")}
-                className="btn-primary flex items-center gap-2"
-                title="Abrir compras"
-              >
-                <span className="text-base">🛒</span>
-                Compras
-              </button>
+              {["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"].includes(
+                usuario?.role,
+              ) && (
+                <button
+                  onClick={() => navigate("/compras")}
+                  className="btn-primary flex items-center gap-2"
+                  title="Abrir compras"
+                >
+                  <span className="text-base">🛒</span>
+                  Compras
+                </button>
+              )}
             </div>
             <p className="text-gray-600">
               Visão geral do seu sistema de pelúcias
@@ -2558,20 +2562,12 @@ export function Dashboard() {
         </div>
 
         {modalGastoVariavel && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 shadow-lg relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+            <div className="relative w-full max-w-md rounded-lg border border-orange-100 bg-white p-6 shadow-2xl">
               <button
+                type="button"
                 onClick={() => setModalGastoVariavel(false)}
-                style={{
-                  position: "absolute",
-                  top: 12,
-                  right: 16,
-                  fontSize: 22,
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#888",
-                }}
+                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                 aria-label="Fechar"
               >
                 ×

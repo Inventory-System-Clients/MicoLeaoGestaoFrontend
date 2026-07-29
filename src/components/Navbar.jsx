@@ -78,7 +78,12 @@ export function Navbar() {
       label: "Análise",
       icon: "📈",
       itens: [
-        { to: "/movimentacoes", label: "Histórico de Movimentações", icon: "🔄" },
+        {
+          to: "/movimentacoes",
+          label: "Histórico de Movimentações",
+          icon: "🔄",
+          roles: ADMIN_ROLES,
+        },
         {
           to: "/analise-estoque",
           label: "Estoque Detalhado",

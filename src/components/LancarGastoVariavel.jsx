@@ -2,6 +2,10 @@ import React, { useState } from "react";
 import Swal from "sweetalert2";
 import api from "../services/api";
 
+const inputClass =
+  "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500";
+const labelClass = "mb-1 block text-sm font-medium text-gray-700";
+
 export default function LancarGastoVariavel({
   lojas = [],
   veiculos = [],
@@ -87,176 +91,182 @@ export default function LancarGastoVariavel({
   };
 
   return (
-    <div className="w-96 max-h-[80vh] overflow-y-auto">
-      <h2 className="text-lg font-bold mb-4">Lançar Gasto Variável</h2>
+    <div className="w-full max-w-md">
+      <h2 className="mb-5 flex items-center gap-2 text-xl font-bold text-gray-900">
+        <span className="text-2xl" aria-hidden="true">
+          💸
+        </span>
+        Lançar Gasto Variável
+      </h2>
 
-      <div className="mb-3">
-        <label className="block text-sm font-medium">Categoria</label>
-        <select
-          value={categoria}
-          onChange={(e) => setCategoria(e.target.value)}
-          className="w-full border rounded p-1"
-        >
-          <option value="Gasolina">Gasolina</option>
-          <option value="Estacionamento">Estacionamento</option>
-          <option value="Outros">Outros</option>
-        </select>
-      </div>
+      <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
+        <div>
+          <label className={labelClass}>Categoria</label>
+          <select
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value)}
+            className={inputClass}
+          >
+            <option value="Gasolina">Gasolina</option>
+            <option value="Estacionamento">Estacionamento</option>
+            <option value="Outros">Outros</option>
+          </select>
+        </div>
 
-      {isOutros && (
-        <div className="mb-3">
-          <label className="block text-sm font-medium">
-            Descreva o gasto
-          </label>
+        {isOutros && (
+          <div>
+            <label className={labelClass}>Descreva o gasto</label>
+            <input
+              value={nomeOutros}
+              onChange={(e) => setNomeOutros(e.target.value)}
+              className={inputClass}
+              placeholder="Ex: Manutenção, Material de limpeza..."
+            />
+          </div>
+        )}
+
+        <div>
+          <label className={labelClass}>Loja</label>
+          <select
+            value={lojaId}
+            onChange={(e) => setLojaId(e.target.value)}
+            className={inputClass}
+          >
+            <option value="">Selecione a loja</option>
+            {lojas.map((loja) => (
+              <option key={loja.id} value={loja.id}>
+                {loja.nome}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className={labelClass}>Valor (R$)</label>
           <input
-            value={nomeOutros}
-            onChange={(e) => setNomeOutros(e.target.value)}
-            className="w-full border rounded p-1"
-            placeholder="Ex: Manutenção, Material de limpeza..."
+            type="number"
+            step="0.01"
+            min="0"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            className={inputClass}
+            onWheel={(e) => e.target.blur()}
           />
         </div>
-      )}
 
-      <div className="mb-3">
-        <label className="block text-sm font-medium">Loja</label>
-        <select
-          value={lojaId}
-          onChange={(e) => setLojaId(e.target.value)}
-          className="w-full border rounded p-1"
-        >
-          <option value="">Selecione a loja</option>
-          {lojas.map((loja) => (
-            <option key={loja.id} value={loja.id}>
-              {loja.nome}
-            </option>
-          ))}
-        </select>
+        <div>
+          <label className={labelClass}>Observação</label>
+          <input
+            value={observacao}
+            onChange={(e) => setObservacao(e.target.value)}
+            className={inputClass}
+            placeholder="Opcional"
+          />
+        </div>
+
+        {isGasolina && (
+          <>
+            <div>
+              <label className={labelClass}>Veículo</label>
+              <select
+                value={veiculoId}
+                onChange={(e) => setVeiculoId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Selecione o veículo</option>
+                {veiculos.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className={labelClass}>Estado da moto</label>
+              <select
+                value={estado}
+                onChange={(e) => setEstado(e.target.value)}
+                className={inputClass}
+              >
+                <option value="Bom">Sem avaria</option>
+                <option value="Ruim">Com avaria</option>
+              </select>
+            </div>
+
+            <div>
+              <label className={labelClass}>Km atual</label>
+              <input
+                type="number"
+                value={km}
+                onChange={(e) => setKm(e.target.value)}
+                className={inputClass}
+                min={kmAtualVeiculo}
+                disabled={!veiculoId}
+                onWheel={(e) => e.target.blur()}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                {veiculoId
+                  ? `Mínimo: ${kmAtualVeiculo} km.`
+                  : "Selecione o veículo primeiro."}
+              </p>
+            </div>
+
+            <div>
+              <label className={labelClass}>Modo</label>
+              <select
+                value={modo}
+                onChange={(e) => setModo(e.target.value)}
+                className={inputClass}
+              >
+                <option value="trabalho">Trabalho</option>
+                <option value="emprestado">Emprestado</option>
+              </select>
+            </div>
+
+            <div>
+              <label className={labelClass}>Nível de combustível</label>
+              <select
+                value={combustivel}
+                onChange={(e) => setCombustivel(e.target.value)}
+                className={inputClass}
+              >
+                <option value="5">5 palzinhos</option>
+                <option value="4">4 palzinhos</option>
+                <option value="3">3 palzinhos</option>
+                <option value="2">2 palzinhos</option>
+                <option value="1">1 palzinho</option>
+                <option value="0">Vazio</option>
+              </select>
+            </div>
+
+            <div>
+              <label className={labelClass}>Nível de limpeza</label>
+              <select
+                value={limpeza}
+                onChange={(e) => setLimpeza(e.target.value)}
+                className={inputClass}
+              >
+                <option value="esta limpo">Está limpo</option>
+                <option value="precisa limpar">Precisa limpar</option>
+              </select>
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="mb-3">
-        <label className="block text-sm font-medium">Valor (R$)</label>
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-          className="w-full border rounded p-1"
-          onWheel={(e) => e.target.blur()}
-        />
-      </div>
-
-      <div className="mb-3">
-        <label className="block text-sm font-medium">Observação:</label>
-        <input
-          value={observacao}
-          onChange={(e) => setObservacao(e.target.value)}
-          className="w-full border rounded p-1"
-          placeholder="Opcional"
-        />
-      </div>
-
-      {isGasolina && (
-        <>
-          <div className="mb-3">
-            <label className="block text-sm font-medium">Veículo</label>
-            <select
-              value={veiculoId}
-              onChange={(e) => setVeiculoId(e.target.value)}
-              className="w-full border rounded p-1"
-            >
-              <option value="">Selecione o veículo</option>
-              {veiculos.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="mb-3">
-            <label className="block text-sm font-medium">
-              Estado da moto
-            </label>
-            <select
-              value={estado}
-              onChange={(e) => setEstado(e.target.value)}
-              className="w-full border rounded p-1"
-            >
-              <option value="Bom">Sem avaria</option>
-              <option value="Ruim">Com avaria</option>
-            </select>
-          </div>
-          <div className="mb-3">
-            <label className="block text-sm font-medium">Km atual</label>
-            <input
-              type="number"
-              value={km}
-              onChange={(e) => setKm(e.target.value)}
-              className="w-full border rounded p-1"
-              min={kmAtualVeiculo}
-              disabled={!veiculoId}
-              onWheel={(e) => e.target.blur()}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {veiculoId
-                ? `Mínimo: ${kmAtualVeiculo} km.`
-                : "Selecione o veículo primeiro."}
-            </p>
-          </div>
-          <div className="mb-3">
-            <label className="block text-sm font-medium">Modo</label>
-            <select
-              value={modo}
-              onChange={(e) => setModo(e.target.value)}
-              className="w-full border rounded p-1"
-            >
-              <option value="trabalho">Trabalho</option>
-              <option value="emprestado">Emprestado</option>
-            </select>
-          </div>
-          <div className="mb-3">
-            <label className="block text-sm font-medium">
-              Nível de combustível
-            </label>
-            <select
-              value={combustivel}
-              onChange={(e) => setCombustivel(e.target.value)}
-              className="w-full border rounded p-1"
-            >
-              <option value="5">5 palzinhos</option>
-              <option value="4">4 palzinhos</option>
-              <option value="3">3 palzinhos</option>
-              <option value="2">2 palzinhos</option>
-              <option value="1">1 palzinho</option>
-              <option value="0">Vazio</option>
-            </select>
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium">
-              Nível de limpeza
-            </label>
-            <select
-              value={limpeza}
-              onChange={(e) => setLimpeza(e.target.value)}
-              className="w-full border rounded p-1"
-            >
-              <option value="esta limpo">Está limpo</option>
-              <option value="precisa limpar">Precisa limpar</option>
-            </select>
-          </div>
-        </>
-      )}
-
-      <div className="flex justify-end gap-2">
+      <div className="mt-5 flex justify-end gap-2 border-t border-gray-100 pt-4">
         <button
-          className="px-4 py-1 bg-gray-300 rounded hover:bg-gray-400"
+          type="button"
+          className="btn-secondary"
           onClick={onClose}
           disabled={salvando}
         >
           Cancelar
         </button>
         <button
-          className="px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
+          className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
           onClick={handleSubmit}
           disabled={salvando || !formValido}
         >
