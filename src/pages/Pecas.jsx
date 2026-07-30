@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { Navbar } from "../components/Navbar";
@@ -670,7 +670,7 @@ export default function Pecas() {
                         <th>Estoque</th>
                         <th>Minimo</th>
                         <th>Custo</th>
-                        <th>Acoes</th>
+                        <th className="text-right">Acoes</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -683,10 +683,18 @@ export default function Pecas() {
                         const chaveQuantidade = `quantidade:${peca.id}`;
                         const chaveEnvio = `envio:${peca.id}`;
 
+                        const acaoAberta =
+                          acaoAbertaId === chaveQuantidade
+                            ? "quantidade"
+                            : acaoAbertaId === chaveEnvio
+                              ? "envio"
+                              : null;
+
                         return (
-                          <tr key={peca.id}>
-                            <td>
-                              <div className="min-w-[220px]">
+                          <Fragment key={peca.id}>
+                          <tr>
+                            <td className="whitespace-normal">
+                              <div className="min-w-40 max-w-xs">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="font-black text-gray-900">
                                     {peca.nome}
@@ -723,126 +731,134 @@ export default function Pecas() {
                                 : "-"}
                             </td>
                             <td>
-                              <div className="flex min-w-[360px] flex-wrap gap-2">
+                              <div className="flex flex-wrap justify-end gap-2">
                                 <button
                                   type="button"
-                                  className="btn-secondary px-3 py-2 text-xs"
+                                  className="btn-secondary px-3 py-2 text-xs whitespace-nowrap"
                                   onClick={() => abrirAcao(peca.id, "quantidade")}
                                 >
-                                  {acaoAbertaId === chaveQuantidade ? "Cancelar" : "+ Estoque"}
+                                  {acaoAberta === "quantidade" ? "Cancelar" : "+ Estoque"}
                                 </button>
                                 <button
                                   type="button"
-                                  className="btn-secondary px-3 py-2 text-xs"
+                                  className="btn-secondary px-3 py-2 text-xs whitespace-nowrap"
                                   onClick={() => abrirAcao(peca.id, "envio")}
                                   disabled={peca.ativo === false}
                                 >
-                                  {acaoAbertaId === chaveEnvio ? "Cancelar" : "Carrinho"}
+                                  {acaoAberta === "envio" ? "Cancelar" : "Carrinho"}
                                 </button>
                                 <button
                                   type="button"
-                                  className="btn-secondary px-3 py-2 text-xs"
+                                  className="btn-secondary px-3 py-2 text-xs whitespace-nowrap"
                                   onClick={() => abrirEdicao(peca)}
                                 >
                                   Editar
                                 </button>
                                 <button
                                   type="button"
-                                  className="btn-danger px-3 py-2 text-xs"
+                                  className="btn-danger px-3 py-2 text-xs whitespace-nowrap"
                                   onClick={() => handleExcluirPeca(peca)}
                                 >
                                   Excluir
                                 </button>
                               </div>
+                            </td>
+                          </tr>
 
-                              {acaoAbertaId === chaveQuantidade && (
-                                <form
-                                  onSubmit={(e) => handleLancarQuantidade(e, peca.id)}
-                                  className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border border-orange-100 bg-orange-50 p-3"
-                                >
-                                  <div>
-                                    <label className="mb-1 block text-xs font-bold text-gray-700">
-                                      Adicionar ao deposito
-                                    </label>
+                          {acaoAberta && (
+                            <tr>
+                              <td colSpan={5} className="bg-orange-50/60 p-0">
+                                {acaoAberta === "quantidade" && (
+                                  <form
+                                    onSubmit={(e) => handleLancarQuantidade(e, peca.id)}
+                                    className="flex flex-wrap items-end gap-3 p-4"
+                                  >
+                                    <div>
+                                      <label className="mb-1 block text-xs font-bold text-gray-700">
+                                        Adicionar ao deposito
+                                      </label>
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        autoFocus
+                                        value={formQuantidade.quantidade}
+                                        onChange={(e) =>
+                                          setFormQuantidade({ quantidade: e.target.value })
+                                        }
+                                        className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                                      />
+                                    </div>
+                                    <button
+                                      type="submit"
+                                      disabled={submitting}
+                                      className="btn-primary px-4 py-2 text-xs disabled:opacity-60"
+                                    >
+                                      Confirmar
+                                    </button>
+                                  </form>
+                                )}
+
+                                {acaoAberta === "envio" && (
+                                  <form
+                                    onSubmit={(e) => handleEnviarPeca(e, peca.id)}
+                                    className="grid grid-cols-1 gap-2 p-4 sm:grid-cols-[1fr_100px_1fr_auto]"
+                                  >
+                                    <select
+                                      value={formEnvio.funcionarioId}
+                                      onChange={(e) =>
+                                        setFormEnvio((prev) => ({
+                                          ...prev,
+                                          funcionarioId: e.target.value,
+                                        }))
+                                      }
+                                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                                    >
+                                      <option value="">Funcionario...</option>
+                                      {funcionarios.map((funcionario) => (
+                                        <option key={funcionario.id} value={funcionario.id}>
+                                          {funcionario.nome}
+                                        </option>
+                                      ))}
+                                    </select>
                                     <input
                                       type="number"
                                       min="1"
                                       step="1"
-                                      value={formQuantidade.quantidade}
+                                      value={formEnvio.quantidade}
                                       onChange={(e) =>
-                                        setFormQuantidade({ quantidade: e.target.value })
+                                        setFormEnvio((prev) => ({
+                                          ...prev,
+                                          quantidade: e.target.value,
+                                        }))
                                       }
-                                      className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                                      placeholder="Qtd"
                                     />
-                                  </div>
-                                  <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="btn-primary px-4 py-2 text-xs disabled:opacity-60"
-                                  >
-                                    Confirmar
-                                  </button>
-                                </form>
-                              )}
-
-                              {acaoAbertaId === chaveEnvio && (
-                                <form
-                                  onSubmit={(e) => handleEnviarPeca(e, peca.id)}
-                                  className="mt-3 grid grid-cols-1 gap-2 rounded-lg border border-orange-100 bg-orange-50 p-3 md:grid-cols-4"
-                                >
-                                  <select
-                                    value={formEnvio.funcionarioId}
-                                    onChange={(e) =>
-                                      setFormEnvio((prev) => ({
-                                        ...prev,
-                                        funcionarioId: e.target.value,
-                                      }))
-                                    }
-                                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
-                                  >
-                                    <option value="">Funcionario...</option>
-                                    {funcionarios.map((funcionario) => (
-                                      <option key={funcionario.id} value={funcionario.id}>
-                                        {funcionario.nome}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    value={formEnvio.quantidade}
-                                    onChange={(e) =>
-                                      setFormEnvio((prev) => ({
-                                        ...prev,
-                                        quantidade: e.target.value,
-                                      }))
-                                    }
-                                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
-                                    placeholder="Qtd"
-                                  />
-                                  <input
-                                    value={formEnvio.observacao}
-                                    onChange={(e) =>
-                                      setFormEnvio((prev) => ({
-                                        ...prev,
-                                        observacao: e.target.value,
-                                      }))
-                                    }
-                                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
-                                    placeholder="Obs."
-                                  />
-                                  <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="btn-primary px-4 py-2 text-xs disabled:opacity-60"
-                                  >
-                                    Enviar
-                                  </button>
-                                </form>
-                              )}
-                            </td>
-                          </tr>
+                                    <input
+                                      value={formEnvio.observacao}
+                                      onChange={(e) =>
+                                        setFormEnvio((prev) => ({
+                                          ...prev,
+                                          observacao: e.target.value,
+                                        }))
+                                      }
+                                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                                      placeholder="Obs."
+                                    />
+                                    <button
+                                      type="submit"
+                                      disabled={submitting}
+                                      className="btn-primary px-4 py-2 text-xs disabled:opacity-60"
+                                    >
+                                      Enviar
+                                    </button>
+                                  </form>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                          </Fragment>
                         );
                       })}
                     </tbody>
