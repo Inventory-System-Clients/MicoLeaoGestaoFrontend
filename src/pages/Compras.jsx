@@ -109,7 +109,7 @@ const limparPayloadFornecedor = (form) => ({
   produtos: form.produtos.map((produto) => ({
     produtoNome: produto.produtoNome,
     quantidade: Number(produto.quantidade),
-    unidade: produto.unidade,
+    unidade: produto.tipo === "insumo" ? produto.unidade : "un",
     preco: Number(produto.preco),
     observacoes: produto.observacoes,
   })),
@@ -437,7 +437,7 @@ export default function Compras() {
       lojaId: dados.lojaId || null,
       descricaoUso: dados.descricaoUso || null,
       quantidade: quantidadeNumerica,
-      unidade: dados.unidade || null,
+      unidade: dados.tipoItem === "insumo" ? dados.unidade || null : "un",
       valorUnitario: dados.valorUnitario || null,
       fotoUrl: dados.fotoUrl || null,
       observacao: dados.observacao || null,
@@ -562,7 +562,7 @@ export default function Compras() {
         lojaId: form.lojaId || null,
         descricaoUso: form.descricaoUso || null,
         quantidade: quantidadeNumerica,
-        unidade: form.unidade || null,
+        unidade: form.tipoItem === "insumo" ? form.unidade || null : "un",
         valorUnitario: form.valorUnitario || null,
         fotoUrl: form.fotoUrl || null,
         observacao: form.observacao || null,
@@ -1280,14 +1280,22 @@ export default function Compras() {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Unidade
               </label>
-              <input
-                value={form.unidade}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, unidade: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                placeholder="Ex: un, kg"
-              />
+              {form.tipoItem === "insumo" ? (
+                <input
+                  value={form.unidade}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, unidade: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                  placeholder="Ex: kg, m, litro"
+                />
+              ) : (
+                <input
+                  value="un"
+                  disabled
+                  className="w-full cursor-not-allowed rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-gray-500 outline-none"
+                />
+              )}
             </div>
 
             <div>
@@ -2288,7 +2296,12 @@ export default function Compras() {
                                   ...prev,
                                   produtos: prev.produtos.map((item, itemIndex) =>
                                     itemIndex === index
-                                      ? { ...item, tipo: value, produtoNome: "" }
+                                      ? {
+                                          ...item,
+                                          tipo: value,
+                                          produtoNome: "",
+                                          unidade: value === "insumo" ? "" : "un",
+                                        }
                                       : item,
                                   ),
                                 }))
@@ -2372,14 +2385,22 @@ export default function Compras() {
                         placeholder="Qtd"
                         required
                       />
-                      <input
-                        className="min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-2 lg:col-span-1"
-                        value={produto.unidade}
-                        onChange={(e) =>
-                          atualizarProdutoFornecedor(index, "unidade", e.target.value)
-                        }
-                        placeholder="un"
-                      />
+                      {produto.tipo === "insumo" ? (
+                        <input
+                          className="min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-2 lg:col-span-1"
+                          value={produto.unidade}
+                          onChange={(e) =>
+                            atualizarProdutoFornecedor(index, "unidade", e.target.value)
+                          }
+                          placeholder="kg"
+                        />
+                      ) : (
+                        <input
+                          className="min-w-0 cursor-not-allowed rounded-lg border border-gray-300 bg-gray-100 px-2 py-1.5 text-sm text-gray-500 outline-none md:col-span-2 lg:col-span-1"
+                          value="un"
+                          disabled
+                        />
+                      )}
                       <input
                         className="min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-2 lg:col-span-2"
                         type="number"

@@ -216,7 +216,7 @@ export default function Pecas() {
         codigo: formPeca.codigo.trim() || null,
         nome: formPeca.nome.trim(),
         descricao: formPeca.descricao.trim() || null,
-        unidade: formPeca.unidade.trim() || null,
+        unidade: "un",
         quantidadeEstoque: Number(formPeca.quantidadeEstoque || 0),
         estoqueMinimo: Number(formPeca.estoqueMinimo || 0),
         custoUnitario: formPeca.custoUnitario || null,
@@ -503,12 +503,9 @@ export default function Pecas() {
                   Unidade
                 </label>
                 <input
-                  value={formPeca.unidade}
-                  onChange={(e) =>
-                    setFormPeca((prev) => ({ ...prev, unidade: e.target.value }))
-                  }
-                  className="input-field"
-                  placeholder="un"
+                  value="un"
+                  disabled
+                  className="input-field cursor-not-allowed bg-gray-100 text-gray-500"
                 />
               </div>
               <div className="lg:col-span-2">
