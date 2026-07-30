@@ -517,7 +517,10 @@ export default function Compras() {
         setSubmitting(true);
         setError("");
         await Promise.all(
-          itensCompra.map(({ tempId, ...item }) => api.post("/compras", item)),
+          itensCompra.map((item) => {
+            const { tempId: _tempId, ...payload } = item;
+            return api.post("/compras", payload);
+          }),
         );
         setItensCompra([]);
         setForm(formInicial);
@@ -2040,67 +2043,6 @@ export default function Compras() {
               Limpar filtros
             </button>
           </div>
-
-          {false && (
-          <div className="mt-5">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-base font-bold text-gray-900">
-                Comparação de preços
-              </h3>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                {comparacoesFiltradas.length} produtos
-              </span>
-            </div>
-            <div className="space-y-3">
-              {comparacoesFiltradas.map((comparacao) => (
-                <article
-                  key={comparacao.produto}
-                  className="rounded-lg border border-slate-200 p-3"
-                >
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <h4 className="font-bold text-gray-900">{comparacao.produto}</h4>
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">
-                      Melhor: {moeda.format(Number(comparacao.melhorPrecoUnitario || 0))}/un
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-                    {comparacao.fornecedores.map((item, index) => (
-                      <div
-                        key={`${item.fornecedorId}-${item.produtoId}`}
-                        className={`rounded-lg border p-3 text-sm ${
-                          index === 0
-                            ? "border-emerald-300 bg-emerald-50"
-                            : "border-slate-200 bg-slate-50"
-                        }`}
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <p className="font-bold text-gray-900">
-                              {item.fornecedorNome}
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              {numeroFormatado.format(item.quantidade)} {item.unidade}{" "}
-                              por {moeda.format(Number(item.preco || 0))}
-                            </p>
-                          </div>
-                          <p className="font-bold text-gray-900">
-                            {moeda.format(Number(item.precoUnitario || 0))}/un
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </article>
-              ))}
-              {comparacoesFiltradas.length === 0 && (
-                <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-gray-500">
-                  Nenhum produto para comparar ainda.
-                </div>
-              )}
-            </div>
-          </div>
-
-          )}
 
           <div className="mt-5">
             <div className="mb-3 flex items-center justify-between">
