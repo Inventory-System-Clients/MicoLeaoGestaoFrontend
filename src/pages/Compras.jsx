@@ -244,6 +244,7 @@ export default function Compras() {
     form.quantidade && form.valorUnitario
       ? Number(form.quantidade) * Number(form.valorUnitario)
       : null;
+  const formTemProduto = Boolean(form.produtoId);
 
   const sugestoesCompra = useMemo(() => {
     const busca = filtrosSugestao.busca.trim().toLowerCase();
@@ -1075,6 +1076,8 @@ export default function Compras() {
                     produtoId: e.target.value,
                     insumoId: e.target.value ? "" : prev.insumoId,
                     pecaId: e.target.value ? "" : prev.pecaId,
+                    lojaId: e.target.value ? prev.lojaId : "",
+                    descricaoUso: e.target.value ? prev.descricaoUso : "",
                   }))
                 }
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
@@ -1100,6 +1103,8 @@ export default function Compras() {
                     insumoId: e.target.value,
                     produtoId: e.target.value ? "" : prev.produtoId,
                     pecaId: e.target.value ? "" : prev.pecaId,
+                    lojaId: e.target.value ? "" : prev.lojaId,
+                    descricaoUso: e.target.value ? "" : prev.descricaoUso,
                   }))
                 }
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
@@ -1125,6 +1130,8 @@ export default function Compras() {
                     pecaId: e.target.value,
                     produtoId: e.target.value ? "" : prev.produtoId,
                     insumoId: e.target.value ? "" : prev.insumoId,
+                    lojaId: e.target.value ? "" : prev.lojaId,
+                    descricaoUso: e.target.value ? "" : prev.descricaoUso,
                   }))
                 }
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
@@ -1164,7 +1171,7 @@ export default function Compras() {
               </a>
             </div>
 
-            <div>
+            <div className={formTemProduto ? "" : "hidden"}>
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Loja onde será usado (opcional)
               </label>
@@ -1191,7 +1198,7 @@ export default function Compras() {
               )}
             </div>
 
-            <div>
+            <div className={formTemProduto ? "" : "hidden"}>
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Onde será usado (detalhe)
               </label>
@@ -1418,7 +1425,7 @@ export default function Compras() {
                             className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
                           />
                         </div>
-                        <div className="md:col-span-2">
+                        <div className={item.produtoId ? "md:col-span-2" : "hidden"}>
                           <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                             Loja destino
                           </label>
