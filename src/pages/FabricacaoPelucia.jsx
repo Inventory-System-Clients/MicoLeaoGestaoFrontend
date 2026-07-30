@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { Navbar } from "../components/Navbar";
@@ -16,6 +16,12 @@ const formatarDataHora = (dataIso) => {
 const formatarMoeda = (valor) =>
   valor !== null && valor !== undefined ? `R$ ${Number(valor).toFixed(2)}` : "-";
 
+const formatarNumero = (valor) => {
+  const numero = Number(valor);
+  if (!Number.isFinite(numero)) return "0";
+  return numero.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
+};
+
 export default function FabricacaoPelucia() {
   const { usuario, loading: authLoading } = useAuth();
 
@@ -24,8 +30,10 @@ export default function FabricacaoPelucia() {
   const [produtos, setProdutos] = useState([]);
   const [fornecedores, setFornecedores] = useState([]);
   const [pedidos, setPedidos] = useState([]);
+  const [receitas, setReceitas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [secaoAtiva, setSecaoAtiva] = useState("insumos");
 
@@ -49,17 +57,31 @@ export default function FabricacaoPelucia() {
     observacao: "",
   });
 
+  const [produtoReceitaId, setProdutoReceitaId] = useState("");
+  const [receitaReferencia, setReceitaReferencia] = useState(100);
+  const [itensReceita, setItensReceita] = useState([]);
+
+  const [baixaAbertaId, setBaixaAbertaId] = useState(null);
+  const [itensBaixa, setItensBaixa] = useState([]);
+
   const carregarDados = useCallback(async () => {
     try {
       setError("");
-      const [insumosRes, comprasRes, produtosRes, fornecedoresRes, pedidosRes] =
-        await Promise.all([
-          api.get("/insumos"),
-          api.get("/insumos/compras"),
-          api.get("/produtos"),
-          api.get("/fornecedores"),
-          api.get("/pedidos-pelucia"),
-        ]);
+      const [
+        insumosRes,
+        comprasRes,
+        produtosRes,
+        fornecedoresRes,
+        pedidosRes,
+        receitasRes,
+      ] = await Promise.all([
+        api.get("/insumos"),
+        api.get("/insumos/compras"),
+        api.get("/produtos"),
+        api.get("/fornecedores"),
+        api.get("/pedidos-pelucia"),
+        api.get("/receitas"),
+      ]);
 
       setInsumos(Array.isArray(insumosRes.data) ? insumosRes.data : []);
       setCompras(Array.isArray(comprasRes.data) ? comprasRes.data : []);
@@ -68,6 +90,7 @@ export default function FabricacaoPelucia() {
         Array.isArray(fornecedoresRes.data) ? fornecedoresRes.data : [],
       );
       setPedidos(Array.isArray(pedidosRes.data) ? pedidosRes.data : []);
+      setReceitas(Array.isArray(receitasRes.data) ? receitasRes.data : []);
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao carregar dados");
     } finally {
@@ -173,13 +196,137 @@ export default function FabricacaoPelucia() {
     }
   };
 
-  const handleDarBaixa = async (id) => {
+  const produtosComReceita = useMemo(() => {
+    const grupos = new Map();
+    receitas.forEach((item) => {
+      if (!grupos.has(item.produtoId)) grupos.set(item.produtoId, []);
+      grupos.get(item.produtoId).push(item);
+    });
+    return Array.from(grupos.entries());
+  }, [receitas]);
+
+  const selecionarProdutoReceita = (produtoId) => {
+    setProdutoReceitaId(produtoId);
+    const referenciaNumerica = Number(receitaReferencia) || 100;
+    const existentes = receitas.filter((item) => item.produtoId === produtoId);
+
+    setItensReceita(
+      existentes.length > 0
+        ? existentes.map((item) => ({
+            insumoId: item.insumoId,
+            quantidadeLote: formatarNumero(
+              Number(item.quantidadePorUnidade) * referenciaNumerica,
+            ),
+          }))
+        : [{ insumoId: "", quantidadeLote: "" }],
+    );
+  };
+
+  const adicionarLinhaReceita = () =>
+    setItensReceita((prev) => [...prev, { insumoId: "", quantidadeLote: "" }]);
+
+  const removerLinhaReceita = (index) =>
+    setItensReceita((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+
+  const atualizarLinhaReceita = (index, campo, valor) =>
+    setItensReceita((prev) =>
+      prev.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [campo]: valor } : item,
+      ),
+    );
+
+  const handleSalvarReceita = async () => {
+    if (!produtoReceitaId) {
+      setError("Selecione o produto para cadastrar a receita.");
+      return;
+    }
+
+    const referenciaNumerica = Number(receitaReferencia);
+    if (!Number.isFinite(referenciaNumerica) || referenciaNumerica <= 0) {
+      setError("Informe uma quantidade de referência válida (maior que zero).");
+      return;
+    }
+
+    const itens = itensReceita
+      .filter((item) => item.insumoId && item.quantidadeLote)
+      .map((item) => ({
+        insumoId: item.insumoId,
+        quantidadePorUnidade:
+          Number(String(item.quantidadeLote).replace(",", ".")) /
+          referenciaNumerica,
+      }));
+
     try {
+      setSubmitting(true);
       setError("");
-      await api.patch(`/pedidos-pelucia/${id}/baixa`);
+      setSuccess("");
+      await api.put(`/receitas/produto/${produtoReceitaId}`, { itens });
+      setSuccess("Receita salva com sucesso.");
+      await carregarDados();
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao salvar receita");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const abrirBaixa = (pedido) => {
+    if (baixaAbertaId === pedido.id) {
+      setBaixaAbertaId(null);
+      return;
+    }
+
+    const receitaProduto = receitas.filter(
+      (item) => item.produtoId === pedido.produtoId,
+    );
+
+    setItensBaixa(
+      receitaProduto.map((item) => ({
+        insumoId: item.insumoId,
+        quantidade: formatarNumero(
+          Number(item.quantidadePorUnidade) * pedido.quantidade,
+        ),
+      })),
+    );
+    setBaixaAbertaId(pedido.id);
+  };
+
+  const adicionarLinhaBaixa = () =>
+    setItensBaixa((prev) => [...prev, { insumoId: "", quantidade: "" }]);
+
+  const removerLinhaBaixa = (index) =>
+    setItensBaixa((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+
+  const atualizarLinhaBaixa = (index, campo, valor) =>
+    setItensBaixa((prev) =>
+      prev.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [campo]: valor } : item,
+      ),
+    );
+
+  const handleDarBaixa = async (id) => {
+    const insumosPayload = itensBaixa
+      .filter((item) => item.insumoId && item.quantidade)
+      .map((item) => ({
+        insumoId: item.insumoId,
+        quantidade: item.quantidade,
+      }));
+
+    try {
+      setSubmitting(true);
+      setError("");
+      setSuccess("");
+      await api.patch(`/pedidos-pelucia/${id}/baixa`, {
+        insumos: insumosPayload,
+      });
+      setBaixaAbertaId(null);
+      setItensBaixa([]);
+      setSuccess("Baixa registrada com sucesso.");
       await carregarDados();
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao dar baixa no pedido");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -201,9 +348,16 @@ export default function FabricacaoPelucia() {
         {error && (
           <AlertBox type="error" message={error} onClose={() => setError("")} />
         )}
+        {success && (
+          <AlertBox
+            type="success"
+            message={success}
+            onClose={() => setSuccess("")}
+          />
+        )}
 
         <div className="card">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {[
               {
                 key: "insumos",
@@ -214,6 +368,11 @@ export default function FabricacaoPelucia() {
                 key: "pedidos",
                 title: "Pedidos de pelúcia",
                 subtitle: "Lançar produção e acompanhar status.",
+              },
+              {
+                key: "receitas",
+                title: "Receitas",
+                subtitle: "Quanto cada produto gasta de insumos.",
               },
             ].map((opcao) => {
               const ativo = secaoAtiva === opcao.key;
@@ -616,15 +775,123 @@ export default function FabricacaoPelucia() {
                     )}
                   </div>
 
+                  {pedido.status === "CONCLUIDO" &&
+                    pedido.insumosConsumidos?.length > 0 && (
+                      <div className="mt-2 rounded-lg bg-slate-50 p-2 text-xs text-gray-600">
+                        <p className="font-bold text-gray-700">
+                          Insumos consumidos:
+                        </p>
+                        {pedido.insumosConsumidos.map((consumo) => (
+                          <p key={consumo.id}>
+                            {consumo.insumo?.nome}: {consumo.quantidade}{" "}
+                            {consumo.insumo?.unidade || ""}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
                   {pedido.status === "PENDENTE" && (
                     <div className="mt-3">
                       <button
                         type="button"
-                        onClick={() => handleDarBaixa(pedido.id)}
+                        onClick={() => abrirBaixa(pedido)}
                         className="btn-primary"
                       >
-                        Dar baixa (entra no Depósito Principal)
+                        {baixaAbertaId === pedido.id
+                          ? "Cancelar"
+                          : "Dar baixa (entra no Depósito Principal)"}
                       </button>
+
+                      {baixaAbertaId === pedido.id && (
+                        <div className="mt-3 rounded-lg border border-orange-100 bg-orange-50 p-3">
+                          <p className="mb-2 text-sm font-bold text-gray-900">
+                            Insumos gastos nesta produção
+                          </p>
+
+                          {itensBaixa.length === 0 && (
+                            <p className="mb-2 text-xs text-gray-600">
+                              Nenhuma receita cadastrada para{" "}
+                              {pedido.produto?.nome || "este produto"}. A
+                              baixa não vai descontar nenhum insumo
+                              automaticamente — adicione manualmente se
+                              quiser registrar o consumo, ou cadastre a
+                              receita na aba Receitas.
+                            </p>
+                          )}
+
+                          <div className="space-y-2">
+                            {itensBaixa.map((item, index) => (
+                              <div
+                                key={index}
+                                className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px_auto]"
+                              >
+                                <select
+                                  value={item.insumoId}
+                                  onChange={(e) =>
+                                    atualizarLinhaBaixa(
+                                      index,
+                                      "insumoId",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                >
+                                  <option value="">
+                                    Selecione o insumo...
+                                  </option>
+                                  {insumos.map((insumo) => (
+                                    <option key={insumo.id} value={insumo.id}>
+                                      {insumo.nome} (estoque:{" "}
+                                      {insumo.quantidadeEstoque}{" "}
+                                      {insumo.unidade || ""})
+                                    </option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.0001"
+                                  value={item.quantidade}
+                                  onChange={(e) =>
+                                    atualizarLinhaBaixa(
+                                      index,
+                                      "quantidade",
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder="Quantidade"
+                                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removerLinhaBaixa(index)}
+                                  className="btn-danger px-3 text-xs"
+                                >
+                                  Remover
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={adicionarLinhaBaixa}
+                              className="btn-secondary text-xs"
+                            >
+                              + Adicionar insumo
+                            </button>
+                            <button
+                              type="button"
+                              disabled={submitting}
+                              onClick={() => handleDarBaixa(pedido.id)}
+                              className="btn-primary text-sm disabled:opacity-60"
+                            >
+                              {submitting ? "Salvando..." : "Confirmar baixa"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -633,6 +900,162 @@ export default function FabricacaoPelucia() {
           )}
         </div>
           </>
+        )}
+
+        {secaoAtiva === "receitas" && (
+          <div className="card">
+            <h2 className="mb-1 text-lg font-semibold text-gray-900">
+              Receita de produção
+            </h2>
+            <p className="mb-4 text-sm text-gray-500">
+              Cadastre quanto de cada insumo é gasto para produzir cada
+              pelúcia. Ao dar baixa em um pedido, o sistema sugere o consumo
+              automaticamente com base nessa receita.
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Produto
+                </label>
+                <select
+                  value={produtoReceitaId}
+                  onChange={(e) => selecionarProdutoReceita(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                >
+                  <option value="">Selecione...</option>
+                  {produtos.map((produto) => (
+                    <option key={produto.id} value={produto.id}>
+                      {produto.emoji ? `${produto.emoji} ` : ""}
+                      {produto.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Quantidade de referência
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={receitaReferencia}
+                  onChange={(e) => setReceitaReferencia(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            {produtoReceitaId && (
+              <div className="mt-4 rounded-lg border border-orange-100 bg-orange-50 p-3">
+                <p className="mb-2 text-sm text-gray-700">
+                  Ex: para produzir <strong>{receitaReferencia || 0}</strong>{" "}
+                  unidades, quanto de cada insumo é gasto?
+                </p>
+
+                <div className="space-y-2">
+                  {itensReceita.map((item, index) => (
+                    <div
+                      key={index}
+                      className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_160px_auto]"
+                    >
+                      <select
+                        value={item.insumoId}
+                        onChange={(e) =>
+                          atualizarLinhaReceita(index, "insumoId", e.target.value)
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                      >
+                        <option value="">Selecione o insumo...</option>
+                        {insumos.map((insumo) => (
+                          <option key={insumo.id} value={insumo.id}>
+                            {insumo.nome}
+                            {insumo.unidade ? ` (${insumo.unidade})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.0001"
+                        value={item.quantidadeLote}
+                        onChange={(e) =>
+                          atualizarLinhaReceita(
+                            index,
+                            "quantidadeLote",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="Quantidade gasta"
+                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removerLinhaReceita(index)}
+                        className="btn-danger px-3 text-xs"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={adicionarLinhaReceita}
+                    className="btn-secondary text-xs"
+                  >
+                    + Adicionar insumo
+                  </button>
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={handleSalvarReceita}
+                    className="btn-primary text-sm disabled:opacity-60"
+                  >
+                    {submitting ? "Salvando..." : "Salvar receita"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-5">
+              <h3 className="mb-2 text-base font-bold text-gray-900">
+                Produtos com receita cadastrada
+              </h3>
+              {produtosComReceita.length === 0 ? (
+                <p className="text-sm text-gray-600">
+                  Nenhuma receita cadastrada ainda.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {produtosComReceita.map(([produtoId, itens]) => (
+                    <div
+                      key={produtoId}
+                      className="rounded-lg border border-gray-200 p-3 text-sm"
+                    >
+                      <p className="font-bold text-gray-900">
+                        {itens[0]?.produto?.emoji
+                          ? `${itens[0].produto.emoji} `
+                          : ""}
+                        {itens[0]?.produto?.nome || "-"}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {itens
+                          .map(
+                            (item) =>
+                              `${item.insumo?.nome}: ${formatarNumero(item.quantidadePorUnidade)} ${item.insumo?.unidade || ""}/un`,
+                          )
+                          .join(" · ")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
