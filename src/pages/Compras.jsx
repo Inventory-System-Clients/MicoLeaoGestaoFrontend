@@ -158,6 +158,11 @@ export default function Compras() {
   const carregarDados = useCallback(async () => {
     try {
       setError("");
+      const paramsCompras = Object.fromEntries(
+        Object.entries(filtrosComprasAplicados).filter(
+          ([, valor]) => valor !== undefined && valor !== null && valor !== "",
+        ),
+      );
       const [
         comprasRes,
         produtosRes,
@@ -166,7 +171,7 @@ export default function Compras() {
         comparacoesRes,
         lojasRes,
       ] = await Promise.all([
-        api.get("/compras", { params: filtrosComprasAplicados }),
+        api.get("/compras", { params: paramsCompras }),
         api.get("/produtos"),
         api.get("/insumos"),
         api.get("/fornecedores"),
