@@ -27,6 +27,7 @@ export default function FabricacaoPelucia() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [secaoAtiva, setSecaoAtiva] = useState("insumos");
 
   const [formInsumo, setFormInsumo] = useState({
     nome: "",
@@ -201,6 +202,48 @@ export default function FabricacaoPelucia() {
           <AlertBox type="error" message={error} onClose={() => setError("")} />
         )}
 
+        <div className="card">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {[
+              {
+                key: "insumos",
+                title: "Insumos",
+                subtitle: "Cadastrar, controlar estoque e comprar.",
+              },
+              {
+                key: "pedidos",
+                title: "Pedidos de pelúcia",
+                subtitle: "Lançar produção e acompanhar status.",
+              },
+            ].map((opcao) => {
+              const ativo = secaoAtiva === opcao.key;
+              return (
+                <button
+                  key={opcao.key}
+                  type="button"
+                  onClick={() => setSecaoAtiva(opcao.key)}
+                  className={`rounded-lg border px-4 py-3 text-left transition ${
+                    ativo
+                      ? "border-primary bg-primary text-white shadow-md"
+                      : "border-slate-200 bg-white text-gray-900 hover:border-primary/50 hover:bg-orange-50"
+                  }`}
+                >
+                  <span className="block text-sm font-bold">{opcao.title}</span>
+                  <span
+                    className={`mt-1 block text-xs ${
+                      ativo ? "text-white/85" : "text-gray-500"
+                    }`}
+                  >
+                    {opcao.subtitle}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {secaoAtiva === "insumos" && (
+          <>
         <div className="card">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">
             Novo insumo
@@ -442,7 +485,11 @@ export default function FabricacaoPelucia() {
             </div>
           )}
         </div>
+          </>
+        )}
 
+        {secaoAtiva === "pedidos" && (
+          <>
         <div className="card">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">
             Lançar pedido de pelúcia
@@ -585,6 +632,8 @@ export default function FabricacaoPelucia() {
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
 
       <Footer />
