@@ -81,6 +81,14 @@ const fornecedorFormVazio = {
   anexos: [],
 };
 
+const hojeISO = () => {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoje.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+};
+
 const calcularUnitarioFornecedor = (produto) => {
   const quantidade = Number(produto.quantidade);
   const preco = Number(produto.preco);
@@ -120,11 +128,32 @@ export default function Compras() {
   const [historico, setHistorico] = useState(null);
   const [buscandoHistorico, setBuscandoHistorico] = useState(false);
 
-  const [filtroFornecedor, setFiltroFornecedor] = useState({ busca: "", produto: "" });
+  const [filtroFornecedor, setFiltroFornecedor] = useState({
+    busca: "",
+    produto: "",
+    status: "ativos",
+    conteudo: "todos",
+    ordenacao: "nome",
+  });
   const [mostrarModalFornecedor, setMostrarModalFornecedor] = useState(false);
   const [editandoFornecedor, setEditandoFornecedor] = useState(null);
   const [formFornecedor, setFormFornecedor] = useState(fornecedorFormVazio);
   const [secaoAtiva, setSecaoAtiva] = useState("novaCompra");
+  const filtrosComprasIniciais = useMemo(
+    () => ({
+      fornecedorId: "",
+      produto: "",
+      dataInicio: hojeISO(),
+      dataFim: hojeISO(),
+      valorMin: "",
+      valorMax: "",
+    }),
+    [],
+  );
+  const [filtrosCompras, setFiltrosCompras] = useState(filtrosComprasIniciais);
+  const [filtrosComprasAplicados, setFiltrosComprasAplicados] = useState(
+    filtrosComprasIniciais,
+  );
 
   const carregarDados = useCallback(async () => {
     try {
@@ -137,7 +166,7 @@ export default function Compras() {
         comparacoesRes,
         lojasRes,
       ] = await Promise.all([
-        api.get("/compras"),
+        api.get("/compras", { params: filtrosComprasAplicados }),
         api.get("/produtos"),
         api.get("/insumos"),
         api.get("/fornecedores"),
@@ -158,7 +187,7 @@ export default function Compras() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filtrosComprasAplicados]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -250,6 +279,16 @@ export default function Compras() {
     }
   };
 
+  const aplicarFiltrosCompras = (event) => {
+    event.preventDefault();
+    setFiltrosComprasAplicados({ ...filtrosCompras });
+  };
+
+  const limparFiltrosCompras = () => {
+    setFiltrosCompras(filtrosComprasIniciais);
+    setFiltrosComprasAplicados(filtrosComprasIniciais);
+  };
+
   const handleBuscarHistorico = async (event) => {
     event.preventDefault();
     if (!buscaHistorico.trim()) return;
@@ -282,7 +321,9 @@ export default function Compras() {
   const fornecedoresFiltrados = useMemo(() => {
     const busca = filtroFornecedor.busca.trim().toLowerCase();
     const produtoBusca = filtroFornecedor.produto.trim().toLowerCase();
-    return fornecedores.filter((fornecedor) => {
+    const filtrados = fornecedores.filter((fornecedor) => {
+      const produtos = fornecedor.produtos || [];
+      const anexos = fornecedor.anexos || [];
       const textoFornecedor = [
         fornecedor.nome,
         fornecedor.contato,
@@ -296,11 +337,45 @@ export default function Compras() {
         .join(" ")
         .toLowerCase();
 
+      if (filtroFornecedor.status === "ativos" && fornecedor.ativo === false) {
+        return false;
+      }
+      if (filtroFornecedor.status === "inativos" && fornecedor.ativo !== false) {
+        return false;
+      }
+      if (filtroFornecedor.conteudo === "comProdutos" && produtos.length === 0) {
+        return false;
+      }
+      if (filtroFornecedor.conteudo === "comAnexos" && anexos.length === 0) {
+        return false;
+      }
       if (busca && !textoFornecedor.includes(busca)) return false;
       if (produtoBusca && !produtosTexto?.includes(produtoBusca)) return false;
       return true;
     });
+
+    return [...filtrados].sort((a, b) => {
+      if (filtroFornecedor.ordenacao === "maisProdutos") {
+        return (b.produtos?.length || 0) - (a.produtos?.length || 0);
+      }
+      if (filtroFornecedor.ordenacao === "cidade") {
+        return String(a.cidade || "").localeCompare(String(b.cidade || ""));
+      }
+      return String(a.nome || "").localeCompare(String(b.nome || ""));
+    });
   }, [fornecedores, filtroFornecedor]);
+
+  const resumoFornecedores = useMemo(
+    () => ({
+      total: fornecedores.length,
+      ativos: fornecedores.filter((fornecedor) => fornecedor.ativo !== false).length,
+      comProdutos: fornecedores.filter((fornecedor) => fornecedor.produtos?.length > 0)
+        .length,
+      comAnexos: fornecedores.filter((fornecedor) => fornecedor.anexos?.length > 0)
+        .length,
+    }),
+    [fornecedores],
+  );
 
   const comparacoesFiltradas = useMemo(() => {
     const produtoBusca = filtroFornecedor.produto.trim().toLowerCase();
@@ -714,8 +789,143 @@ export default function Compras() {
 
         <div className="card">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Compras ({compras.length})
+            Histórico de compras ({compras.length})
           </h2>
+
+          <form
+            onSubmit={aplicarFiltrosCompras}
+            className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3"
+          >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Fornecedor
+                </label>
+                <select
+                  value={filtrosCompras.fornecedorId}
+                  onChange={(e) =>
+                    setFiltrosCompras((prev) => ({
+                      ...prev,
+                      fornecedorId: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                >
+                  <option value="">Todos</option>
+                  {fornecedores.map((fornecedor) => (
+                    <option key={fornecedor.id} value={fornecedor.id}>
+                      {fornecedor.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Produto ou item
+                </label>
+                <input
+                  value={filtrosCompras.produto}
+                  onChange={(e) =>
+                    setFiltrosCompras((prev) => ({
+                      ...prev,
+                      produto: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  placeholder="Ex: pelúcia, urso, insumo..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Valor mín.
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={filtrosCompras.valorMin}
+                    onChange={(e) =>
+                      setFiltrosCompras((prev) => ({
+                        ...prev,
+                        valorMin: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Valor máx.
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={filtrosCompras.valorMax}
+                    onChange={(e) =>
+                      setFiltrosCompras((prev) => ({
+                        ...prev,
+                        valorMax: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                    placeholder="5"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Data início
+                </label>
+                <input
+                  type="date"
+                  value={filtrosCompras.dataInicio}
+                  onChange={(e) =>
+                    setFiltrosCompras((prev) => ({
+                      ...prev,
+                      dataInicio: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Data fim
+                </label>
+                <input
+                  type="date"
+                  value={filtrosCompras.dataFim}
+                  onChange={(e) =>
+                    setFiltrosCompras((prev) => ({
+                      ...prev,
+                      dataFim: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex items-end gap-2">
+                <button type="submit" className="btn-primary flex-1">
+                  Aplicar filtros
+                </button>
+                <button
+                  type="button"
+                  onClick={limparFiltrosCompras}
+                  className="btn-secondary"
+                >
+                  Hoje
+                </button>
+              </div>
+            </div>
+          </form>
 
           {compras.length === 0 ? (
             <p className="text-sm text-gray-600">Nenhuma compra registrada.</p>
@@ -868,22 +1078,139 @@ export default function Compras() {
             </div>
           )}
         </div>
+        <div className="card">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Pesquisa de mercado
+              </h2>
+              <p className="text-sm text-gray-500">
+                Compare fornecedores pelo custo unitario dos produtos cadastrados.
+              </p>
+            </div>
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+              {comparacoesFiltradas.length} produtos
+            </span>
+          </div>
+
+          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Produto
+              </label>
+              <input
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                value={filtroFornecedor.produto}
+                onChange={(e) =>
+                  setFiltroFornecedor((prev) => ({ ...prev, produto: e.target.value }))
+                }
+                placeholder="Ex: pelucia panda"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Fornecedor
+              </label>
+              <input
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                value={filtroFornecedor.busca}
+                onChange={(e) =>
+                  setFiltroFornecedor((prev) => ({ ...prev, busca: e.target.value }))
+                }
+                placeholder="Ex: Atacado Centro"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {comparacoesFiltradas.map((comparacao) => (
+              <article
+                key={comparacao.produto}
+                className="rounded-lg border border-slate-200 p-3"
+              >
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="font-bold text-gray-900">{comparacao.produto}</h4>
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">
+                    Melhor: {moeda.format(Number(comparacao.melhorPrecoUnitario || 0))}/un
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                  {comparacao.fornecedores.map((item, index) => (
+                    <div
+                      key={`${item.fornecedorId}-${item.produtoId}`}
+                      className={`rounded-lg border p-3 text-sm ${
+                        index === 0
+                          ? "border-emerald-300 bg-emerald-50"
+                          : "border-slate-200 bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {item.fornecedorNome}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {numeroFormatado.format(item.quantidade)} {item.unidade}{" "}
+                            por {moeda.format(Number(item.preco || 0))}
+                          </p>
+                        </div>
+                        <p className="font-bold text-gray-900">
+                          {moeda.format(Number(item.precoUnitario || 0))}/un
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ))}
+            {comparacoesFiltradas.length === 0 && (
+              <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-gray-500">
+                Nenhum produto para comparar ainda.
+              </div>
+            )}
+          </div>
+        </div>
           </>
         )}
 
-        {["pesquisa", "fornecedores"].includes(secaoAtiva) && (
+        {secaoAtiva === "fornecedores" && (
           <>
         <div id="fornecedores" className="card scroll-mt-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">
-              Pesquisa de mercado e fornecedores
+              Cadastro de fornecedores
             </h2>
             <button type="button" className="btn-primary" onClick={abrirNovoFornecedor}>
               Cadastrar fornecedor
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-gray-500">Total</p>
+              <p className="text-xl font-bold text-gray-900">{resumoFornecedores.total}</p>
+            </div>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-xs font-semibold text-emerald-700">Ativos</p>
+              <p className="text-xl font-bold text-emerald-800">
+                {resumoFornecedores.ativos}
+              </p>
+            </div>
+            <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+              <p className="text-xs font-semibold text-orange-700">Com produtos</p>
+              <p className="text-xl font-bold text-orange-800">
+                {resumoFornecedores.comProdutos}
+              </p>
+            </div>
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+              <p className="text-xs font-semibold text-blue-700">Com anexos</p>
+              <p className="text-xl font-bold text-blue-800">
+                {resumoFornecedores.comAnexos}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Fornecedor, contato ou cidade
@@ -912,6 +1239,76 @@ export default function Compras() {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Status
+              </label>
+              <select
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                value={filtroFornecedor.status}
+                onChange={(e) =>
+                  setFiltroFornecedor((prev) => ({ ...prev, status: e.target.value }))
+                }
+              >
+                <option value="ativos">Ativos</option>
+                <option value="todos">Todos</option>
+                <option value="inativos">Inativos</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Conteudo
+              </label>
+              <select
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                value={filtroFornecedor.conteudo}
+                onChange={(e) =>
+                  setFiltroFornecedor((prev) => ({ ...prev, conteudo: e.target.value }))
+                }
+              >
+                <option value="todos">Todos</option>
+                <option value="comProdutos">Com produtos</option>
+                <option value="comAnexos">Com anexos</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Ordenar por
+              </label>
+              <select
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                value={filtroFornecedor.ordenacao}
+                onChange={(e) =>
+                  setFiltroFornecedor((prev) => ({ ...prev, ordenacao: e.target.value }))
+                }
+              >
+                <option value="nome">Nome</option>
+                <option value="cidade">Cidade</option>
+                <option value="maisProdutos">Mais produtos</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() =>
+                setFiltroFornecedor({
+                  busca: "",
+                  produto: "",
+                  status: "ativos",
+                  conteudo: "todos",
+                  ordenacao: "nome",
+                })
+              }
+            >
+              Limpar filtros
+            </button>
+          </div>
+
+          {false && (
           <div className="mt-5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-base font-bold text-gray-900">
@@ -970,6 +1367,8 @@ export default function Compras() {
             </div>
           </div>
 
+          )}
+
           <div className="mt-5">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-base font-bold text-gray-900">
@@ -1020,6 +1419,26 @@ export default function Compras() {
                       </button>
                     </div>
                   </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">
+                      {fornecedor.produtos?.length || 0} produtos
+                    </span>
+                    <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-700">
+                      {fornecedor.anexos?.length || 0} anexos
+                    </span>
+                    {fornecedor.cidade && (
+                      <span className="rounded-full bg-orange-50 px-2 py-1 text-orange-700">
+                        {fornecedor.cidade}
+                      </span>
+                    )}
+                  </div>
+
+                  {fornecedor.observacoes && (
+                    <p className="mt-3 rounded-lg bg-slate-50 p-2 text-xs text-gray-600">
+                      {fornecedor.observacoes}
+                    </p>
+                  )}
 
                   <div className="mt-3 space-y-2">
                     {fornecedor.produtos?.map((produto) => (
