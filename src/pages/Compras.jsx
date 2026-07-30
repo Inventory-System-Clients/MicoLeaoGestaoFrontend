@@ -124,6 +124,7 @@ export default function Compras() {
   const [mostrarModalFornecedor, setMostrarModalFornecedor] = useState(false);
   const [editandoFornecedor, setEditandoFornecedor] = useState(null);
   const [formFornecedor, setFormFornecedor] = useState(fornecedorFormVazio);
+  const [secaoAtiva, setSecaoAtiva] = useState("novaCompra");
 
   const carregarDados = useCallback(async () => {
     try {
@@ -427,6 +428,53 @@ export default function Compras() {
           />
         )}
 
+        <div className="card">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {[
+              {
+                key: "fornecedores",
+                title: "Cadastrar fornecedor",
+                subtitle: "Salvar contatos, produtos, custos e anexos.",
+              },
+              {
+                key: "pesquisa",
+                title: "Pesquisa de mercado",
+                subtitle: "Comparar custos e consultar histórico.",
+              },
+              {
+                key: "novaCompra",
+                title: "Nova compra",
+                subtitle: "Lançar compra, acompanhar status e receber.",
+              },
+            ].map((opcao) => {
+              const ativo = secaoAtiva === opcao.key;
+              return (
+                <button
+                  key={opcao.key}
+                  type="button"
+                  onClick={() => setSecaoAtiva(opcao.key)}
+                  className={`rounded-lg border px-4 py-3 text-left transition ${
+                    ativo
+                      ? "border-primary bg-primary text-white shadow-md"
+                      : "border-slate-200 bg-white text-gray-900 hover:border-primary/50 hover:bg-orange-50"
+                  }`}
+                >
+                  <span className="block text-sm font-bold">{opcao.title}</span>
+                  <span
+                    className={`mt-1 block text-xs ${
+                      ativo ? "text-white/85" : "text-gray-500"
+                    }`}
+                  >
+                    {opcao.subtitle}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {secaoAtiva === "novaCompra" && (
+          <>
         <form onSubmit={handleCriarCompra} className="card">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">Nova compra</h2>
 
@@ -769,7 +817,11 @@ export default function Compras() {
             </div>
           )}
         </div>
+          </>
+        )}
 
+        {secaoAtiva === "pesquisa" && (
+          <>
         <div className="card">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">
             Histórico de preços
@@ -816,7 +868,11 @@ export default function Compras() {
             </div>
           )}
         </div>
+          </>
+        )}
 
+        {["pesquisa", "fornecedores"].includes(secaoAtiva) && (
+          <>
         <div id="fornecedores" className="card scroll-mt-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">
@@ -1020,6 +1076,8 @@ export default function Compras() {
             </div>
           </div>
         </div>
+          </>
+        )}
 
         {mostrarModalFornecedor && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 sm:p-4">
