@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import AlertAdmin from "../components/AlertAdmin";
 import { Footer } from "../components/Footer";
 import { Navbar } from "../components/Navbar";
-import { PageHeader } from "../components/UIComponents";
+import { PageHeader, AlertBox } from "../components/UIComponents";
+import api from "../services/api";
 import { useAlertas } from "../contexts/AlertasContext";
 
 const TEMA_COR = {
@@ -85,15 +87,19 @@ function ItemGenerico({ item, tipo }) {
     item.codigoMaquina ||
     "Máquina";
   const lojaNome = item.loja?.nome || item.lojaNome || item.maquina?.loja || "";
-  const produtoNome = item.produto?.nome || item.produtoNome || item.nomeProduto;
-  const data = formatarData(item.dataMovimentacao || item.dataColeta || item.createdAt);
+  const produtoNome =
+    item.produto?.nome || item.produtoNome || item.nomeProduto;
+  const data = formatarData(
+    item.dataMovimentacao || item.dataColeta || item.createdAt,
+  );
 
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-white/80 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div className="mb-1 flex flex-wrap items-center gap-2">
           <span className="font-bold text-gray-900">
-            {tipo.icone} {produtoNome || item.titulo || item.veiculo || maquinaNome}
+            {tipo.icone}{" "}
+            {produtoNome || item.titulo || item.veiculo || maquinaNome}
           </span>
           {lojaNome && (
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-bold text-slate-700">
@@ -102,10 +108,19 @@ function ItemGenerico({ item, tipo }) {
           )}
         </div>
         <LinhaInfo label="Máquina" value={maquinaNome} />
-        <LinhaInfo label="Estoque atual" value={item.estoqueAtual ?? item.quantidade} />
-        <LinhaInfo label="Mínimo" value={item.estoqueMinimo ?? item.produto?.estoqueMinimo} />
+        <LinhaInfo
+          label="Estoque atual"
+          value={item.estoqueAtual ?? item.quantidade}
+        />
+        <LinhaInfo
+          label="Mínimo"
+          value={item.estoqueMinimo ?? item.produto?.estoqueMinimo}
+        />
         <LinhaInfo label="Capacidade" value={item.capacidadePadrao} />
-        <LinhaInfo label="Mensagem" value={item.mensagem || item.descricao || item.observacao} />
+        <LinhaInfo
+          label="Mensagem"
+          value={item.mensagem || item.descricao || item.observacao}
+        />
         <LinhaInfo label="Data" value={data} />
       </div>
 
@@ -126,9 +141,11 @@ function ItemGenerico({ item, tipo }) {
             Ver loja →
           </Link>
         )}
-        {["manutencao", "manutencao-atrasada", "manutencao-recorrente"].includes(
-          tipo.id,
-        ) && (
+        {[
+          "manutencao",
+          "manutencao-atrasada",
+          "manutencao-recorrente",
+        ].includes(tipo.id) && (
           <Link
             to="/manutencao"
             className="text-sm font-bold text-yellow-700 hover:text-yellow-900"
@@ -142,6 +159,14 @@ function ItemGenerico({ item, tipo }) {
             className="text-sm font-bold text-blue-700 hover:text-blue-900"
           >
             Ver envios →
+          </Link>
+        )}
+        {tipo.id === "lacres-divergentes" && (
+          <Link
+            to="/conferencia-lacre"
+            className="text-sm font-bold text-red-700 hover:text-red-900"
+          >
+            Ver lacres divergentes →
           </Link>
         )}
         {tipo.id === "compra-pendente" && (
@@ -167,6 +192,23 @@ function ItemGenerico({ item, tipo }) {
 
 export default function Alertas() {
   const { tipos, totalGeral, carregando, recarregar } = useAlertas();
+  const [resolvendoId, setResolvendoId] = useState(null);
+  const [erroResolucao, setErroResolucao] = useState("");
+
+  const handleResolverLacre = async (lacreId) => {
+    try {
+      setErroResolucao("");
+      setResolvendoId(lacreId);
+      await api.patch(`/lacres/${lacreId}/resolver`);
+      await recarregar();
+    } catch (error) {
+      setErroResolucao(
+        error.response?.data?.error || "Falha ao resolver o lacre divergente",
+      );
+    } finally {
+      setResolvendoId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background-light bg-pattern teddy-pattern">
@@ -186,7 +228,9 @@ export default function Alertas() {
           <p className="text-sm font-bold uppercase text-gray-500">
             Total de alertas ativos
           </p>
-          <p className={`mt-2 text-6xl font-black ${totalGeral > 0 ? "animate-pulse text-red-600" : "text-emerald-600"}`}>
+          <p
+            className={`mt-2 text-6xl font-black ${totalGeral > 0 ? "animate-pulse text-red-600" : "text-emerald-600"}`}
+          >
             {totalGeral}
           </p>
           <p className="mt-2 text-sm text-gray-600">
@@ -208,7 +252,9 @@ export default function Alertas() {
               >
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-2xl">{tipo.icone}</span>
-                  <span className={`text-2xl font-black ${tipo.total > 0 ? `${tema.text} animate-pulse` : "text-gray-400"}`}>
+                  <span
+                    className={`text-2xl font-black ${tipo.total > 0 ? `${tema.text} animate-pulse` : "text-gray-400"}`}
+                  >
                     {tipo.total}
                   </span>
                 </div>
@@ -218,6 +264,15 @@ export default function Alertas() {
           })}
         </section>
 
+        {erroResolucao && (
+          <div className="mb-4">
+            <AlertBox
+              type="error"
+              message={erroResolucao}
+              onClose={() => setErroResolucao("")}
+            />
+          </div>
+        )}
         {tipos.map((tipo) => {
           const tema = TEMA_COR[tipo.cor] || TEMA_COR.blue;
           return (
@@ -231,7 +286,9 @@ export default function Alertas() {
                   <span className="text-2xl">{tipo.icone}</span>
                   {tipo.label}
                 </h2>
-                <span className={`rounded-full border px-3 py-1 text-xs font-bold ${tema.badge}`}>
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-bold ${tema.badge}`}
+                >
                   {tipo.total} {tipo.total === 1 ? "alerta" : "alertas"}
                 </span>
               </div>
@@ -241,6 +298,41 @@ export default function Alertas() {
               ) : tipo.total === 0 ? (
                 <div className="rounded-lg border border-dashed border-white/90 bg-white/60 p-8 text-center text-sm text-gray-500">
                   Nenhum alerta neste tipo.
+                </div>
+              ) : tipo.id === "lacres-divergentes" ? (
+                <div className="space-y-3">
+                  {tipo.itens.map((item) => (
+                    <article
+                      key={item.id}
+                      className="flex flex-col gap-3 rounded-lg border border-red-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <p className="font-bold text-gray-900">{item.titulo}</p>
+                        <p className="text-sm text-gray-600">{item.mensagem}</p>
+                        {item.lojaNome && (
+                          <p className="text-sm text-gray-600">
+                            Loja: <strong>{item.lojaNome}</strong>
+                          </p>
+                        )}
+                        {item.createdAt && (
+                          <p className="text-sm text-gray-600">
+                            Registrado em:{" "}
+                            <strong>{formatarData(item.createdAt)}</strong>
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleResolverLacre(item.id)}
+                        disabled={resolvendoId === item.id}
+                        className="btn-secondary text-sm disabled:opacity-60"
+                      >
+                        {resolvendoId === item.id
+                          ? "Resolvendo..."
+                          : "Marcar como resolvido"}
+                      </button>
+                    </article>
+                  ))}
                 </div>
               ) : (
                 <div className="space-y-3">

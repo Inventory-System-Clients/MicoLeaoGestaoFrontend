@@ -14,18 +14,79 @@ const AlertasContext = createContext(null);
 const INTERVALO_ATUALIZACAO_MS = 3 * 60 * 1000;
 
 const DEFINICAO_TIPOS = [
-  { id: "movimentacao", label: "Movimentação (contador)", icone: "🔄", cor: "purple" },
-  { id: "estoque-maquina", label: "Estoque baixo em máquina", icone: "🎮", cor: "red" },
-  { id: "estoque-loja", label: "Estoque baixo em loja", icone: "🏪", cor: "orange" },
-  { id: "abastecimento-incompleto", label: "Abastecimento incompleto", icone: "📦", cor: "amber" },
-  { id: "desempenho", label: "Pelúcias fora do esperado", icone: "⚠️", cor: "rose" },
-  { id: "manutencao", label: "Manutenção pendente", icone: "🛠️", cor: "yellow" },
-  { id: "manutencao-atrasada", label: "Manutenção atrasada", icone: "⏰", cor: "red" },
-  { id: "manutencao-recorrente", label: "Manutenção recorrente", icone: "🔁", cor: "rose" },
-  { id: "maquina-parada", label: "Máquina sem movimentação", icone: "⏸️", cor: "orange" },
+  {
+    id: "movimentacao",
+    label: "Movimentação (contador)",
+    icone: "🔄",
+    cor: "purple",
+  },
+  {
+    id: "estoque-maquina",
+    label: "Estoque baixo em máquina",
+    icone: "🎮",
+    cor: "red",
+  },
+  {
+    id: "estoque-loja",
+    label: "Estoque baixo em loja",
+    icone: "🏪",
+    cor: "orange",
+  },
+  {
+    id: "abastecimento-incompleto",
+    label: "Abastecimento incompleto",
+    icone: "📦",
+    cor: "amber",
+  },
+  {
+    id: "desempenho",
+    label: "Pelúcias fora do esperado",
+    icone: "⚠️",
+    cor: "rose",
+  },
+  {
+    id: "manutencao",
+    label: "Manutenção pendente",
+    icone: "🛠️",
+    cor: "yellow",
+  },
+  {
+    id: "manutencao-atrasada",
+    label: "Manutenção atrasada",
+    icone: "⏰",
+    cor: "red",
+  },
+  {
+    id: "manutencao-recorrente",
+    label: "Manutenção recorrente",
+    icone: "🔁",
+    cor: "rose",
+  },
+  {
+    id: "maquina-parada",
+    label: "Máquina sem movimentação",
+    icone: "⏸️",
+    cor: "orange",
+  },
   { id: "extintor", label: "Extintor vencendo", icone: "🧯", cor: "red" },
-  { id: "carrinho-transito", label: "Carrinho não conferido", icone: "🔏", cor: "blue" },
-  { id: "compra-pendente", label: "Compra pendente", icone: "🛒", cor: "amber" },
+  {
+    id: "carrinho-transito",
+    label: "Carrinho não conferido",
+    icone: "🔏",
+    cor: "blue",
+  },
+  {
+    id: "lacres-divergentes",
+    label: "Lacres divergentes",
+    icone: "🔏",
+    cor: "red",
+  },
+  {
+    id: "compra-pendente",
+    label: "Compra pendente",
+    icone: "🛒",
+    cor: "amber",
+  },
   { id: "veiculos", label: "Veículos", icone: "🚗", cor: "blue" },
 ];
 
@@ -66,9 +127,12 @@ export function AlertasProvider({ children }) {
         maquinaParadaRes,
         extintorRes,
         carrinhoTransitoRes,
+        lacresDivergentesRes,
         comprasPendentesRes,
       ] = await Promise.all([
-        api.get("/relatorios/alertas-estoque").catch(() => ({ data: { alertas: [] } })),
+        api
+          .get("/relatorios/alertas-estoque")
+          .catch(() => ({ data: { alertas: [] } })),
         api
           .get("/relatorios/alertas-bom-desempenho")
           .catch(() => ({ data: { alertas: [] } })),
@@ -99,6 +163,7 @@ export function AlertasProvider({ children }) {
         api
           .get("/lacres/alertas/em-transito")
           .catch(() => ({ data: { alertas: [] } })),
+        api.get("/lacres/divergentes").catch(() => ({ data: [] })),
         api
           .get("/compras", { params: { status: "PESQUISANDO,COMPRADO" } })
           .catch(() => ({ data: [] })),
@@ -127,17 +192,32 @@ export function AlertasProvider({ children }) {
       const manutencaoItens = Array.isArray(manutencaoRes.data)
         ? manutencaoRes.data.filter((item) => item.status !== "CONCLUIDA")
         : [];
-      const veiculosItens = Array.isArray(veiculosRes.data) ? veiculosRes.data : [];
+      const veiculosItens = Array.isArray(veiculosRes.data)
+        ? veiculosRes.data
+        : [];
+      const lacresDivergentesItens = Array.isArray(lacresDivergentesRes.data)
+        ? lacresDivergentesRes.data.map((lacre) => ({
+            id: lacre.id,
+            titulo: `Lacre ${lacre.numero}`,
+            mensagem: `Esperado ${lacre.numero} — digitado ${lacre.numeroDigitado}`,
+            lojaNome: lacre.envio?.lojaDestino?.nome,
+            lojaId: lacre.envio?.lojaDestino?.id,
+            createdAt: lacre.conferidoEm,
+          }))
+        : [];
 
       const compraPendenteItens = Array.isArray(comprasPendentesRes.data)
         ? comprasPendentesRes.data.map((compra) => ({
             id: compra.id,
-            produtoNome: compra.produto?.nome || compra.insumo?.nome || compra.nomeItem,
+            produtoNome:
+              compra.produto?.nome || compra.insumo?.nome || compra.nomeItem,
             quantidade: compra.quantidade,
             lojaNome: compra.loja?.nome,
             lojaId: compra.loja?.id,
             mensagem: `${compra.quantidade}x — ${
-              compra.status === "COMPRADO" ? "comprada, aguardando recebimento" : "em pesquisa"
+              compra.status === "COMPRADO"
+                ? "comprada, aguardando recebimento"
+                : "em pesquisa"
             }`,
             createdAt: compra.createdAt,
           }))
@@ -145,7 +225,10 @@ export function AlertasProvider({ children }) {
 
       const resultados = [
         { id: "movimentacao", itens: movimentacaoItens },
-        { id: "estoque-maquina", itens: extrairAlertas(estoqueMaquinaRes.data) },
+        {
+          id: "estoque-maquina",
+          itens: extrairAlertas(estoqueMaquinaRes.data),
+        },
         { id: "estoque-loja", itens: alertasPorLoja.flat() },
         {
           id: "abastecimento-incompleto",
@@ -167,10 +250,16 @@ export function AlertasProvider({ children }) {
           id: "carrinho-transito",
           itens: extrairAlertas(carrinhoTransitoRes.data),
         },
+        {
+          id: "lacres-divergentes",
+          itens: lacresDivergentesItens,
+        },
         { id: "compra-pendente", itens: compraPendenteItens },
         { id: "veiculos", itens: veiculosItens },
       ].map((resultado) => {
-        const definicao = DEFINICAO_TIPOS.find((tipo) => tipo.id === resultado.id);
+        const definicao = DEFINICAO_TIPOS.find(
+          (tipo) => tipo.id === resultado.id,
+        );
         return {
           ...definicao,
           itens: resultado.itens,
