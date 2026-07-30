@@ -100,7 +100,7 @@ export function AlertasProvider({ children }) {
           .get("/lacres/alertas/em-transito")
           .catch(() => ({ data: { alertas: [] } })),
         api
-          .get("/compras", { params: { status: "PESQUISANDO,APROVADO" } })
+          .get("/compras", { params: { status: "PESQUISANDO,COMPRADO" } })
           .catch(() => ({ data: [] })),
       ]);
 
@@ -137,7 +137,7 @@ export function AlertasProvider({ children }) {
             lojaNome: compra.loja?.nome,
             lojaId: compra.loja?.id,
             mensagem: `${compra.quantidade}x — ${
-              compra.status === "APROVADO" ? "aprovada, aguardando compra" : "em pesquisa"
+              compra.status === "COMPRADO" ? "comprada, aguardando recebimento" : "em pesquisa"
             }`,
             createdAt: compra.createdAt,
           }))

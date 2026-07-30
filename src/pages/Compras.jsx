@@ -11,14 +11,16 @@ import { confirmar } from "../utils/alerts";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 
 const STATUS_OPCOES = [
-  { value: "PESQUISANDO", label: "Pesquisando", variant: "info" },
-  { value: "APROVADO", label: "Aprovado", variant: "warning" },
+  { value: "PESQUISANDO", label: "Em pesquisa", variant: "info" },
   { value: "COMPRADO", label: "Comprado", variant: "warning" },
   { value: "RECEBIDO", label: "Recebido", variant: "success" },
 ];
 
+const normalizarStatusCompra = (status) =>
+  status === "APROVADO" ? "COMPRADO" : status || "PESQUISANDO";
+
 const obterStatusInfo = (status) =>
-  STATUS_OPCOES.find((opcao) => opcao.value === status) || {
+  STATUS_OPCOES.find((opcao) => opcao.value === normalizarStatusCompra(status)) || {
     label: status || "-",
     variant: "info",
   };
@@ -103,6 +105,13 @@ const calcularUnitarioFornecedor = (produto) => {
   if (!quantidade || quantidade <= 0) return 0;
   return preco / quantidade;
 };
+
+const normalizarTexto = (texto) =>
+  String(texto || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 
 const limparPayloadFornecedor = (form) => ({
   ...form,
@@ -254,6 +263,70 @@ export default function Compras() {
       ? Number(form.quantidade) * Number(form.valorUnitario)
       : null;
   const formTemProduto = Boolean(form.produtoId);
+
+  const obterNomeItemPorTipo = useCallback(
+    (dados) => {
+      if (dados?.produtoId) {
+        return produtos.find((produto) => produto.id === dados.produtoId)?.nome;
+      }
+      if (dados?.insumoId) {
+        return insumos.find((insumo) => insumo.id === dados.insumoId)?.nome;
+      }
+      if (dados?.pecaId) {
+        return pecas.find((peca) => peca.id === dados.pecaId)?.nome;
+      }
+      return dados?.nomeItem;
+    },
+    [insumos, pecas, produtos],
+  );
+
+  const obterPrecoFornecedor = useCallback(
+    (fornecedorId, dados) => {
+      if (!fornecedorId) return null;
+      const fornecedor = fornecedores.find(
+        (item) => String(item.id) === String(fornecedorId),
+      );
+      if (!fornecedor?.produtos?.length) return null;
+
+      const nomeItem = normalizarTexto(obterNomeItemPorTipo(dados));
+      if (!nomeItem) return null;
+
+      const produtoFornecedor = fornecedor.produtos.find(
+        (produto) => normalizarTexto(produto.produtoNome) === nomeItem,
+      );
+      if (!produtoFornecedor) return null;
+
+      const unitario = calcularUnitarioFornecedor(produtoFornecedor);
+      return unitario > 0 ? unitario.toFixed(2) : null;
+    },
+    [fornecedores, obterNomeItemPorTipo],
+  );
+
+  const atualizarFormComPrecoFornecedor = useCallback(
+    (atualizacao) => {
+      setForm((prev) => {
+        const proximo = { ...prev, ...atualizacao };
+        const precoFornecedor = obterPrecoFornecedor(proximo.fornecedorId, proximo);
+        return precoFornecedor
+          ? { ...proximo, valorUnitario: precoFornecedor }
+          : proximo;
+      });
+    },
+    [obterPrecoFornecedor],
+  );
+
+  const precoFornecedorSelecionado = obterPrecoFornecedor(form.fornecedorId, form);
+
+  const comprasPorStatus = useMemo(
+    () =>
+      STATUS_OPCOES.map((status) => ({
+        ...status,
+        compras: compras.filter(
+          (compra) => normalizarStatusCompra(compra.status) === status.value,
+        ),
+      })),
+    [compras],
+  );
 
   const sugestoesCompra = useMemo(() => {
     const busca = filtrosSugestao.busca.trim().toLowerCase();
@@ -490,6 +563,19 @@ export default function Compras() {
       prev.map((item) =>
         item.tempId === tempId ? { ...item, [campo]: valor || null } : item,
       ),
+    );
+  };
+
+  const atualizarFornecedorItemCompra = (tempId, fornecedorId) => {
+    setItensCompra((prev) =>
+      prev.map((item) => {
+        if (item.tempId !== tempId) return item;
+        const proximo = { ...item, fornecedorId: fornecedorId || null };
+        const precoFornecedor = obterPrecoFornecedor(fornecedorId, proximo);
+        return precoFornecedor
+          ? { ...proximo, valorUnitario: precoFornecedor }
+          : proximo;
+      }),
     );
   };
 
@@ -1165,16 +1251,15 @@ export default function Compras() {
                           ? insumos
                           : pecas;
                     const selecionado = lista.find((item) => item.id === id);
-                    setForm((prev) => ({
-                      ...prev,
+                    atualizarFormComPrecoFornecedor({
                       produtoId: form.tipoItem === "produto" ? id : "",
                       insumoId: form.tipoItem === "insumo" ? id : "",
                       pecaId: form.tipoItem === "peca" ? id : "",
                       nomeItem: selecionado?.nome || "",
-                      lojaId: form.tipoItem === "produto" ? prev.lojaId : "",
+                      lojaId: form.tipoItem === "produto" ? form.lojaId : "",
                       descricaoUso:
-                        form.tipoItem === "produto" ? prev.descricaoUso : "",
-                    }));
+                        form.tipoItem === "produto" ? form.descricaoUso : "",
+                    });
                   }}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
                 >
@@ -1200,7 +1285,7 @@ export default function Compras() {
               <select
                 value={form.fornecedorId}
                 onChange={(e) =>
-                  setForm((prev) => ({ ...prev, fornecedorId: e.target.value }))
+                  atualizarFormComPrecoFornecedor({ fornecedorId: e.target.value })
                 }
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
               >
@@ -1317,6 +1402,12 @@ export default function Compras() {
                   Valor total: {formatarMoeda(valorTotalPreview)}
                 </p>
               )}
+              {precoFornecedorSelecionado && (
+                <p className="mt-1 text-xs font-semibold text-green-700">
+                  Preco do fornecedor aplicado:{" "}
+                  {formatarMoeda(precoFornecedorSelecionado)}
+                </p>
+              )}
             </div>
 
             <div className="md:col-span-2">
@@ -1419,11 +1510,7 @@ export default function Compras() {
                           <select
                             value={item.fornecedorId || ""}
                             onChange={(e) =>
-                              atualizarItemCompra(
-                                item.tempId,
-                                "fornecedorId",
-                                e.target.value,
-                              )
+                              atualizarFornecedorItemCompra(item.tempId, e.target.value)
                             }
                             className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
                           >
@@ -1674,9 +1761,27 @@ export default function Compras() {
           {compras.length === 0 ? (
             <p className="text-sm text-gray-600">Nenhuma compra registrada.</p>
           ) : (
-            <div className="space-y-3">
-              {compras.map((compra) => {
-                const statusInfo = obterStatusInfo(compra.status);
+            <div className="space-y-5">
+              {comprasPorStatus.map((grupo) => (
+                <section key={grupo.value} className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold uppercase text-gray-700">
+                        {grupo.label}
+                      </h3>
+                      <Badge variant={grupo.variant} size="sm">
+                        {grupo.compras.length}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {grupo.compras.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-gray-500">
+                      Nenhum pedido nesta etapa.
+                    </p>
+                  ) : (
+                    grupo.compras.map((compra) => {
+                      const statusInfo = obterStatusInfo(compra.status);
                 return (
                   <div
                     key={compra.id}
@@ -1767,7 +1872,10 @@ export default function Compras() {
                     </div>
                   </div>
                 );
-              })}
+                    })
+                  )}
+                </section>
+              ))}
             </div>
           )}
         </div>
