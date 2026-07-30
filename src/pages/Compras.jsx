@@ -46,6 +46,7 @@ const formInicial = {
   nomeItem: "",
   produtoId: "",
   insumoId: "",
+  pecaId: "",
   fornecedorId: "",
   lojaId: "",
   descricaoUso: "",
@@ -113,6 +114,10 @@ export default function Compras() {
   const [compras, setCompras] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [insumos, setInsumos] = useState([]);
+  const [pecas, setPecas] = useState([]);
+  const [maquinas, setMaquinas] = useState([]);
+  const [estoquesLojas, setEstoquesLojas] = useState([]);
+  const [estoquesMaquinas, setEstoquesMaquinas] = useState({});
   const [fornecedores, setFornecedores] = useState([]);
   const [comparacoes, setComparacoes] = useState([]);
   const [lojas, setLojas] = useState([]);
@@ -122,7 +127,14 @@ export default function Compras() {
   const [success, setSuccess] = useState("");
 
   const [form, setForm] = useState(formInicial);
+  const [itensCompra, setItensCompra] = useState([]);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const [filtrosSugestao, setFiltrosSugestao] = useState({
+    busca: "",
+    tipo: "todos",
+    lojaId: "",
+    maquinaId: "",
+  });
 
   const [buscaHistorico, setBuscaHistorico] = useState("");
   const [historico, setHistorico] = useState(null);
@@ -170,6 +182,8 @@ export default function Compras() {
         fornecedoresRes,
         comparacoesRes,
         lojasRes,
+        pecasRes,
+        maquinasRes,
       ] = await Promise.all([
         api.get("/compras", { params: paramsCompras }),
         api.get("/produtos"),
@@ -177,16 +191,43 @@ export default function Compras() {
         api.get("/fornecedores"),
         api.get("/fornecedores/comparacoes"),
         api.get("/lojas"),
+        api.get("/pecas"),
+        api.get("/maquinas"),
       ]);
+
+      const lojasOperacionais = filtrarLojasOperacionais(
+        Array.isArray(lojasRes.data) ? lojasRes.data : [],
+      );
+      const maquinasAtivas = Array.isArray(maquinasRes.data) ? maquinasRes.data : [];
+      const estoquesLojasRes = await Promise.all(
+        lojasOperacionais.map((loja) =>
+          api
+            .get(`/estoque-loja/${loja.id}`)
+            .then((res) => ({ lojaId: loja.id, itens: res.data || [] }))
+            .catch(() => ({ lojaId: loja.id, itens: [] })),
+        ),
+      );
+      const estoquesMaquinasRes = await Promise.all(
+        maquinasAtivas.map((maquina) =>
+          api
+            .get(`/maquinas/${maquina.id}/estoque`)
+            .then((res) => [maquina.id, res.data])
+            .catch(() => [maquina.id, null]),
+        ),
+      );
 
       setCompras(Array.isArray(comprasRes.data) ? comprasRes.data : []);
       setProdutos(Array.isArray(produtosRes.data) ? produtosRes.data : []);
       setInsumos(Array.isArray(insumosRes.data) ? insumosRes.data : []);
+      setPecas(Array.isArray(pecasRes.data) ? pecasRes.data : []);
+      setMaquinas(maquinasAtivas);
+      setEstoquesLojas(estoquesLojasRes);
+      setEstoquesMaquinas(Object.fromEntries(estoquesMaquinasRes));
       setFornecedores(
         Array.isArray(fornecedoresRes.data) ? fornecedoresRes.data : [],
       );
       setComparacoes(Array.isArray(comparacoesRes.data) ? comparacoesRes.data : []);
-      setLojas(filtrarLojasOperacionais(Array.isArray(lojasRes.data) ? lojasRes.data : []));
+      setLojas(lojasOperacionais);
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao carregar dados");
     } finally {
@@ -203,6 +244,205 @@ export default function Compras() {
     form.quantidade && form.valorUnitario
       ? Number(form.quantidade) * Number(form.valorUnitario)
       : null;
+
+  const sugestoesCompra = useMemo(() => {
+    const busca = filtrosSugestao.busca.trim().toLowerCase();
+    const sugestoesLoja = estoquesLojas.flatMap(({ lojaId, itens }) => {
+      const loja = lojas.find((item) => item.id === lojaId);
+      return (itens || [])
+        .map((item) => {
+          const atual = Number(item.quantidade || 0);
+          const minimo = Number(item.estoqueMinimo ?? item.produto?.estoqueMinimo ?? 0);
+          const faltaMinimo = Math.max(0, minimo - atual);
+          if (faltaMinimo <= 0) return null;
+          return {
+            id: `loja-${lojaId}-${item.produtoId}`,
+            tipo: "loja",
+            titulo: item.produto?.nome || "Produto",
+            codigo: item.produto?.codigo,
+            produtoId: item.produtoId,
+            lojaId,
+            lojaNome: loja?.nome || "Loja",
+            atual,
+            minimo,
+            faltaMinimo,
+            comprar: faltaMinimo,
+            unidade: "un",
+            detalhe: `Estoque da loja abaixo do minimo`,
+          };
+        })
+        .filter(Boolean);
+    });
+
+    const sugestoesProdutoMap = new Map();
+    sugestoesLoja.forEach((sugestao) => {
+      const atual = sugestoesProdutoMap.get(sugestao.produtoId) || {
+        ...sugestao,
+        id: `produto-${sugestao.produtoId}`,
+        tipo: "produto",
+        lojaId: "",
+        lojaNome: "Todas as lojas",
+        atual: 0,
+        minimo: 0,
+        faltaMinimo: 0,
+        comprar: 0,
+        detalhe: "Soma do que falta nas lojas abaixo do minimo",
+      };
+      atual.atual += sugestao.atual;
+      atual.minimo += sugestao.minimo;
+      atual.faltaMinimo += sugestao.faltaMinimo;
+      atual.comprar += sugestao.comprar;
+      sugestoesProdutoMap.set(sugestao.produtoId, atual);
+    });
+
+    const sugestoesMaquina = maquinas
+      .map((maquina) => {
+        const estoque = estoquesMaquinas[maquina.id];
+        const atual = Number(estoque?.estoqueAtual || 0);
+        const capacidade = Number(maquina.capacidadePadrao || estoque?.maquina?.capacidadePadrao || 0);
+        const minimo = Number(estoque?.estoqueMinimo || 0);
+        const faltaCapacidade = Math.max(0, capacidade - atual);
+        const faltaMinimo = Math.max(0, minimo - atual);
+        if (faltaCapacidade <= 0 && faltaMinimo <= 0) return null;
+        return {
+          id: `maquina-${maquina.id}`,
+          tipo: "maquina",
+          titulo: `Reposicao ${maquina.nome || maquina.codigo || "maquina"}`,
+          codigo: maquina.codigo,
+          produtoId: "",
+          lojaId: maquina.lojaId || "",
+          lojaNome: maquina.loja?.nome || "Loja",
+          maquinaId: maquina.id,
+          maquinaNome: maquina.nome || maquina.codigo || "Maquina",
+          atual,
+          minimo,
+          capacidade,
+          faltaMinimo,
+          faltaCapacidade,
+          comprar: faltaCapacidade || faltaMinimo,
+          unidade: "un",
+          detalhe: "Falta para completar a capacidade da maquina",
+        };
+      })
+      .filter(Boolean);
+
+    const sugestoesPecas = pecas
+      .map((peca) => {
+        const atual = Number(peca.quantidadeEstoque || 0);
+        const minimo = Number(peca.estoqueMinimo || 0);
+        const faltaMinimo = Math.max(0, minimo - atual);
+        if (faltaMinimo <= 0) return null;
+        return {
+          id: `peca-${peca.id}`,
+          tipo: "peca",
+          titulo: peca.nome,
+          codigo: peca.codigo,
+          pecaId: peca.id,
+          atual,
+          minimo,
+          faltaMinimo,
+          comprar: faltaMinimo,
+          unidade: peca.unidade || "un",
+          detalhe: "Peca abaixo do estoque minimo do deposito",
+        };
+      })
+      .filter(Boolean);
+
+    return [
+      ...sugestoesLoja,
+      ...Array.from(sugestoesProdutoMap.values()),
+      ...sugestoesMaquina,
+      ...sugestoesPecas,
+    ]
+      .filter((sugestao) => {
+        if (filtrosSugestao.tipo !== "todos" && sugestao.tipo !== filtrosSugestao.tipo) {
+          return false;
+        }
+        if (filtrosSugestao.lojaId && sugestao.lojaId !== filtrosSugestao.lojaId) {
+          return false;
+        }
+        if (
+          filtrosSugestao.maquinaId &&
+          sugestao.maquinaId !== filtrosSugestao.maquinaId
+        ) {
+          return false;
+        }
+        if (!busca) return true;
+        return [
+          sugestao.titulo,
+          sugestao.codigo,
+          sugestao.lojaNome,
+          sugestao.maquinaNome,
+          sugestao.detalhe,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(busca);
+      })
+      .sort((a, b) => Number(b.comprar || 0) - Number(a.comprar || 0));
+  }, [estoquesLojas, estoquesMaquinas, filtrosSugestao, lojas, maquinas, pecas]);
+
+  const montarItemCompra = (dados = form) => {
+    const quantidadeNumerica = Number(dados.quantidade);
+    if (!dados.nomeItem?.trim()) {
+      throw new Error("Informe o nome do item.");
+    }
+    if (!Number.isFinite(quantidadeNumerica) || quantidadeNumerica <= 0) {
+      throw new Error("Informe uma quantidade valida (maior que zero).");
+    }
+
+    return {
+      nomeItem: dados.nomeItem.trim(),
+      produtoId: dados.produtoId || null,
+      insumoId: dados.insumoId || null,
+      pecaId: dados.pecaId || null,
+      fornecedorId: dados.fornecedorId || null,
+      lojaId: dados.lojaId || null,
+      descricaoUso: dados.descricaoUso || null,
+      quantidade: quantidadeNumerica,
+      unidade: dados.unidade || null,
+      valorUnitario: dados.valorUnitario || null,
+      fotoUrl: dados.fotoUrl || null,
+      observacao: dados.observacao || null,
+    };
+  };
+
+  const adicionarItemCompra = () => {
+    try {
+      const item = montarItemCompra();
+      setItensCompra((prev) => [...prev, { ...item, tempId: crypto.randomUUID() }]);
+      setForm(formInicial);
+      setSuccess("Item adicionado na lista da compra.");
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const adicionarSugestaoNaCompra = (sugestao) => {
+    setItensCompra((prev) => [
+      ...prev,
+      {
+        tempId: crypto.randomUUID(),
+        nomeItem:
+          sugestao.tipo === "peca" ? `Peca: ${sugestao.titulo}` : sugestao.titulo,
+        produtoId: sugestao.produtoId || null,
+        pecaId: sugestao.pecaId || null,
+        insumoId: null,
+        fornecedorId: null,
+        lojaId: sugestao.lojaId || null,
+        descricaoUso:
+          sugestao.tipo === "maquina"
+            ? `${sugestao.lojaNome} - ${sugestao.maquinaNome}`
+            : sugestao.detalhe,
+        quantidade: Number(sugestao.comprar || 0),
+        unidade: sugestao.unidade || "un",
+        valorUnitario: null,
+        fotoUrl: null,
+        observacao: `Sugestao de compra: ${sugestao.detalhe}`,
+      },
+    ]);
+    setSecaoAtiva("novaCompra");
+  };
 
   const handleSelecionarFoto = async (event) => {
     const arquivo = event.target.files?.[0];
@@ -222,6 +462,25 @@ export default function Compras() {
 
   const handleCriarCompra = async (event) => {
     event.preventDefault();
+
+    if (itensCompra.length > 0) {
+      try {
+        setSubmitting(true);
+        setError("");
+        await Promise.all(
+          itensCompra.map(({ tempId, ...item }) => api.post("/compras", item)),
+        );
+        setItensCompra([]);
+        setForm(formInicial);
+        setSuccess(`${itensCompra.length} itens lancados em compras.`);
+        await carregarDados();
+      } catch (err) {
+        setError(err.response?.data?.error || "Erro ao criar compras");
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
 
     if (!form.nomeItem.trim()) {
       setError("Informe o nome do item.");
@@ -246,6 +505,7 @@ export default function Compras() {
         nomeItem: form.nomeItem.trim(),
         produtoId: form.produtoId || null,
         insumoId: form.insumoId || null,
+        pecaId: form.pecaId || null,
         fornecedorId: form.fornecedorId || null,
         lojaId: form.lojaId || null,
         descricaoUso: form.descricaoUso || null,
@@ -523,8 +783,13 @@ export default function Compras() {
               },
               {
                 key: "novaCompra",
-                title: "Nova compra",
+                title: "Compras",
                 subtitle: "Lançar compra, acompanhar status e receber.",
+              },
+              {
+                key: "sugestoes",
+                title: "Sugestao de compra",
+                subtitle: "Ver faltas por loja, maquina, produto e pecas.",
               },
             ].map((opcao) => {
               const ativo = secaoAtiva === opcao.key;
@@ -552,6 +817,144 @@ export default function Compras() {
             })}
           </div>
         </div>
+
+        {secaoAtiva === "sugestoes" && (
+          <div className="card">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Sugestao de compra
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Veja faltas por loja, maquina, produto e pecas, depois mande para a compra.
+                </p>
+              </div>
+              <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700">
+                {sugestoesCompra.length} sugestoes
+              </span>
+            </div>
+
+            <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Pesquisar
+                </label>
+                <input
+                  value={filtrosSugestao.busca}
+                  onChange={(e) =>
+                    setFiltrosSugestao((prev) => ({ ...prev, busca: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                  placeholder="Produto, loja, maquina ou peca"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Tipo
+                </label>
+                <select
+                  value={filtrosSugestao.tipo}
+                  onChange={(e) =>
+                    setFiltrosSugestao((prev) => ({ ...prev, tipo: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="loja">Por loja</option>
+                  <option value="produto">Por produto</option>
+                  <option value="maquina">Por maquina</option>
+                  <option value="peca">Pecas</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Loja
+                </label>
+                <select
+                  value={filtrosSugestao.lojaId}
+                  onChange={(e) =>
+                    setFiltrosSugestao((prev) => ({ ...prev, lojaId: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                >
+                  <option value="">Todas</option>
+                  {lojas.map((loja) => (
+                    <option key={loja.id} value={loja.id}>
+                      {loja.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {sugestoesCompra.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-gray-500">
+                Nenhuma sugestao encontrada com os filtros atuais.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                {sugestoesCompra.map((sugestao) => (
+                  <article
+                    key={sugestao.id}
+                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-bold text-gray-900">{sugestao.titulo}</h3>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold uppercase text-slate-600">
+                            {sugestao.tipo}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-gray-600">
+                          {sugestao.lojaNome || "Geral"}
+                          {sugestao.maquinaNome ? ` - ${sugestao.maquinaNome}` : ""}
+                          {sugestao.codigo ? ` - Cod: ${sugestao.codigo}` : ""}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-black text-red-700">
+                        Comprar {sugestao.comprar} {sugestao.unidade || "un"}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <p className="font-bold text-gray-500">Atual</p>
+                        <p className="text-base font-black text-gray-900">
+                          {sugestao.atual ?? "-"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-orange-50 p-2">
+                        <p className="font-bold text-orange-700">Minimo</p>
+                        <p className="text-base font-black text-orange-800">
+                          {sugestao.minimo ?? "-"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-red-50 p-2">
+                        <p className="font-bold text-red-700">Falta</p>
+                        <p className="text-base font-black text-red-800">
+                          {sugestao.faltaCapacidade ?? sugestao.faltaMinimo ?? "-"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="mt-3 text-xs text-gray-500">{sugestao.detalhe}</p>
+
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        type="button"
+                        className="btn-primary px-4 py-2 text-sm"
+                        onClick={() => adicionarSugestaoNaCompra(sugestao)}
+                      >
+                        Adicionar na compra
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {secaoAtiva === "novaCompra" && (
           <>
@@ -584,6 +987,7 @@ export default function Compras() {
                     ...prev,
                     produtoId: e.target.value,
                     insumoId: e.target.value ? "" : prev.insumoId,
+                    pecaId: e.target.value ? "" : prev.pecaId,
                   }))
                 }
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
@@ -608,6 +1012,7 @@ export default function Compras() {
                     ...prev,
                     insumoId: e.target.value,
                     produtoId: e.target.value ? "" : prev.produtoId,
+                    pecaId: e.target.value ? "" : prev.pecaId,
                   }))
                 }
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
@@ -616,6 +1021,31 @@ export default function Compras() {
                 {insumos.map((insumo) => (
                   <option key={insumo.id} value={insumo.id}>
                     {insumo.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Peca do catalogo (opcional)
+              </label>
+              <select
+                value={form.pecaId}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    pecaId: e.target.value,
+                    produtoId: e.target.value ? "" : prev.produtoId,
+                    insumoId: e.target.value ? "" : prev.insumoId,
+                  }))
+                }
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+              >
+                <option value="">Nenhuma</option>
+                {pecas.map((peca) => (
+                  <option key={peca.id} value={peca.id}>
+                    {peca.nome}
                   </option>
                 ))}
               </select>
@@ -779,6 +1209,61 @@ export default function Compras() {
                 className="min-h-20 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
               />
             </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-orange-100 bg-orange-50 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">
+                  Lista desta compra
+                </h3>
+                <p className="text-xs text-gray-600">
+                  Adicione varios itens. Cada item pode ter seu proprio fornecedor.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary px-4 py-2 text-sm"
+                onClick={adicionarItemCompra}
+              >
+                + Adicionar item
+              </button>
+            </div>
+
+            {itensCompra.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {itensCompra.map((item) => {
+                  const fornecedor = fornecedores.find(
+                    (fornecedorItem) => fornecedorItem.id === item.fornecedorId,
+                  );
+                  return (
+                    <div
+                      key={item.tempId}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-orange-200 bg-white p-3 text-sm"
+                    >
+                      <div>
+                        <p className="font-bold text-gray-900">{item.nomeItem}</p>
+                        <p className="text-xs text-gray-600">
+                          {item.quantidade} {item.unidade || "un"} -{" "}
+                          {fornecedor?.nome || "Sem fornecedor definido"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-danger px-3 py-2 text-xs"
+                        onClick={() =>
+                          setItensCompra((prev) =>
+                            prev.filter((itemLista) => itemLista.tempId !== item.tempId),
+                          )
+                        }
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="mt-4 flex justify-end">
