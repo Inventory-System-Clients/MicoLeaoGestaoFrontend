@@ -2566,6 +2566,25 @@ export function Dashboard() {
           )}
           {usuario?.role === "FUNCIONARIO" && (
             <div
+              className="stat-card bg-linear-to-br from-orange-500 to-red-600 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
+              onClick={() => navigate("/pecas")}
+            >
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium opacity-90">
+                    Meu Estoque de Peças
+                  </h3>
+                  <span className="text-2xl">🧰</span>
+                </div>
+                <p className="text-3xl font-bold">🔩</p>
+                <p className="text-xs opacity-75 mt-1">
+                  Ver peças comigo e devolver ao depósito
+                </p>
+              </div>
+            </div>
+          )}
+          {usuario?.role === "FUNCIONARIO" && (
+            <div
               className="stat-card bg-linear-to-br from-emerald-600 to-emerald-800 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
               onClick={() => setModalGastoVariavel(true)}
             >

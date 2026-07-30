@@ -36,6 +36,8 @@ const normalizarTexto = (valor) =>
 
 export default function Pecas() {
   const { usuario, loading: authLoading } = useAuth();
+  const isAdmin = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
+  const isFuncionario = usuario?.role === "FUNCIONARIO";
 
   const [pecas, setPecas] = useState([]);
   const [funcionarios, setFuncionarios] = useState([]);
@@ -49,7 +51,7 @@ export default function Pecas() {
   const [formPeca, setFormPeca] = useState(formPecaInicial);
   const [editandoPeca, setEditandoPeca] = useState(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const [abaAtiva, setAbaAtiva] = useState("estoque");
+  const [abaAtiva, setAbaAtiva] = useState(isFuncionario ? "carrinhos" : "estoque");
   const [filtros, setFiltros] = useState({
     busca: "",
     status: "ativas",
@@ -63,17 +65,34 @@ export default function Pecas() {
     quantidade: "",
     observacao: "",
   });
+  const [formDevolucao, setFormDevolucao] = useState({
+    quantidade: "",
+    observacao: "",
+  });
 
   const carregarDados = useCallback(async () => {
     try {
       setError("");
-      const [pecasRes, funcionariosRes, enviosRes, estoquesRes] =
-        await Promise.all([
-          api.get("/pecas", { params: { incluirInativas: true } }),
-          api.get("/manutencoes/funcionarios"),
-          api.get("/pecas/envios"),
-          api.get("/pecas/estoque-funcionario"),
-        ]);
+      const requisicoesAdmin = isAdmin
+        ? [
+            api.get("/pecas", { params: { incluirInativas: true } }),
+            api.get("/manutencoes/funcionarios"),
+            api.get("/pecas/envios"),
+            api.get("/pecas/estoque-funcionario"),
+          ]
+        : [api.get("/pecas/estoque-funcionario")];
+
+      const respostas = await Promise.all(requisicoesAdmin);
+
+      if (!isAdmin) {
+        setPecas([]);
+        setFuncionarios([]);
+        setEnvios([]);
+        setEstoquesFuncionarios(Array.isArray(respostas[0].data) ? respostas[0].data : []);
+        return;
+      }
+
+      const [pecasRes, funcionariosRes, enviosRes, estoquesRes] = respostas;
 
       setPecas(Array.isArray(pecasRes.data) ? pecasRes.data : []);
       setFuncionarios(
@@ -88,12 +107,18 @@ export default function Pecas() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (authLoading) return;
     carregarDados();
   }, [authLoading, carregarDados]);
+
+  useEffect(() => {
+    if (isFuncionario) {
+      setAbaAtiva("carrinhos");
+    }
+  }, [isFuncionario]);
 
   const pecasFiltradas = useMemo(() => {
     const busca = normalizarTexto(filtros.busca);
@@ -245,6 +270,7 @@ export default function Pecas() {
     setAcaoAbertaId((atual) => (atual === chave ? null : chave));
     setFormQuantidade({ quantidade: "" });
     setFormEnvio({ funcionarioId: "", quantidade: "", observacao: "" });
+    setFormDevolucao({ quantidade: "", observacao: "" });
   };
 
   const handleLancarQuantidade = async (event, pecaId) => {
@@ -303,6 +329,36 @@ export default function Pecas() {
     }
   };
 
+  const handleDevolverPeca = async (event, item) => {
+    event.preventDefault();
+    const quantidadeNumerica = Number(formDevolucao.quantidade);
+    if (!Number.isInteger(quantidadeNumerica) || quantidadeNumerica <= 0) {
+      setError("Informe uma quantidade valida (inteiro maior que zero).");
+      return;
+    }
+    if (quantidadeNumerica > Number(item.quantidade || 0)) {
+      setError("Voce nao tem essa quantidade para devolver.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+      setSuccess("");
+      await api.post(`/pecas/${item.peca?.id}/devolver`, {
+        quantidade: quantidadeNumerica,
+        observacao: formDevolucao.observacao || null,
+      });
+      setAcaoAbertaId(null);
+      setSuccess("Peca devolvida para o estoque central.");
+      await carregarDados();
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao devolver peca");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading || authLoading) {
     return <PageLoader />;
   }
@@ -316,10 +372,14 @@ export default function Pecas() {
           title="Pecas"
           subtitle={`Usuario: ${usuario?.nome || "-"} (${usuario?.role || "-"})`}
           icon="🧰"
-          action={{
-            label: "+ Nova Peca",
-            onClick: abrirNovaPeca,
-          }}
+          action={
+            isAdmin
+              ? {
+                  label: "+ Nova Peca",
+                  onClick: abrirNovaPeca,
+                }
+              : undefined
+          }
         />
 
         {error && (
@@ -330,13 +390,24 @@ export default function Pecas() {
         )}
 
         <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          {[
-            ["Pecas cadastradas", resumo.total],
-            ["Ativas", resumo.ativas],
-            ["Estoque baixo", resumo.baixoEstoque],
-            ["No deposito", resumo.totalCentral],
-            ["Com funcionarios", resumo.totalCarrinhos],
-          ].map(([label, value], index) => (
+          {(isAdmin
+            ? [
+                ["Pecas cadastradas", resumo.total],
+                ["Ativas", resumo.ativas],
+                ["Estoque baixo", resumo.baixoEstoque],
+                ["No deposito", resumo.totalCentral],
+                ["Com funcionarios", resumo.totalCarrinhos],
+              ]
+            : [
+                [
+                  "Tipos comigo",
+                  estoquesFuncionarios.filter((item) => Number(item.quantidade || 0) > 0)
+                    .length,
+                ],
+                ["Pecas comigo", resumo.totalCarrinhos],
+                ["Devolver", "Livre"],
+              ]
+          ).map(([label, value], index) => (
             <div
               key={label}
               className={`rounded-lg border p-4 shadow-sm ${
@@ -353,11 +424,14 @@ export default function Pecas() {
 
         <section className="rounded-lg border border-orange-100 bg-white p-3 shadow-sm">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            {[
-              ["estoque", "Estoque de pecas", "Cadastrar, editar e enviar"],
-              ["carrinhos", "Carrinhos", "Pecas com funcionarios"],
-              ["envios", "Envios recentes", "Ultimas movimentacoes"],
-            ].map(([key, title, subtitle]) => (
+            {(isAdmin
+              ? [
+                  ["estoque", "Estoque de pecas", "Cadastrar, editar e enviar"],
+                  ["carrinhos", "Carrinhos", "Pecas com funcionarios"],
+                  ["envios", "Envios recentes", "Ultimas movimentacoes"],
+                ]
+              : [["carrinhos", "Meu estoque de pecas", "Pecas que estao comigo"]]
+            ).map(([key, title, subtitle]) => (
               <button
                 key={key}
                 type="button"
@@ -381,7 +455,7 @@ export default function Pecas() {
           </div>
         </section>
 
-        {mostrarFormulario && (
+        {isAdmin && mostrarFormulario && (
           <section className="card-gradient">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -517,7 +591,7 @@ export default function Pecas() {
           </section>
         )}
 
-        {abaAtiva === "estoque" && (
+        {isAdmin && abaAtiva === "estoque" && (
           <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="card">
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -802,26 +876,40 @@ export default function Pecas() {
 
               <div className="card">
                 <h2 className="mb-3 text-base font-black text-gray-900">
-                  Ultimos envios
+                  Ultimas movimentacoes
                 </h2>
                 {envios.length === 0 ? (
                   <p className="text-sm text-gray-600">Nenhum envio registrado.</p>
                 ) : (
                   <div className="space-y-3">
-                    {envios.slice(0, 5).map((envio) => (
+                    {envios.slice(0, 5).map((envio) => {
+                      const devolucao = Number(envio.quantidade || 0) < 0;
+                      return (
                       <div key={envio.id} className="rounded-lg border border-gray-100 p-3">
+                        <span
+                          className={`mb-2 inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${
+                            devolucao
+                              ? "bg-blue-50 text-blue-700"
+                              : "bg-emerald-50 text-emerald-700"
+                          }`}
+                        >
+                          {devolucao ? "Devolucao" : "Envio"}
+                        </span>
                         <p className="text-sm font-bold text-gray-900">
                           {envio.peca?.nome || "-"}
                         </p>
                         <p className="text-xs text-gray-600">
-                          {envio.quantidade} {envio.peca?.unidade || "un"} para{" "}
+                          {Math.abs(Number(envio.quantidade || 0))}{" "}
+                          {envio.peca?.unidade || "un"}{" "}
+                          {devolucao ? "devolvida por" : "para"}{" "}
                           {envio.funcionario?.nome || "-"}
                         </p>
                         <p className="mt-1 text-xs text-gray-400">
                           {formatarDataHora(envio.dataEnvio)}
                         </p>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </div>
@@ -833,10 +921,12 @@ export default function Pecas() {
           <section className="card">
             <div className="mb-4">
               <h2 className="text-lg font-black text-gray-900">
-                Carrinhos dos funcionarios
+                {isFuncionario ? "Meu estoque de pecas" : "Carrinhos dos funcionarios"}
               </h2>
               <p className="text-sm text-gray-500">
-                Pecas que sairam do deposito e estao com cada funcionario.
+                {isFuncionario
+                  ? "Pecas que estao com voce para usar nas manutencoes."
+                  : "Pecas que sairam do deposito e estao com cada funcionario."}
               </p>
             </div>
 
@@ -870,6 +960,60 @@ export default function Pecas() {
                       <p className="text-sm font-bold text-gray-800">
                         {item.peca?.nome}
                       </p>
+                      {isFuncionario && (
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            className="btn-secondary px-4 py-2 text-xs"
+                            onClick={() => abrirAcao(item.id, "devolver")}
+                          >
+                            {acaoAbertaId === `devolver:${item.id}`
+                              ? "Cancelar"
+                              : "Devolver peca"}
+                          </button>
+
+                          {acaoAbertaId === `devolver:${item.id}` && (
+                            <form
+                              onSubmit={(event) => handleDevolverPeca(event, item)}
+                              className="mt-3 grid grid-cols-1 gap-2 rounded-lg border border-orange-100 bg-orange-50 p-3 sm:grid-cols-[120px_1fr_auto]"
+                            >
+                              <input
+                                type="number"
+                                min="1"
+                                max={item.quantidade}
+                                step="1"
+                                value={formDevolucao.quantidade}
+                                onChange={(e) =>
+                                  setFormDevolucao((prev) => ({
+                                    ...prev,
+                                    quantidade: e.target.value,
+                                  }))
+                                }
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                                placeholder="Qtd"
+                              />
+                              <input
+                                value={formDevolucao.observacao}
+                                onChange={(e) =>
+                                  setFormDevolucao((prev) => ({
+                                    ...prev,
+                                    observacao: e.target.value,
+                                  }))
+                                }
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                                placeholder="Observacao"
+                              />
+                              <button
+                                type="submit"
+                                disabled={submitting}
+                                className="btn-primary px-4 py-2 text-xs disabled:opacity-60"
+                              >
+                                Devolver
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                      )}
                     </article>
                   ))}
               </div>
@@ -877,14 +1021,14 @@ export default function Pecas() {
           </section>
         )}
 
-        {abaAtiva === "envios" && (
+        {isAdmin && abaAtiva === "envios" && (
           <section className="card">
             <div className="mb-4">
               <h2 className="text-lg font-black text-gray-900">
-                Historico de envios
+                Historico de movimentacoes
               </h2>
               <p className="text-sm text-gray-500">
-                Movimentacoes de pecas do deposito para funcionarios.
+                Envios do deposito e devolucoes feitas pelos funcionarios.
               </p>
             </div>
 
@@ -898,6 +1042,7 @@ export default function Pecas() {
                   <thead>
                     <tr>
                       <th>Data</th>
+                      <th>Tipo</th>
                       <th>Peca</th>
                       <th>Funcionario</th>
                       <th>Quantidade</th>
@@ -905,17 +1050,32 @@ export default function Pecas() {
                     </tr>
                   </thead>
                   <tbody>
-                    {envios.map((envio) => (
-                      <tr key={envio.id}>
-                        <td>{formatarDataHora(envio.dataEnvio)}</td>
-                        <td>{envio.peca?.nome || "-"}</td>
-                        <td>{envio.funcionario?.nome || "-"}</td>
-                        <td>
-                          {envio.quantidade} {envio.peca?.unidade || "un"}
-                        </td>
-                        <td>{envio.enviadoPor?.nome || "-"}</td>
-                      </tr>
-                    ))}
+                    {envios.map((envio) => {
+                      const devolucao = Number(envio.quantidade || 0) < 0;
+                      return (
+                        <tr key={envio.id}>
+                          <td>{formatarDataHora(envio.dataEnvio)}</td>
+                          <td>
+                            <span
+                              className={`rounded-full px-2 py-1 text-xs font-bold ${
+                                devolucao
+                                  ? "bg-blue-50 text-blue-700"
+                                  : "bg-emerald-50 text-emerald-700"
+                              }`}
+                            >
+                              {devolucao ? "Devolucao" : "Envio"}
+                            </span>
+                          </td>
+                          <td>{envio.peca?.nome || "-"}</td>
+                          <td>{envio.funcionario?.nome || "-"}</td>
+                          <td>
+                            {Math.abs(Number(envio.quantidade || 0))}{" "}
+                            {envio.peca?.unidade || "un"}
+                          </td>
+                          <td>{envio.enviadoPor?.nome || "-"}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -227,7 +227,7 @@ function App() {
           <Route
             path="/pecas"
             element={
-              <PrivateRoute adminOnly>
+              <PrivateRoute roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO"]}>
                 <Pecas />
               </PrivateRoute>
             }
