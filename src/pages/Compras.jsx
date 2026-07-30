@@ -673,10 +673,19 @@ export default function Compras() {
   };
 
   const handleAtualizarStatus = async (id, novoStatus) => {
+    const statusInfo = obterStatusInfo(novoStatus);
+    const confirmado = await confirmar({
+      title: `Dar como ${statusInfo.label.toLowerCase()}?`,
+      text: "Depois de avançar o status, esta compra nao podera voltar para a etapa anterior.",
+      confirmButtonText: `Dar como ${statusInfo.label.toLowerCase()}`,
+    });
+    if (!confirmado) return;
+
     try {
       setError("");
       await api.patch(`/compras/${id}/status`, { status: novoStatus });
       await carregarDados();
+      setSuccess(`Compra marcada como ${statusInfo.label.toLowerCase()}.`);
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao atualizar status da compra");
     }
@@ -909,7 +918,7 @@ export default function Compras() {
         )}
 
         <div className="card">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-5">
             {[
               {
                 key: "fornecedores",
@@ -924,7 +933,12 @@ export default function Compras() {
               {
                 key: "novaCompra",
                 title: "Compras",
-                subtitle: "Lançar compra, acompanhar status e receber.",
+                subtitle: "Lancar pedidos de compra.",
+              },
+              {
+                key: "statusCompra",
+                title: "Status de compra",
+                subtitle: "Avancar para comprado e recebido.",
               },
               {
                 key: "sugestoes",
@@ -1617,7 +1631,10 @@ export default function Compras() {
             </button>
           </div>
         </form>
+          </>
+        )}
 
+        {secaoAtiva === "statusCompra" && (
         <div className="card">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">
             Histórico de compras ({compras.length})
@@ -1781,7 +1798,8 @@ export default function Compras() {
                     </p>
                   ) : (
                     grupo.compras.map((compra) => {
-                      const statusInfo = obterStatusInfo(compra.status);
+                      const statusAtual = normalizarStatusCompra(compra.status);
+                      const statusInfo = obterStatusInfo(statusAtual);
                 return (
                   <div
                     key={compra.id}
@@ -1839,7 +1857,7 @@ export default function Compras() {
                       </a>
                     )}
 
-                    {compra.status === "RECEBIDO" &&
+                    {statusAtual === "RECEBIDO" &&
                       compra.produtoId &&
                       compra.lojaId && (
                         <button
@@ -1852,23 +1870,30 @@ export default function Compras() {
                         </button>
                       )}
 
-                    <div className="mt-3 flex items-center gap-2">
-                      <label className="text-xs font-medium text-gray-700">
-                        Status:
-                      </label>
-                      <select
-                        value={compra.status}
-                        onChange={(e) =>
-                          handleAtualizarStatus(compra.id, e.target.value)
-                        }
-                        className="rounded-lg border border-gray-300 px-2 py-1 text-sm outline-none focus:border-blue-500"
-                      >
-                        {STATUS_OPCOES.map((opcao) => (
-                          <option key={opcao.value} value={opcao.value}>
-                            {opcao.label}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {statusAtual === "PESQUISANDO" && (
+                        <button
+                          type="button"
+                          onClick={() => handleAtualizarStatus(compra.id, "COMPRADO")}
+                          className="btn-primary px-4 py-2 text-sm"
+                        >
+                          Dar como comprado
+                        </button>
+                      )}
+                      {statusAtual === "COMPRADO" && (
+                        <button
+                          type="button"
+                          onClick={() => handleAtualizarStatus(compra.id, "RECEBIDO")}
+                          className="btn-primary px-4 py-2 text-sm"
+                        >
+                          Dar como recebido
+                        </button>
+                      )}
+                      {statusAtual === "RECEBIDO" && (
+                        <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
+                          Compra finalizada
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -1879,7 +1904,6 @@ export default function Compras() {
             </div>
           )}
         </div>
-          </>
         )}
 
         {secaoAtiva === "pesquisa" && (
