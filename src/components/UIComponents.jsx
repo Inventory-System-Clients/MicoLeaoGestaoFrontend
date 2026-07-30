@@ -1,9 +1,23 @@
+import { useState } from "react";
 import { IAgarraAssistente } from "./IAgarraAssistente";
 
 /**
  * PageHeader - Componente de cabeçalho de página padronizado
  */
 export function PageHeader({ title, subtitle, icon, action }) {
+  const [executandoAcao, setExecutandoAcao] = useState(false);
+
+  const handleActionClick = async () => {
+    if (!action?.onClick || executandoAcao || action.disabled) return;
+
+    try {
+      setExecutandoAcao(true);
+      await action.onClick();
+    } finally {
+      setExecutandoAcao(false);
+    }
+  };
+
   return (
     <>
     <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -17,8 +31,14 @@ export function PageHeader({ title, subtitle, icon, action }) {
       {action && (
         <div>
           {typeof action === "object" && action.label ? (
-            <button onClick={action.onClick} className="btn-primary">
-              {action.label}
+            <button
+              type="button"
+              onClick={handleActionClick}
+              disabled={executandoAcao || action.disabled}
+              title={action.title}
+              className="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {executandoAcao ? action.loadingLabel || "Atualizando..." : action.label}
             </button>
           ) : (
             action

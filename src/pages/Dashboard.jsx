@@ -266,6 +266,7 @@ export function Dashboard() {
     gastoVariavelMes: 0,
     loading: true,
   });
+  const [atualizandoDashboard, setAtualizandoDashboard] = useState(false);
   const [manutencoesPendentes, setManutencoesPendentes] = useState([]);
   const [loadingManutencoesPendentes, setLoadingManutencoesPendentes] =
     useState(false);
@@ -981,6 +982,33 @@ export function Dashboard() {
 
     return () => clearInterval(intervaloDashboard);
   }, [carregarDados]);
+
+  const handleAtualizarDashboard = async () => {
+    if (atualizandoDashboard) return;
+
+    try {
+      setAtualizandoDashboard(true);
+      await carregarDados();
+      Swal.fire({
+        icon: "success",
+        title: "Atualizado",
+        text: "Dados do dashboard atualizados.",
+        timer: 1400,
+        showConfirmButton: false,
+        confirmButtonColor: "#ef3b24",
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar dashboard:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Erro ao atualizar",
+        text: "Nao foi possivel atualizar os dados agora.",
+        confirmButtonColor: "#ef3b24",
+      });
+    } finally {
+      setAtualizandoDashboard(false);
+    }
+  };
 
   const carregarManutencoesPendentes = useCallback(async () => {
     if (usuario?.role !== "FUNCIONARIO") {
@@ -2202,12 +2230,14 @@ export function Dashboard() {
             </p>
           </div>
           <button
-            onClick={carregarDados}
-            className="btn-primary flex items-center gap-2"
+            type="button"
+            onClick={handleAtualizarDashboard}
+            disabled={atualizandoDashboard}
+            className="btn-primary flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
             title="Atualizar dados"
           >
             <svg
-              className="w-5 h-5"
+              className={`w-5 h-5 ${atualizandoDashboard ? "animate-spin" : ""}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -2219,7 +2249,7 @@ export function Dashboard() {
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
-            Atualizar
+            {atualizandoDashboard ? "Atualizando..." : "Atualizar"}
           </button>
         </div>
 

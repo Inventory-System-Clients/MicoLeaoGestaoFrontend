@@ -49,6 +49,7 @@ export default function ManutencaoPage() {
   const [pecas, setPecas] = useState([]);
   const [meuEstoquePecas, setMeuEstoquePecas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -171,6 +172,17 @@ export default function ManutencaoPage() {
     if (authLoading) return;
     carregarDados();
   }, [authLoading, carregarDados]);
+
+  const handleAtualizarDados = async () => {
+    if (atualizando) return;
+
+    try {
+      setAtualizando(true);
+      await carregarDados();
+    } finally {
+      setAtualizando(false);
+    }
+  };
 
   useEffect(() => {
     if (!form.maquinaId) {
@@ -700,10 +712,11 @@ export default function ManutencaoPage() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={carregarDados}
-                  className="btn-secondary"
+                  onClick={handleAtualizarDados}
+                  disabled={atualizando}
+                  className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Aplicar filtros
+                  {atualizando ? "Atualizando..." : "Aplicar filtros"}
                 </button>
                 <button
                   type="button"
@@ -841,10 +854,11 @@ export default function ManutencaoPage() {
             <h2 className="text-lg font-semibold text-gray-900">Manutenções</h2>
             <button
               type="button"
-              onClick={carregarDados}
-              className="btn-secondary"
+              onClick={handleAtualizarDados}
+              disabled={atualizando}
+              className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Atualizar
+              {atualizando ? "Atualizando..." : "Atualizar"}
             </button>
           </div>
 
