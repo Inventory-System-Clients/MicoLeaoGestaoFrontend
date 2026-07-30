@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
+import { confirmar } from "../utils/alerts";
 
 const formatarDataHora = (dataIso) => {
   if (!dataIso) return "-";
@@ -43,12 +44,27 @@ export default function FabricacaoPelucia() {
     estoqueMinimo: "",
   });
 
-  const [compraAbertaId, setCompraAbertaId] = useState(null);
+  const [filtrosInsumo, setFiltrosInsumo] = useState({
+    busca: "",
+    status: "ativos",
+    ordenacao: "nome",
+  });
+
+  const [acaoAbertaId, setAcaoAbertaId] = useState(null);
   const [formCompra, setFormCompra] = useState({
     quantidade: "",
     custoUnitario: "",
     fornecedorId: "",
     observacao: "",
+  });
+  const [formEditarInsumo, setFormEditarInsumo] = useState({
+    nome: "",
+    unidade: "",
+    quantidadeEstoque: "",
+    estoqueMinimo: "",
+    custoUnitarioUltimo: "",
+    observacao: "",
+    ativo: true,
   });
 
   const [formPedido, setFormPedido] = useState({
@@ -75,7 +91,7 @@ export default function FabricacaoPelucia() {
         pedidosRes,
         receitasRes,
       ] = await Promise.all([
-        api.get("/insumos"),
+        api.get("/insumos", { params: { incluirInativos: true } }),
         api.get("/insumos/compras"),
         api.get("/produtos"),
         api.get("/fornecedores"),
@@ -127,14 +143,103 @@ export default function FabricacaoPelucia() {
     }
   };
 
-  const abrirCompra = (insumoId) => {
-    setCompraAbertaId((atual) => (atual === insumoId ? null : insumoId));
+  const insumosFiltrados = useMemo(() => {
+    const busca = filtrosInsumo.busca.trim().toLowerCase();
+    const lista = insumos.filter((insumo) => {
+      const estoqueBaixo =
+        insumo.estoqueMinimo !== null &&
+        insumo.estoqueMinimo !== undefined &&
+        Number(insumo.quantidadeEstoque || 0) < Number(insumo.estoqueMinimo || 0);
+
+      if (filtrosInsumo.status === "ativos" && insumo.ativo === false) return false;
+      if (filtrosInsumo.status === "inativos" && insumo.ativo !== false) return false;
+      if (filtrosInsumo.status === "baixo" && !estoqueBaixo) return false;
+      if (busca && !insumo.nome?.toLowerCase().includes(busca)) return false;
+      return true;
+    });
+
+    return [...lista].sort((a, b) => {
+      if (filtrosInsumo.ordenacao === "estoque") {
+        return Number(a.quantidadeEstoque || 0) - Number(b.quantidadeEstoque || 0);
+      }
+      if (filtrosInsumo.ordenacao === "recentes") {
+        return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+      }
+      return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+    });
+  }, [filtrosInsumo, insumos]);
+
+  const abrirAcaoInsumo = (insumo, tipo) => {
+    const chave = `${tipo}:${insumo.id}`;
+    setAcaoAbertaId((atual) => (atual === chave ? null : chave));
     setFormCompra({
       quantidade: "",
       custoUnitario: "",
       fornecedorId: "",
       observacao: "",
     });
+    setFormEditarInsumo({
+      nome: insumo.nome || "",
+      unidade: insumo.unidade || "",
+      quantidadeEstoque: insumo.quantidadeEstoque ?? "",
+      estoqueMinimo: insumo.estoqueMinimo ?? "",
+      custoUnitarioUltimo: insumo.custoUnitarioUltimo ?? "",
+      observacao: insumo.observacao || "",
+      ativo: insumo.ativo !== false,
+    });
+  };
+
+  const handleAtualizarInsumo = async (event, insumoId) => {
+    event.preventDefault();
+    if (!formEditarInsumo.nome.trim()) {
+      setError("Informe o nome do insumo.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+      setSuccess("");
+      await api.put(`/insumos/${insumoId}`, {
+        nome: formEditarInsumo.nome.trim(),
+        unidade: formEditarInsumo.unidade.trim() || null,
+        quantidadeEstoque: formEditarInsumo.quantidadeEstoque,
+        estoqueMinimo: formEditarInsumo.estoqueMinimo,
+        custoUnitarioUltimo: formEditarInsumo.custoUnitarioUltimo || null,
+        observacao: formEditarInsumo.observacao || null,
+        ativo: formEditarInsumo.ativo,
+      });
+      setAcaoAbertaId(null);
+      setSuccess("Insumo atualizado com sucesso.");
+      await carregarDados();
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao atualizar insumo");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleExcluirInsumo = async (insumo) => {
+    const confirmado = await confirmar({
+      title: insumo.ativo === false ? "Excluir insumo definitivamente?" : "Desativar insumo?",
+      text:
+        insumo.ativo === false
+          ? "Esse insumo ja esta inativo e sera removido permanentemente."
+          : "O insumo fica inativo e pode ser removido definitivamente depois.",
+      confirmButtonText: insumo.ativo === false ? "Excluir" : "Desativar",
+    });
+
+    if (!confirmado) return;
+
+    try {
+      setError("");
+      setSuccess("");
+      const response = await api.delete(`/insumos/${insumo.id}`);
+      setSuccess(response.data?.message || "Insumo removido com sucesso.");
+      await carregarDados();
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao excluir insumo");
+    }
   };
 
   const handleRegistrarCompra = async (event, insumoId) => {
@@ -157,7 +262,8 @@ export default function FabricacaoPelucia() {
         fornecedorId: formCompra.fornecedorId || null,
         observacao: formCompra.observacao || null,
       });
-      setCompraAbertaId(null);
+      setAcaoAbertaId(null);
+      setSuccess("Compra registrada com sucesso.");
       await carregarDados();
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao registrar compra");
@@ -472,147 +578,408 @@ export default function FabricacaoPelucia() {
         </div>
 
         <div className="card">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Insumos ({insumos.length})
-          </h2>
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Insumos</h2>
+              <p className="text-sm text-gray-500">
+                Estoque de matéria-prima usada na fabricação.
+              </p>
+            </div>
+            <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700">
+              {insumosFiltrados.length} resultados
+            </span>
+          </div>
 
-          {insumos.length === 0 ? (
-            <p className="text-sm text-gray-600">Nenhum insumo cadastrado.</p>
+          <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                Buscar
+              </label>
+              <input
+                value={filtrosInsumo.busca}
+                onChange={(e) =>
+                  setFiltrosInsumo((prev) => ({ ...prev, busca: e.target.value }))
+                }
+                className="input-field"
+                placeholder="Nome do insumo"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                Status
+              </label>
+              <select
+                value={filtrosInsumo.status}
+                onChange={(e) =>
+                  setFiltrosInsumo((prev) => ({ ...prev, status: e.target.value }))
+                }
+                className="select-field"
+              >
+                <option value="ativos">Ativos</option>
+                <option value="baixo">Estoque baixo</option>
+                <option value="todos">Todos</option>
+                <option value="inativos">Inativos</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                Ordenar
+              </label>
+              <select
+                value={filtrosInsumo.ordenacao}
+                onChange={(e) =>
+                  setFiltrosInsumo((prev) => ({
+                    ...prev,
+                    ordenacao: e.target.value,
+                  }))
+                }
+                className="select-field"
+              >
+                <option value="nome">Nome</option>
+                <option value="estoque">Menor estoque</option>
+                <option value="recentes">Atualizados</option>
+              </select>
+            </div>
+          </div>
+
+          {insumosFiltrados.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-orange-200 p-8 text-center text-sm text-gray-600">
+              Nenhum insumo encontrado com estes filtros.
+            </div>
           ) : (
-            <div className="space-y-3">
-              {insumos.map((insumo) => {
-                const estoqueBaixo =
-                  insumo.estoqueMinimo !== null &&
-                  insumo.estoqueMinimo !== undefined &&
-                  Number(insumo.quantidadeEstoque) < Number(insumo.estoqueMinimo);
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="table-modern">
+                <thead>
+                  <tr>
+                    <th>Insumo</th>
+                    <th>Estoque</th>
+                    <th>Mínimo</th>
+                    <th>Custo</th>
+                    <th className="text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {insumosFiltrados.map((insumo) => {
+                    const estoqueBaixo =
+                      insumo.estoqueMinimo !== null &&
+                      insumo.estoqueMinimo !== undefined &&
+                      Number(insumo.quantidadeEstoque || 0) <
+                        Number(insumo.estoqueMinimo || 0);
+                    const chaveCompra = `compra:${insumo.id}`;
+                    const chaveEditar = `editar:${insumo.id}`;
+                    const acaoAberta =
+                      acaoAbertaId === chaveCompra
+                        ? "compra"
+                        : acaoAbertaId === chaveEditar
+                          ? "editar"
+                          : null;
 
-                return (
-                  <div
-                    key={insumo.id}
-                    className="rounded-lg border border-gray-200 p-4"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-base font-semibold text-gray-900">
-                          {insumo.nome}
-                        </h3>
-                        <p className="text-xs text-gray-600">
-                          Estoque: {insumo.quantidadeEstoque}{" "}
-                          {insumo.unidade || ""}
-                          {" · "}Custo unitário última compra:{" "}
-                          {formatarMoeda(insumo.custoUnitarioUltimo)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {estoqueBaixo && (
-                          <Badge variant="danger" size="sm">
-                            Estoque baixo
-                          </Badge>
+                    return (
+                      <Fragment key={insumo.id}>
+                        <tr>
+                          <td className="whitespace-normal">
+                            <div className="min-w-40 max-w-xs">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-black text-gray-900">
+                                  {insumo.nome}
+                                </p>
+                                {insumo.ativo === false && (
+                                  <Badge variant="danger" size="sm">
+                                    Inativo
+                                  </Badge>
+                                )}
+                                {estoqueBaixo && (
+                                  <Badge variant="danger" size="sm">
+                                    Baixo
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="text-base font-black text-emerald-700">
+                              {insumo.quantidadeEstoque || 0}
+                            </span>{" "}
+                            <span className="text-xs text-gray-500">
+                              {insumo.unidade || "un"}
+                            </span>
+                          </td>
+                          <td>{insumo.estoqueMinimo ?? 0}</td>
+                          <td>{formatarMoeda(insumo.custoUnitarioUltimo)}</td>
+                          <td>
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <button
+                                type="button"
+                                className="btn-secondary px-3 py-2 text-xs whitespace-nowrap"
+                                onClick={() => abrirAcaoInsumo(insumo, "compra")}
+                              >
+                                {acaoAberta === "compra"
+                                  ? "Cancelar"
+                                  : "Registrar compra"}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-secondary px-3 py-2 text-xs whitespace-nowrap"
+                                onClick={() => abrirAcaoInsumo(insumo, "editar")}
+                              >
+                                {acaoAberta === "editar" ? "Cancelar" : "Editar"}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-danger px-3 py-2 text-xs whitespace-nowrap"
+                                onClick={() => handleExcluirInsumo(insumo)}
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {acaoAberta && (
+                          <tr>
+                            <td colSpan={5} className="bg-orange-50/60 p-0">
+                              {acaoAberta === "compra" && (
+                                <form
+                                  onSubmit={(e) =>
+                                    handleRegistrarCompra(e, insumo.id)
+                                  }
+                                  className="grid grid-cols-1 gap-3 p-4 md:grid-cols-4"
+                                >
+                                  <div>
+                                    <label className="mb-1 block text-xs font-medium text-gray-700">
+                                      Quantidade
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      autoFocus
+                                      value={formCompra.quantidade}
+                                      onChange={(e) =>
+                                        setFormCompra((prev) => ({
+                                          ...prev,
+                                          quantidade: e.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="mb-1 block text-xs font-medium text-gray-700">
+                                      Custo unitário (R$)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={formCompra.custoUnitario}
+                                      onChange={(e) =>
+                                        setFormCompra((prev) => ({
+                                          ...prev,
+                                          custoUnitario: e.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="mb-1 block text-xs font-medium text-gray-700">
+                                      Fornecedor
+                                    </label>
+                                    <select
+                                      value={formCompra.fornecedorId}
+                                      onChange={(e) =>
+                                        setFormCompra((prev) => ({
+                                          ...prev,
+                                          fornecedorId: e.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                    >
+                                      <option value="">Selecione...</option>
+                                      {fornecedores.map((fornecedor) => (
+                                        <option
+                                          key={fornecedor.id}
+                                          value={fornecedor.id}
+                                        >
+                                          {fornecedor.nome}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="mb-1 block text-xs font-medium text-gray-700">
+                                      Observação
+                                    </label>
+                                    <input
+                                      value={formCompra.observacao}
+                                      onChange={(e) =>
+                                        setFormCompra((prev) => ({
+                                          ...prev,
+                                          observacao: e.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div className="md:col-span-4 flex justify-end">
+                                    <button
+                                      type="submit"
+                                      disabled={submitting}
+                                      className="btn-primary text-sm disabled:opacity-60"
+                                    >
+                                      {submitting
+                                        ? "Salvando..."
+                                        : "Confirmar compra"}
+                                    </button>
+                                  </div>
+                                </form>
+                              )}
+
+                              {acaoAberta === "editar" && (
+                                <form
+                                  onSubmit={(e) =>
+                                    handleAtualizarInsumo(e, insumo.id)
+                                  }
+                                  className="grid grid-cols-1 gap-3 p-4 md:grid-cols-4"
+                                >
+                                  <div>
+                                    <label className="mb-1 block text-xs font-medium text-gray-700">
+                                      Nome
+                                    </label>
+                                    <input
+                                      autoFocus
+                                      value={formEditarInsumo.nome}
+                                      onChange={(e) =>
+                                        setFormEditarInsumo((prev) => ({
+                                          ...prev,
+                                          nome: e.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="mb-1 block text-xs font-medium text-gray-700">
+                                      Unidade
+                                    </label>
+                                    <input
+                                      value={formEditarInsumo.unidade}
+                                      onChange={(e) =>
+                                        setFormEditarInsumo((prev) => ({
+                                          ...prev,
+                                          unidade: e.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                      placeholder="Ex: kg, m, un"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="mb-1 block text-xs font-medium text-gray-700">
+                                      Estoque atual
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={formEditarInsumo.quantidadeEstoque}
+                                      onChange={(e) =>
+                                        setFormEditarInsumo((prev) => ({
+                                          ...prev,
+                                          quantidadeEstoque: e.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="mb-1 block text-xs font-medium text-gray-700">
+                                      Estoque mínimo
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={formEditarInsumo.estoqueMinimo}
+                                      onChange={(e) =>
+                                        setFormEditarInsumo((prev) => ({
+                                          ...prev,
+                                          estoqueMinimo: e.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="mb-1 block text-xs font-medium text-gray-700">
+                                      Custo unitário última compra (R$)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={formEditarInsumo.custoUnitarioUltimo}
+                                      onChange={(e) =>
+                                        setFormEditarInsumo((prev) => ({
+                                          ...prev,
+                                          custoUnitarioUltimo: e.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div className="md:col-span-2">
+                                    <label className="mb-1 block text-xs font-medium text-gray-700">
+                                      Observação
+                                    </label>
+                                    <input
+                                      value={formEditarInsumo.observacao}
+                                      onChange={(e) =>
+                                        setFormEditarInsumo((prev) => ({
+                                          ...prev,
+                                          observacao: e.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div className="flex items-end">
+                                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                      <input
+                                        type="checkbox"
+                                        checked={formEditarInsumo.ativo}
+                                        onChange={(e) =>
+                                          setFormEditarInsumo((prev) => ({
+                                            ...prev,
+                                            ativo: e.target.checked,
+                                          }))
+                                        }
+                                      />
+                                      Ativo
+                                    </label>
+                                  </div>
+                                  <div className="md:col-span-4 flex justify-end">
+                                    <button
+                                      type="submit"
+                                      disabled={submitting}
+                                      className="btn-primary text-sm disabled:opacity-60"
+                                    >
+                                      {submitting
+                                        ? "Salvando..."
+                                        : "Salvar alterações"}
+                                    </button>
+                                  </div>
+                                </form>
+                              )}
+                            </td>
+                          </tr>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => abrirCompra(insumo.id)}
-                          className="btn-secondary text-sm"
-                        >
-                          {compraAbertaId === insumo.id
-                            ? "Cancelar"
-                            : "Registrar compra"}
-                        </button>
-                      </div>
-                    </div>
-
-                    {compraAbertaId === insumo.id && (
-                      <form
-                        onSubmit={(e) => handleRegistrarCompra(e, insumo.id)}
-                        className="mt-3 grid grid-cols-1 gap-3 rounded-lg bg-gray-50 p-3 md:grid-cols-4"
-                      >
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-gray-700">
-                            Quantidade
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={formCompra.quantidade}
-                            onChange={(e) =>
-                              setFormCompra((prev) => ({
-                                ...prev,
-                                quantidade: e.target.value,
-                              }))
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-gray-700">
-                            Custo unitário (R$)
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={formCompra.custoUnitario}
-                            onChange={(e) =>
-                              setFormCompra((prev) => ({
-                                ...prev,
-                                custoUnitario: e.target.value,
-                              }))
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-gray-700">
-                            Fornecedor
-                          </label>
-                          <select
-                            value={formCompra.fornecedorId}
-                            onChange={(e) =>
-                              setFormCompra((prev) => ({
-                                ...prev,
-                                fornecedorId: e.target.value,
-                              }))
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                          >
-                            <option value="">Selecione...</option>
-                            {fornecedores.map((fornecedor) => (
-                              <option key={fornecedor.id} value={fornecedor.id}>
-                                {fornecedor.nome}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-gray-700">
-                            Observação
-                          </label>
-                          <input
-                            value={formCompra.observacao}
-                            onChange={(e) =>
-                              setFormCompra((prev) => ({
-                                ...prev,
-                                observacao: e.target.value,
-                              }))
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div className="md:col-span-4 flex justify-end">
-                          <button
-                            type="submit"
-                            disabled={submitting}
-                            className="btn-primary text-sm disabled:opacity-60"
-                          >
-                            {submitting ? "Salvando..." : "Confirmar compra"}
-                          </button>
-                        </div>
-                      </form>
-                    )}
-                  </div>
-                );
-              })}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
