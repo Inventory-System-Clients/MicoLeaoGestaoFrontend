@@ -23,6 +23,26 @@ const formatarNumero = (valor) => {
   return numero.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
 };
 
+const paraDataISO = (data) => {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+};
+
+const filtrosConcluidosPadrao = () => {
+  const hoje = new Date();
+  const seteDiasAtras = new Date();
+  seteDiasAtras.setDate(hoje.getDate() - 6);
+  return {
+    produtoId: "",
+    criadoPorId: "",
+    concluidoPorId: "",
+    dataInicio: paraDataISO(seteDiasAtras),
+    dataFim: paraDataISO(hoje),
+  };
+};
+
 export default function FabricacaoPelucia() {
   const { usuario, loading: authLoading } = useAuth();
 
@@ -30,13 +50,20 @@ export default function FabricacaoPelucia() {
   const [compras, setCompras] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [fornecedores, setFornecedores] = useState([]);
-  const [pedidos, setPedidos] = useState([]);
+  const [pedidosPendentes, setPedidosPendentes] = useState([]);
+  const [pedidosConcluidos, setPedidosConcluidos] = useState([]);
+  const [carregandoConcluidos, setCarregandoConcluidos] = useState(false);
   const [receitas, setReceitas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [secaoAtiva, setSecaoAtiva] = useState("insumos");
+  const [pedidosView, setPedidosView] = useState("pendentes");
+  const [filtrosConcluidos, setFiltrosConcluidos] = useState(filtrosConcluidosPadrao);
+  const [filtrosConcluidosAplicados, setFiltrosConcluidosAplicados] = useState(
+    filtrosConcluidosPadrao,
+  );
 
   const [formInsumo, setFormInsumo] = useState({
     nome: "",
@@ -88,14 +115,14 @@ export default function FabricacaoPelucia() {
         comprasRes,
         produtosRes,
         fornecedoresRes,
-        pedidosRes,
+        pendentesRes,
         receitasRes,
       ] = await Promise.all([
         api.get("/insumos", { params: { incluirInativos: true } }),
         api.get("/insumos/compras"),
         api.get("/produtos"),
         api.get("/fornecedores"),
-        api.get("/pedidos-pelucia"),
+        api.get("/pedidos-pelucia", { params: { status: "PENDENTE" } }),
         api.get("/receitas"),
       ]);
 
@@ -105,7 +132,7 @@ export default function FabricacaoPelucia() {
       setFornecedores(
         Array.isArray(fornecedoresRes.data) ? fornecedoresRes.data : [],
       );
-      setPedidos(Array.isArray(pedidosRes.data) ? pedidosRes.data : []);
+      setPedidosPendentes(Array.isArray(pendentesRes.data) ? pendentesRes.data : []);
       setReceitas(Array.isArray(receitasRes.data) ? receitasRes.data : []);
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao carregar dados");
@@ -114,10 +141,43 @@ export default function FabricacaoPelucia() {
     }
   }, []);
 
+  const carregarPedidosConcluidos = useCallback(async (filtros) => {
+    try {
+      setCarregandoConcluidos(true);
+      setError("");
+      const params = Object.fromEntries(
+        Object.entries({ status: "CONCLUIDO", ...filtros }).filter(
+          ([, valor]) => valor !== undefined && valor !== null && valor !== "",
+        ),
+      );
+      const response = await api.get("/pedidos-pelucia", { params });
+      setPedidosConcluidos(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      setError(
+        err.response?.data?.error || "Erro ao carregar pedidos concluídos",
+      );
+    } finally {
+      setCarregandoConcluidos(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (authLoading) return;
     carregarDados();
   }, [authLoading, carregarDados]);
+
+  useEffect(() => {
+    if (authLoading || secaoAtiva !== "pedidos" || pedidosView !== "concluidos") {
+      return;
+    }
+    carregarPedidosConcluidos(filtrosConcluidosAplicados);
+  }, [
+    authLoading,
+    secaoAtiva,
+    pedidosView,
+    filtrosConcluidosAplicados,
+    carregarPedidosConcluidos,
+  ]);
 
   const handleCriarInsumo = async (event) => {
     event.preventDefault();
@@ -429,11 +489,43 @@ export default function FabricacaoPelucia() {
       setItensBaixa([]);
       setSuccess("Baixa registrada com sucesso.");
       await carregarDados();
+      if (pedidosView === "concluidos") {
+        await carregarPedidosConcluidos(filtrosConcluidosAplicados);
+      }
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao dar baixa no pedido");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const opcoesCriadoPor = useMemo(() => {
+    const mapa = new Map();
+    pedidosConcluidos.forEach((pedido) => {
+      if (pedido.criadoPor?.id) mapa.set(pedido.criadoPor.id, pedido.criadoPor.nome);
+    });
+    return Array.from(mapa.entries());
+  }, [pedidosConcluidos]);
+
+  const opcoesConcluidoPor = useMemo(() => {
+    const mapa = new Map();
+    pedidosConcluidos.forEach((pedido) => {
+      if (pedido.concluidoPor?.id) {
+        mapa.set(pedido.concluidoPor.id, pedido.concluidoPor.nome);
+      }
+    });
+    return Array.from(mapa.entries());
+  }, [pedidosConcluidos]);
+
+  const aplicarFiltrosConcluidos = (event) => {
+    event.preventDefault();
+    setFiltrosConcluidosAplicados({ ...filtrosConcluidos });
+  };
+
+  const limparFiltrosConcluidos = () => {
+    const padrao = filtrosConcluidosPadrao();
+    setFiltrosConcluidos(padrao);
+    setFiltrosConcluidosAplicados(padrao);
   };
 
   if (loading || authLoading) {
@@ -1093,71 +1185,83 @@ export default function FabricacaoPelucia() {
         </div>
 
         <div className="card">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Pedidos de pelúcia ({pedidos.length})
-          </h2>
-
-          {pedidos.length === 0 ? (
-            <p className="text-sm text-gray-600">
-              Nenhum pedido de pelúcia registrado.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {pedidos.map((pedido) => (
-                <div
-                  key={pedido.id}
-                  className="rounded-lg border border-gray-200 p-4"
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {[
+              {
+                key: "pendentes",
+                title: "Pendentes",
+                subtitle: `${pedidosPendentes.length} aguardando produção`,
+              },
+              {
+                key: "concluidos",
+                title: "Concluídos",
+                subtitle: "Histórico com filtros",
+              },
+            ].map((opcao) => {
+              const ativo = pedidosView === opcao.key;
+              return (
+                <button
+                  key={opcao.key}
+                  type="button"
+                  onClick={() => setPedidosView(opcao.key)}
+                  className={`rounded-lg border px-4 py-3 text-left transition ${
+                    ativo
+                      ? "border-primary bg-primary text-white shadow-md"
+                      : "border-slate-200 bg-white text-gray-900 hover:border-primary/50 hover:bg-orange-50"
+                  }`}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-base font-semibold text-gray-900">
-                      {pedido.produto?.emoji ? `${pedido.produto.emoji} ` : ""}
-                      {pedido.produto?.nome || "-"} — {pedido.quantidade} un.
-                    </h3>
-                    <Badge
-                      variant={
-                        pedido.status === "CONCLUIDO" ? "success" : "warning"
-                      }
-                      size="sm"
-                    >
-                      {pedido.status === "CONCLUIDO" ? "Concluído" : "Pendente"}
-                    </Badge>
-                  </div>
+                  <span className="block text-sm font-bold">{opcao.title}</span>
+                  <span
+                    className={`mt-1 block text-xs ${
+                      ativo ? "text-white/85" : "text-gray-500"
+                    }`}
+                  >
+                    {opcao.subtitle}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-                  {pedido.observacao && (
-                    <p className="mt-2 text-sm text-gray-700">
-                      {pedido.observacao}
-                    </p>
-                  )}
+        {pedidosView === "pendentes" && (
+          <div className="card">
+            <h3 className="mb-3 text-base font-bold text-gray-900">
+              Pendentes ({pedidosPendentes.length})
+            </h3>
 
-                  <div className="mt-2 space-y-1 text-xs text-gray-600">
-                    <p>Criado por: {pedido.criadoPor?.nome || "-"}</p>
-                    <p>Criado em: {formatarDataHora(pedido.createdAt)}</p>
-                    {pedido.status === "CONCLUIDO" && (
-                      <>
-                        <p>Concluído por: {pedido.concluidoPor?.nome || "-"}</p>
-                        <p>
-                          Concluído em: {formatarDataHora(pedido.concluidoEm)}
-                        </p>
-                      </>
-                    )}
-                  </div>
+            {pedidosPendentes.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-orange-200 p-8 text-center text-sm text-gray-600">
+                Nenhum pedido pendente.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pedidosPendentes.map((pedido) => (
+                  <div
+                    key={pedido.id}
+                    className="rounded-lg border border-gray-200 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-base font-semibold text-gray-900">
+                        {pedido.produto?.emoji ? `${pedido.produto.emoji} ` : ""}
+                        {pedido.produto?.nome || "-"} — {pedido.quantidade} un.
+                      </h3>
+                      <Badge variant="warning" size="sm">
+                        Pendente
+                      </Badge>
+                    </div>
 
-                  {pedido.status === "CONCLUIDO" &&
-                    pedido.insumosConsumidos?.length > 0 && (
-                      <div className="mt-2 rounded-lg bg-slate-50 p-2 text-xs text-gray-600">
-                        <p className="font-bold text-gray-700">
-                          Insumos consumidos:
-                        </p>
-                        {pedido.insumosConsumidos.map((consumo) => (
-                          <p key={consumo.id}>
-                            {consumo.insumo?.nome}: {consumo.quantidade}{" "}
-                            {consumo.insumo?.unidade || ""}
-                          </p>
-                        ))}
-                      </div>
+                    {pedido.observacao && (
+                      <p className="mt-2 text-sm text-gray-700">
+                        {pedido.observacao}
+                      </p>
                     )}
 
-                  {pedido.status === "PENDENTE" && (
+                    <div className="mt-2 space-y-1 text-xs text-gray-600">
+                      <p>Criado por: {pedido.criadoPor?.nome || "-"}</p>
+                      <p>Criado em: {formatarDataHora(pedido.createdAt)}</p>
+                    </div>
+
                     <div className="mt-3">
                       <button
                         type="button"
@@ -1260,12 +1364,198 @@ export default function FabricacaoPelucia() {
                         </div>
                       )}
                     </div>
-                  )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {pedidosView === "concluidos" && (
+          <div className="card">
+            <form
+              onSubmit={aplicarFiltrosConcluidos}
+              className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3"
+            >
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Produto
+                  </label>
+                  <select
+                    value={filtrosConcluidos.produtoId}
+                    onChange={(e) =>
+                      setFiltrosConcluidos((prev) => ({
+                        ...prev,
+                        produtoId: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  >
+                    <option value="">Todos</option>
+                    {produtos.map((produto) => (
+                      <option key={produto.id} value={produto.id}>
+                        {produto.emoji ? `${produto.emoji} ` : ""}
+                        {produto.nome}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ))}
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Quem pediu
+                  </label>
+                  <select
+                    value={filtrosConcluidos.criadoPorId}
+                    onChange={(e) =>
+                      setFiltrosConcluidos((prev) => ({
+                        ...prev,
+                        criadoPorId: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  >
+                    <option value="">Todos</option>
+                    {opcoesCriadoPor.map(([id, nome]) => (
+                      <option key={id} value={id}>
+                        {nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Quem concluiu
+                  </label>
+                  <select
+                    value={filtrosConcluidos.concluidoPorId}
+                    onChange={(e) =>
+                      setFiltrosConcluidos((prev) => ({
+                        ...prev,
+                        concluidoPorId: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  >
+                    <option value="">Todos</option>
+                    {opcoesConcluidoPor.map(([id, nome]) => (
+                      <option key={id} value={id}>
+                        {nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Concluído de
+                  </label>
+                  <input
+                    type="date"
+                    value={filtrosConcluidos.dataInicio}
+                    onChange={(e) =>
+                      setFiltrosConcluidos((prev) => ({
+                        ...prev,
+                        dataInicio: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Concluído até
+                  </label>
+                  <input
+                    type="date"
+                    value={filtrosConcluidos.dataFim}
+                    onChange={(e) =>
+                      setFiltrosConcluidos((prev) => ({
+                        ...prev,
+                        dataFim: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex items-end gap-2">
+                  <button type="submit" className="btn-primary flex-1">
+                    Aplicar filtros
+                  </button>
+                  <button
+                    type="button"
+                    onClick={limparFiltrosConcluidos}
+                    className="btn-secondary"
+                  >
+                    Últimos 7 dias
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="text-base font-bold text-gray-900">
+                Concluídos ({pedidosConcluidos.length})
+              </h3>
+              {carregandoConcluidos && (
+                <span className="text-xs text-gray-500">Carregando...</span>
+              )}
             </div>
-          )}
-        </div>
+
+            {pedidosConcluidos.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-orange-200 p-8 text-center text-sm text-gray-600">
+                {carregandoConcluidos
+                  ? "Carregando pedidos concluídos..."
+                  : "Nenhum pedido concluído encontrado com estes filtros."}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pedidosConcluidos.map((pedido) => (
+                  <div
+                    key={pedido.id}
+                    className="rounded-lg border border-gray-200 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-base font-semibold text-gray-900">
+                        {pedido.produto?.emoji ? `${pedido.produto.emoji} ` : ""}
+                        {pedido.produto?.nome || "-"} — {pedido.quantidade} un.
+                      </h3>
+                      <Badge variant="success" size="sm">
+                        Concluído
+                      </Badge>
+                    </div>
+
+                    {pedido.observacao && (
+                      <p className="mt-2 text-sm text-gray-700">
+                        {pedido.observacao}
+                      </p>
+                    )}
+
+                    <div className="mt-2 space-y-1 text-xs text-gray-600">
+                      <p>Criado por: {pedido.criadoPor?.nome || "-"}</p>
+                      <p>Criado em: {formatarDataHora(pedido.createdAt)}</p>
+                      <p>Concluído por: {pedido.concluidoPor?.nome || "-"}</p>
+                      <p>Concluído em: {formatarDataHora(pedido.concluidoEm)}</p>
+                    </div>
+
+                    {pedido.insumosConsumidos?.length > 0 && (
+                      <div className="mt-2 rounded-lg bg-slate-50 p-2 text-xs text-gray-600">
+                        <p className="font-bold text-gray-700">
+                          Insumos consumidos:
+                        </p>
+                        {pedido.insumosConsumidos.map((consumo) => (
+                          <p key={consumo.id}>
+                            {consumo.insumo?.nome}: {consumo.quantidade}{" "}
+                            {consumo.insumo?.unidade || ""}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
           </>
         )}
 
