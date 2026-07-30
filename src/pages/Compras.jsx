@@ -43,6 +43,8 @@ const numeroFormatado = new Intl.NumberFormat("pt-BR", {
 });
 
 const formInicial = {
+  tipoItem: "produto",
+  itemNovo: false,
   nomeItem: "",
   produtoId: "",
   insumoId: "",
@@ -57,7 +59,12 @@ const formInicial = {
   fotoUrl: "",
 };
 
+const rotuloTipoItem = (tipo) =>
+  tipo === "insumo" ? "insumo" : tipo === "peca" ? "peça" : "produto";
+
 const produtoFornecedorVazio = {
+  tipo: "produto",
+  itemNovo: false,
   produtoNome: "",
   quantidade: "",
   unidade: "un",
@@ -100,9 +107,11 @@ const calcularUnitarioFornecedor = (produto) => {
 const limparPayloadFornecedor = (form) => ({
   ...form,
   produtos: form.produtos.map((produto) => ({
-    ...produto,
+    produtoNome: produto.produtoNome,
     quantidade: Number(produto.quantidade),
+    unidade: produto.unidade,
     preco: Number(produto.preco),
+    observacoes: produto.observacoes,
   })),
   anexos: form.anexos.filter((anexo) => anexo.url.trim()),
 });
@@ -712,6 +721,8 @@ export default function Compras() {
       produtos:
         fornecedor.produtos?.length > 0
           ? fornecedor.produtos.map((produto) => ({
+              tipo: "produto",
+              itemNovo: true,
               produtoNome: produto.produtoNome || "",
               quantidade: produto.quantidade || "",
               unidade: produto.unidade || "un",
@@ -1052,98 +1063,132 @@ export default function Compras() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="md:col-span-3">
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                Nome do item
+                Tipo de item
               </label>
-              <input
-                value={form.nomeItem}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, nomeItem: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                placeholder="Ex: Pelúcia urso 30cm"
-              />
+              <div className="flex flex-wrap gap-2">
+                {[
+                  ["produto", "Produto"],
+                  ["insumo", "Insumo"],
+                  ["peca", "Peça"],
+                ].map(([value, label]) => {
+                  const ativo = form.tipoItem === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          tipoItem: value,
+                          produtoId: "",
+                          insumoId: "",
+                          pecaId: "",
+                          nomeItem: "",
+                          lojaId: value === "produto" ? prev.lojaId : "",
+                          descricaoUso: value === "produto" ? prev.descricaoUso : "",
+                        }))
+                      }
+                      className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+                        ativo
+                          ? "border-primary bg-primary text-white shadow-sm"
+                          : "border-orange-200 bg-white text-gray-700 hover:bg-orange-100"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Produto do catálogo (opcional)
+            <div className="md:col-span-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={form.itemNovo}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      itemNovo: e.target.checked,
+                      produtoId: "",
+                      insumoId: "",
+                      pecaId: "",
+                      nomeItem: "",
+                    }))
+                  }
+                />
+                Este {rotuloTipoItem(form.tipoItem)} ainda não existe no catálogo (cadastrar novo)
               </label>
-              <select
-                value={form.produtoId}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    produtoId: e.target.value,
-                    insumoId: e.target.value ? "" : prev.insumoId,
-                    pecaId: e.target.value ? "" : prev.pecaId,
-                    lojaId: e.target.value ? prev.lojaId : "",
-                    descricaoUso: e.target.value ? prev.descricaoUso : "",
-                  }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              >
-                <option value="">Nenhum</option>
-                {produtos.map((produto) => (
-                  <option key={produto.id} value={produto.id}>
-                    {produto.nome}
-                  </option>
-                ))}
-              </select>
             </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Insumo do catálogo (opcional)
-              </label>
-              <select
-                value={form.insumoId}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    insumoId: e.target.value,
-                    produtoId: e.target.value ? "" : prev.produtoId,
-                    pecaId: e.target.value ? "" : prev.pecaId,
-                    lojaId: e.target.value ? "" : prev.lojaId,
-                    descricaoUso: e.target.value ? "" : prev.descricaoUso,
-                  }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              >
-                <option value="">Nenhum</option>
-                {insumos.map((insumo) => (
-                  <option key={insumo.id} value={insumo.id}>
-                    {insumo.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Peca do catalogo (opcional)
-              </label>
-              <select
-                value={form.pecaId}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    pecaId: e.target.value,
-                    produtoId: e.target.value ? "" : prev.produtoId,
-                    insumoId: e.target.value ? "" : prev.insumoId,
-                    lojaId: e.target.value ? "" : prev.lojaId,
-                    descricaoUso: e.target.value ? "" : prev.descricaoUso,
-                  }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              >
-                <option value="">Nenhuma</option>
-                {pecas.map((peca) => (
-                  <option key={peca.id} value={peca.id}>
-                    {peca.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {form.itemNovo ? (
+              <div className="md:col-span-3">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Nome do {rotuloTipoItem(form.tipoItem)} novo
+                </label>
+                <input
+                  value={form.nomeItem}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, nomeItem: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                  placeholder="Ex: Pelúcia urso 30cm"
+                />
+              </div>
+            ) : (
+              <div className="md:col-span-3">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {form.tipoItem === "produto"
+                    ? "Produto"
+                    : form.tipoItem === "insumo"
+                      ? "Insumo"
+                      : "Peça"}{" "}
+                  do catálogo
+                </label>
+                <select
+                  value={
+                    form.tipoItem === "produto"
+                      ? form.produtoId
+                      : form.tipoItem === "insumo"
+                        ? form.insumoId
+                        : form.pecaId
+                  }
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    const lista =
+                      form.tipoItem === "produto"
+                        ? produtos
+                        : form.tipoItem === "insumo"
+                          ? insumos
+                          : pecas;
+                    const selecionado = lista.find((item) => item.id === id);
+                    setForm((prev) => ({
+                      ...prev,
+                      produtoId: form.tipoItem === "produto" ? id : "",
+                      insumoId: form.tipoItem === "insumo" ? id : "",
+                      pecaId: form.tipoItem === "peca" ? id : "",
+                      nomeItem: selecionado?.nome || "",
+                      lojaId: form.tipoItem === "produto" ? prev.lojaId : "",
+                      descricaoUso:
+                        form.tipoItem === "produto" ? prev.descricaoUso : "",
+                    }));
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                >
+                  <option value="">Selecione...</option>
+                  {(form.tipoItem === "produto"
+                    ? produtos
+                    : form.tipoItem === "insumo"
+                      ? insumos
+                      : pecas
+                  ).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -2283,17 +2328,96 @@ export default function Compras() {
                   {formFornecedor.produtos.map((produto, index) => (
                     <div
                       key={`produto-${index}`}
-                      className="grid grid-cols-1 gap-2 rounded-lg border border-orange-100 bg-white p-2 md:grid-cols-6 lg:grid-cols-12"
+                      className="rounded-lg border border-orange-100 bg-white p-2"
                     >
-                      <input
-                        className="min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-6 lg:col-span-4"
-                        value={produto.produtoNome}
-                        onChange={(e) =>
-                          atualizarProdutoFornecedor(index, "produtoNome", e.target.value)
-                        }
-                        placeholder="Nome do produto"
-                        required
-                      />
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        {[
+                          ["produto", "Produto"],
+                          ["insumo", "Insumo"],
+                          ["peca", "Peça"],
+                        ].map(([value, label]) => {
+                          const ativo = (produto.tipo || "produto") === value;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() =>
+                                setFormFornecedor((prev) => ({
+                                  ...prev,
+                                  produtos: prev.produtos.map((item, itemIndex) =>
+                                    itemIndex === index
+                                      ? { ...item, tipo: value, produtoNome: "" }
+                                      : item,
+                                  ),
+                                }))
+                              }
+                              className={`rounded-full border px-3 py-1 text-xs font-bold transition ${
+                                ativo
+                                  ? "border-primary bg-primary text-white"
+                                  : "border-orange-200 bg-white text-gray-700 hover:bg-orange-100"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                        <label className="ml-auto flex items-center gap-1 text-xs font-semibold text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(produto.itemNovo)}
+                            onChange={(e) =>
+                              setFormFornecedor((prev) => ({
+                                ...prev,
+                                produtos: prev.produtos.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        itemNovo: e.target.checked,
+                                        produtoNome: "",
+                                      }
+                                    : item,
+                                ),
+                              }))
+                            }
+                          />
+                          Item novo (não existe no catálogo)
+                        </label>
+                      </div>
+
+                      {produto.itemNovo ? (
+                        <input
+                          className="mb-2 w-full min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                          value={produto.produtoNome}
+                          onChange={(e) =>
+                            atualizarProdutoFornecedor(index, "produtoNome", e.target.value)
+                          }
+                          placeholder={`Nome do ${rotuloTipoItem(produto.tipo)} novo`}
+                          required
+                        />
+                      ) : (
+                        <select
+                          className="mb-2 w-full min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                          value={produto.produtoNome}
+                          onChange={(e) =>
+                            atualizarProdutoFornecedor(index, "produtoNome", e.target.value)
+                          }
+                          required
+                        >
+                          <option value="">Selecione...</option>
+                          {(produto.tipo === "insumo"
+                            ? insumos
+                            : produto.tipo === "peca"
+                              ? pecas
+                              : produtos
+                          ).map((item) => (
+                            <option key={item.id} value={item.nome}>
+                              {item.nome}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-6 lg:grid-cols-12">
                       <input
                         className="min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-2 lg:col-span-2"
                         type="number"
@@ -2344,6 +2468,7 @@ export default function Compras() {
                       >
                         Remover
                       </button>
+                      </div>
                     </div>
                   ))}
                 </div>
