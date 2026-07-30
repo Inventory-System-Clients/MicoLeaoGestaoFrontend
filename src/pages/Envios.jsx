@@ -494,13 +494,21 @@ export default function Envios() {
                       </p>
                     </div>
                     {!envio.despachadoEm ? (
-                      <button
-                        type="button"
-                        onClick={() => handleDespachar(envio)}
-                        className="btn-primary text-sm"
-                      >
-                        {isEntregador ? "Registrar retirada" : "Despachar"}
-                      </button>
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDespachar(envio)}
+                          className="btn-primary text-sm"
+                        >
+                          {isEntregador ? "Dar baixa" : "Despachar"}
+                        </button>
+                        {isEntregador && (
+                          <p className="text-xs text-gray-500">
+                            Clique em Dar baixa para registrar que você retirou
+                            o envio e ele passa para conferência de lacre.
+                          </p>
+                        )}
+                      </div>
                     ) : (
                       <Badge variant="info" size="sm">
                         Despachado em {formatarDataHora(envio.despachadoEm)}
