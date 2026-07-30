@@ -371,6 +371,11 @@ export default function FabricacaoPelucia() {
     return Array.from(grupos.entries());
   }, [receitas]);
 
+  const receitaSelecionadaExiste = useMemo(
+    () => receitas.some((item) => item.produtoId === produtoReceitaId),
+    [receitas, produtoReceitaId],
+  );
+
   const selecionarProdutoReceita = (produtoId) => {
     setProdutoReceitaId(produtoId);
     const referenciaNumerica = Number(receitaReferencia) || 100;
@@ -431,6 +436,31 @@ export default function FabricacaoPelucia() {
       await carregarDados();
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao salvar receita");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRemoverReceita = async () => {
+    if (!produtoReceitaId) return;
+
+    const confirmado = await confirmar({
+      title: "Remover receita deste produto?",
+      text: "A baixa de pedidos desse produto vai parar de sugerir consumo de insumos automaticamente.",
+      confirmButtonText: "Remover",
+    });
+    if (!confirmado) return;
+
+    try {
+      setSubmitting(true);
+      setError("");
+      setSuccess("");
+      await api.put(`/receitas/produto/${produtoReceitaId}`, { itens: [] });
+      setItensReceita([{ insumoId: "", quantidadeLote: "" }]);
+      setSuccess("Receita removida.");
+      await carregarDados();
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao remover receita");
     } finally {
       setSubmitting(false);
     }
@@ -1560,62 +1590,76 @@ export default function FabricacaoPelucia() {
         )}
 
         {secaoAtiva === "receitas" && (
-          <div className="card">
-            <h2 className="mb-1 text-lg font-semibold text-gray-900">
-              Receita de produção
-            </h2>
-            <p className="mb-4 text-sm text-gray-500">
-              Cadastre quanto de cada insumo é gasto para produzir cada
-              pelúcia. Ao dar baixa em um pedido, o sistema sugere o consumo
-              automaticamente com base nessa receita.
-            </p>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Produto
-                </label>
-                <select
-                  value={produtoReceitaId}
-                  onChange={(e) => selecionarProdutoReceita(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  <option value="">Selecione...</option>
-                  {produtos.map((produto) => (
-                    <option key={produto.id} value={produto.id}>
-                      {produto.emoji ? `${produto.emoji} ` : ""}
-                      {produto.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Quantidade de referência
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={receitaReferencia}
-                  onChange={(e) => setReceitaReferencia(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                />
-              </div>
+          <>
+        <div className="card">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Receita de produção
+              </h2>
+              <p className="text-sm text-gray-500">
+                Cadastre quanto de cada insumo é gasto para produzir cada
+                pelúcia. Ao dar baixa em um pedido, o sistema sugere o
+                consumo automaticamente com base nessa receita.
+              </p>
             </div>
+            {produtoReceitaId && receitaSelecionadaExiste && (
+              <Badge variant="warning" size="sm">
+                Editando receita existente
+              </Badge>
+            )}
+          </div>
 
-            {produtoReceitaId && (
-              <div className="mt-4 rounded-lg border border-orange-100 bg-orange-50 p-3">
-                <p className="mb-2 text-sm text-gray-700">
-                  Ex: para produzir <strong>{receitaReferencia || 0}</strong>{" "}
-                  unidades, quanto de cada insumo é gasto?
-                </p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Produto
+              </label>
+              <select
+                value={produtoReceitaId}
+                onChange={(e) => selecionarProdutoReceita(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+              >
+                <option value="">Selecione...</option>
+                {produtos.map((produto) => (
+                  <option key={produto.id} value={produto.id}>
+                    {produto.emoji ? `${produto.emoji} ` : ""}
+                    {produto.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Quantidade de referência
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={receitaReferencia}
+                onChange={(e) => setReceitaReferencia(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
 
-                <div className="space-y-2">
-                  {itensReceita.map((item, index) => (
+          {produtoReceitaId ? (
+            <div className="mt-4 rounded-2xl border border-orange-100 bg-orange-50/70 p-4">
+              <p className="mb-3 text-sm text-gray-700">
+                Para produzir <strong>{receitaReferencia || 0}</strong>{" "}
+                unidades, quanto de cada insumo é gasto?
+              </p>
+
+              <div className="space-y-2">
+                {itensReceita.map((item, index) => {
+                  const insumoSelecionado = insumos.find(
+                    (insumo) => insumo.id === item.insumoId,
+                  );
+                  return (
                     <div
                       key={index}
-                      className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_160px_auto]"
+                      className="grid grid-cols-1 items-center gap-2 rounded-lg border border-orange-100 bg-white p-2 sm:grid-cols-[1fr_140px_auto]"
                     >
                       <select
                         value={item.insumoId}
@@ -1632,40 +1676,59 @@ export default function FabricacaoPelucia() {
                           </option>
                         ))}
                       </select>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.0001"
-                        value={item.quantidadeLote}
-                        onChange={(e) =>
-                          atualizarLinhaReceita(
-                            index,
-                            "quantidadeLote",
-                            e.target.value,
-                          )
-                        }
-                        placeholder="Quantidade gasta"
-                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                      />
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.0001"
+                          value={item.quantidadeLote}
+                          onChange={(e) =>
+                            atualizarLinhaReceita(
+                              index,
+                              "quantidadeLote",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="Quantidade"
+                          className="w-full rounded-lg border border-gray-300 px-2 py-1.5 pr-10 text-sm outline-none focus:border-blue-500"
+                        />
+                        {insumoSelecionado?.unidade && (
+                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">
+                            {insumoSelecionado.unidade}
+                          </span>
+                        )}
+                      </div>
                       <button
                         type="button"
                         onClick={() => removerLinhaReceita(index)}
-                        className="btn-danger px-3 text-xs"
+                        className="btn-danger px-3 py-1.5 text-xs"
                       >
                         Remover
                       </button>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+              </div>
 
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={adicionarLinhaReceita}
-                    className="btn-secondary text-xs"
-                  >
-                    + Adicionar insumo
-                  </button>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={adicionarLinhaReceita}
+                  className="btn-secondary text-xs"
+                >
+                  + Adicionar insumo
+                </button>
+                <div className="flex flex-wrap gap-2">
+                  {receitaSelecionadaExiste && (
+                    <button
+                      type="button"
+                      disabled={submitting}
+                      onClick={handleRemoverReceita}
+                      className="btn-danger text-sm disabled:opacity-60"
+                    >
+                      Remover receita
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={submitting}
@@ -1676,43 +1739,72 @@ export default function FabricacaoPelucia() {
                   </button>
                 </div>
               </div>
-            )}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed border-orange-200 p-8 text-center text-sm text-gray-600">
+              Selecione um produto acima para cadastrar ou editar a receita.
+            </div>
+          )}
+        </div>
 
-            <div className="mt-5">
-              <h3 className="mb-2 text-base font-bold text-gray-900">
-                Produtos com receita cadastrada
-              </h3>
-              {produtosComReceita.length === 0 ? (
-                <p className="text-sm text-gray-600">
-                  Nenhuma receita cadastrada ainda.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {produtosComReceita.map(([produtoId, itens]) => (
-                    <div
-                      key={produtoId}
-                      className="rounded-lg border border-gray-200 p-3 text-sm"
-                    >
+        <div className="card">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-base font-bold text-gray-900">
+              Produtos com receita cadastrada
+            </h3>
+            <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700">
+              {produtosComReceita.length} produtos
+            </span>
+          </div>
+
+          {produtosComReceita.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-orange-200 p-8 text-center text-sm text-gray-600">
+              Nenhuma receita cadastrada ainda.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {produtosComReceita.map(([produtoId, itens]) => {
+                const selecionado = produtoReceitaId === produtoId;
+                return (
+                  <button
+                    key={produtoId}
+                    type="button"
+                    onClick={() => selecionarProdutoReceita(produtoId)}
+                    className={`rounded-lg border p-3 text-left text-sm transition ${
+                      selecionado
+                        ? "border-primary bg-orange-50 shadow-sm"
+                        : "border-gray-200 bg-white hover:border-primary/50 hover:bg-orange-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
                       <p className="font-bold text-gray-900">
                         {itens[0]?.produto?.emoji
                           ? `${itens[0].produto.emoji} `
                           : ""}
                         {itens[0]?.produto?.nome || "-"}
                       </p>
-                      <p className="text-xs text-gray-600">
-                        {itens
-                          .map(
-                            (item) =>
-                              `${item.insumo?.nome}: ${formatarNumero(item.quantidadePorUnidade)} ${item.insumo?.unidade || ""}/un`,
-                          )
-                          .join(" · ")}
-                      </p>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">
+                        {itens.length} insumo{itens.length === 1 ? "" : "s"}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <p className="mt-1 text-xs text-gray-600">
+                      {itens
+                        .map(
+                          (item) =>
+                            `${item.insumo?.nome}: ${formatarNumero(item.quantidadePorUnidade)} ${item.insumo?.unidade || ""}/un`,
+                        )
+                        .join(" · ")}
+                    </p>
+                    <span className="mt-2 inline-block text-xs font-bold text-primary">
+                      Editar →
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          )}
+        </div>
+          </>
         )}
       </div>
 
