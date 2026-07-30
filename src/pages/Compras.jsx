@@ -295,36 +295,46 @@ export default function Compras() {
       sugestoesProdutoMap.set(sugestao.produtoId, atual);
     });
 
-    const sugestoesMaquina = maquinas
-      .map((maquina) => {
+    const sugestoesMaquinasPorLojaMap = new Map();
+    maquinas.forEach((maquina) => {
         const estoque = estoquesMaquinas[maquina.id];
         const atual = Number(estoque?.estoqueAtual || 0);
         const capacidade = Number(maquina.capacidadePadrao || estoque?.maquina?.capacidadePadrao || 0);
         const minimo = Number(estoque?.estoqueMinimo || 0);
         const faltaCapacidade = Math.max(0, capacidade - atual);
         const faltaMinimo = Math.max(0, minimo - atual);
-        if (faltaCapacidade <= 0 && faltaMinimo <= 0) return null;
-        return {
-          id: `maquina-${maquina.id}`,
-          tipo: "maquina",
-          titulo: `Reposicao ${maquina.nome || maquina.codigo || "maquina"}`,
-          codigo: maquina.codigo,
+        const comprar = faltaCapacidade || faltaMinimo;
+        if (comprar <= 0 || !maquina.lojaId) return;
+
+        const loja = lojas.find((item) => item.id === maquina.lojaId);
+        const atualLoja = sugestoesMaquinasPorLojaMap.get(maquina.lojaId) || {
+          id: `loja-maquinas-${maquina.lojaId}`,
+          tipo: "loja",
+          titulo: `Reposicao das maquinas`,
+          codigo: "",
           produtoId: "",
-          lojaId: maquina.lojaId || "",
-          lojaNome: maquina.loja?.nome || "Loja",
-          maquinaId: maquina.id,
-          maquinaNome: maquina.nome || maquina.codigo || "Maquina",
-          atual,
-          minimo,
-          capacidade,
-          faltaMinimo,
-          faltaCapacidade,
-          comprar: faltaCapacidade || faltaMinimo,
+          lojaId: maquina.lojaId,
+          lojaNome: loja?.nome || maquina.loja?.nome || "Loja",
+          atual: 0,
+          minimo: 0,
+          capacidade: 0,
+          faltaMinimo: 0,
+          faltaCapacidade: 0,
+          comprar: 0,
           unidade: "un",
-          detalhe: "Falta para completar a capacidade da maquina",
+          maquinas: [],
+          detalhe: "Soma do que falta nas maquinas desta loja",
         };
-      })
-      .filter(Boolean);
+
+        atualLoja.atual += atual;
+        atualLoja.minimo += minimo;
+        atualLoja.capacidade += capacidade;
+        atualLoja.faltaMinimo += faltaMinimo;
+        atualLoja.faltaCapacidade += faltaCapacidade;
+        atualLoja.comprar += comprar;
+        atualLoja.maquinas.push(maquina.nome || maquina.codigo || "Maquina");
+        sugestoesMaquinasPorLojaMap.set(maquina.lojaId, atualLoja);
+      });
 
     const sugestoesPecas = pecas
       .map((peca) => {
@@ -351,7 +361,7 @@ export default function Compras() {
     return [
       ...sugestoesLoja,
       ...Array.from(sugestoesProdutoMap.values()),
-      ...sugestoesMaquina,
+      ...Array.from(sugestoesMaquinasPorLojaMap.values()),
       ...sugestoesPecas,
     ]
       .filter((sugestao) => {
@@ -361,18 +371,12 @@ export default function Compras() {
         if (filtrosSugestao.lojaId && sugestao.lojaId !== filtrosSugestao.lojaId) {
           return false;
         }
-        if (
-          filtrosSugestao.maquinaId &&
-          sugestao.maquinaId !== filtrosSugestao.maquinaId
-        ) {
-          return false;
-        }
         if (!busca) return true;
         return [
           sugestao.titulo,
           sugestao.codigo,
           sugestao.lojaNome,
-          sugestao.maquinaNome,
+          sugestao.maquinas?.join(" "),
           sugestao.detalhe,
         ]
           .join(" ")
@@ -442,6 +446,14 @@ export default function Compras() {
       },
     ]);
     setSecaoAtiva("novaCompra");
+  };
+
+  const atualizarItemCompra = (tempId, campo, valor) => {
+    setItensCompra((prev) =>
+      prev.map((item) =>
+        item.tempId === tempId ? { ...item, [campo]: valor || null } : item,
+      ),
+    );
   };
 
   const handleSelecionarFoto = async (event) => {
@@ -789,7 +801,7 @@ export default function Compras() {
               {
                 key: "sugestoes",
                 title: "Sugestao de compra",
-                subtitle: "Ver faltas por loja, maquina, produto e pecas.",
+                subtitle: "Ver faltas por loja, produto e pecas.",
               },
             ].map((opcao) => {
               const ativo = secaoAtiva === opcao.key;
@@ -826,7 +838,7 @@ export default function Compras() {
                   Sugestao de compra
                 </h2>
                 <p className="text-sm text-gray-500">
-                  Veja faltas por loja, maquina, produto e pecas, depois mande para a compra.
+                  Veja faltas consolidadas por loja, produto e pecas, depois mande para a compra.
                 </p>
               </div>
               <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700">
@@ -834,56 +846,103 @@ export default function Compras() {
               </span>
             </div>
 
-            <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                  Pesquisar
-                </label>
-                <input
-                  value={filtrosSugestao.busca}
-                  onChange={(e) =>
-                    setFiltrosSugestao((prev) => ({ ...prev, busca: e.target.value }))
+            <div className="mb-5 rounded-lg border border-orange-100 bg-orange-50/70 p-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="relative flex-1">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-lg">
+                    🔎
+                  </span>
+                  <input
+                    value={filtrosSugestao.busca}
+                    onChange={(e) =>
+                      setFiltrosSugestao((prev) => ({
+                        ...prev,
+                        busca: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-orange-200 bg-white py-3 pl-10 pr-3 text-sm font-semibold outline-none focus:border-primary focus:ring-4 focus:ring-orange-100"
+                  placeholder="Buscar produto, loja ou peca"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="rounded-lg border border-orange-200 bg-white px-4 py-3 text-sm font-bold text-orange-700 hover:bg-orange-100"
+                  onClick={() =>
+                    setFiltrosSugestao({
+                      busca: "",
+                      tipo: "todos",
+                      lojaId: "",
+                      maquinaId: "",
+                    })
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                  placeholder="Produto, loja, maquina ou peca"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                  Tipo
-                </label>
-                <select
-                  value={filtrosSugestao.tipo}
-                  onChange={(e) =>
-                    setFiltrosSugestao((prev) => ({ ...prev, tipo: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
                 >
-                  <option value="todos">Todos</option>
-                  <option value="loja">Por loja</option>
-                  <option value="produto">Por produto</option>
-                  <option value="maquina">Por maquina</option>
-                  <option value="peca">Pecas</option>
-                </select>
+                  Limpar
+                </button>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                  Loja
-                </label>
-                <select
-                  value={filtrosSugestao.lojaId}
-                  onChange={(e) =>
-                    setFiltrosSugestao((prev) => ({ ...prev, lojaId: e.target.value }))
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[
+                  ["todos", "Todos"],
+                  ["loja", "Por loja"],
+                  ["produto", "Por produto"],
+                  ["peca", "Pecas"],
+                ].map(([value, label]) => {
+                  const ativo = filtrosSugestao.tipo === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() =>
+                        setFiltrosSugestao((prev) => ({ ...prev, tipo: value }))
+                      }
+                      className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+                        ativo
+                          ? "border-primary bg-primary text-white shadow-sm"
+                          : "border-orange-200 bg-white text-gray-700 hover:bg-orange-100"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFiltrosSugestao((prev) => ({ ...prev, lojaId: "" }))
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                  className={`shrink-0 rounded-lg border px-3 py-2 text-left text-xs font-bold transition ${
+                    !filtrosSugestao.lojaId
+                      ? "border-red-400 bg-white text-red-700 shadow-sm"
+                      : "border-orange-200 bg-white/70 text-gray-600 hover:bg-white"
+                  }`}
                 >
-                  <option value="">Todas</option>
-                  {lojas.map((loja) => (
-                    <option key={loja.id} value={loja.id}>
+                  Todas as lojas
+                </button>
+                {lojas.map((loja) => {
+                  const ativo = filtrosSugestao.lojaId === loja.id;
+                  return (
+                    <button
+                      key={loja.id}
+                      type="button"
+                      onClick={() =>
+                        setFiltrosSugestao((prev) => ({
+                          ...prev,
+                          lojaId: loja.id,
+                        }))
+                      }
+                      className={`shrink-0 rounded-lg border px-3 py-2 text-left text-xs font-bold transition ${
+                        ativo
+                          ? "border-red-400 bg-white text-red-700 shadow-sm"
+                          : "border-orange-200 bg-white/70 text-gray-600 hover:bg-white"
+                      }`}
+                    >
                       {loja.nome}
-                    </option>
-                  ))}
-                </select>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -892,17 +951,17 @@ export default function Compras() {
                 Nenhuma sugestao encontrada com os filtros atuais.
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {sugestoesCompra.map((sugestao) => (
                   <article
                     key={sugestao.id}
-                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+                    className="rounded-lg border border-orange-100 bg-white p-4 shadow-sm transition hover:border-orange-300 hover:shadow-md"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="font-bold text-gray-900">{sugestao.titulo}</h3>
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold uppercase text-slate-600">
+                          <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-bold uppercase text-orange-700">
                             {sugestao.tipo}
                           </span>
                         </div>
@@ -918,19 +977,19 @@ export default function Compras() {
                     </div>
 
                     <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-                      <div className="rounded-lg bg-slate-50 p-2">
+                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <p className="font-bold text-gray-500">Atual</p>
                         <p className="text-base font-black text-gray-900">
                           {sugestao.atual ?? "-"}
                         </p>
                       </div>
-                      <div className="rounded-lg bg-orange-50 p-2">
+                      <div className="rounded-lg border border-orange-100 bg-orange-50 p-3">
                         <p className="font-bold text-orange-700">Minimo</p>
                         <p className="text-base font-black text-orange-800">
                           {sugestao.minimo ?? "-"}
                         </p>
                       </div>
-                      <div className="rounded-lg bg-red-50 p-2">
+                      <div className="rounded-lg border border-red-100 bg-red-50 p-3">
                         <p className="font-bold text-red-700">Falta</p>
                         <p className="text-base font-black text-red-800">
                           {sugestao.faltaCapacidade ?? sugestao.faltaMinimo ?? "-"}
@@ -1239,26 +1298,130 @@ export default function Compras() {
                   return (
                     <div
                       key={item.tempId}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-orange-200 bg-white p-3 text-sm"
+                      className="rounded-lg border border-orange-200 bg-white p-3 text-sm"
                     >
-                      <div>
-                        <p className="font-bold text-gray-900">{item.nomeItem}</p>
-                        <p className="text-xs text-gray-600">
-                          {item.quantidade} {item.unidade || "un"} -{" "}
-                          {fornecedor?.nome || "Sem fornecedor definido"}
-                        </p>
+                      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-bold text-gray-900">{item.nomeItem}</p>
+                          <p className="text-xs text-gray-600">
+                            {fornecedor?.nome || "Sem fornecedor definido"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-danger px-3 py-2 text-xs"
+                          onClick={() =>
+                            setItensCompra((prev) =>
+                              prev.filter((itemLista) => itemLista.tempId !== item.tempId),
+                            )
+                          }
+                        >
+                          Remover
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        className="btn-danger px-3 py-2 text-xs"
-                        onClick={() =>
-                          setItensCompra((prev) =>
-                            prev.filter((itemLista) => itemLista.tempId !== item.tempId),
-                          )
-                        }
-                      >
-                        Remover
-                      </button>
+
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+                        <div className="md:col-span-2">
+                          <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                            Fornecedor
+                          </label>
+                          <select
+                            value={item.fornecedorId || ""}
+                            onChange={(e) =>
+                              atualizarItemCompra(
+                                item.tempId,
+                                "fornecedorId",
+                                e.target.value,
+                              )
+                            }
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                          >
+                            <option value="">Selecione...</option>
+                            {fornecedores.map((fornecedorItem) => (
+                              <option key={fornecedorItem.id} value={fornecedorItem.id}>
+                                {fornecedorItem.nome}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                            Quantidade
+                          </label>
+                          <input
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            value={item.quantidade || ""}
+                            onChange={(e) =>
+                              atualizarItemCompra(item.tempId, "quantidade", e.target.value)
+                            }
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                            Unidade
+                          </label>
+                          <input
+                            value={item.unidade || ""}
+                            onChange={(e) =>
+                              atualizarItemCompra(item.tempId, "unidade", e.target.value)
+                            }
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                            Valor un.
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.valorUnitario || ""}
+                            onChange={(e) =>
+                              atualizarItemCompra(
+                                item.tempId,
+                                "valorUnitario",
+                                e.target.value,
+                              )
+                            }
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                            Loja destino
+                          </label>
+                          <select
+                            value={item.lojaId || ""}
+                            onChange={(e) =>
+                              atualizarItemCompra(item.tempId, "lojaId", e.target.value)
+                            }
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                          >
+                            <option value="">Nenhuma</option>
+                            {lojas.map((loja) => (
+                              <option key={loja.id} value={loja.id}>
+                                {loja.nome}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="md:col-span-3">
+                          <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                            Observacao
+                          </label>
+                          <input
+                            value={item.observacao || ""}
+                            onChange={(e) =>
+                              atualizarItemCompra(item.tempId, "observacao", e.target.value)
+                            }
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                          />
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
