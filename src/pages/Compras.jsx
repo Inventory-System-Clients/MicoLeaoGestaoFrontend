@@ -358,11 +358,34 @@ export default function Compras() {
       })
       .filter(Boolean);
 
+    const sugestoesInsumos = insumos
+      .map((insumo) => {
+        const atual = Number(insumo.quantidadeEstoque || 0);
+        const minimo = Number(insumo.estoqueMinimo || 0);
+        const faltaMinimo = Math.max(0, minimo - atual);
+        if (faltaMinimo <= 0) return null;
+        return {
+          id: `insumo-${insumo.id}`,
+          tipo: "insumo",
+          titulo: insumo.nome,
+          codigo: "",
+          insumoId: insumo.id,
+          atual,
+          minimo,
+          faltaMinimo,
+          comprar: faltaMinimo,
+          unidade: insumo.unidade || "un",
+          detalhe: "Insumo abaixo do estoque minimo do deposito",
+        };
+      })
+      .filter(Boolean);
+
     return [
       ...sugestoesLoja,
       ...Array.from(sugestoesProdutoMap.values()),
       ...Array.from(sugestoesMaquinasPorLojaMap.values()),
       ...sugestoesPecas,
+      ...sugestoesInsumos,
     ]
       .filter((sugestao) => {
         if (filtrosSugestao.tipo !== "todos" && sugestao.tipo !== filtrosSugestao.tipo) {
@@ -384,7 +407,7 @@ export default function Compras() {
           .includes(busca);
       })
       .sort((a, b) => Number(b.comprar || 0) - Number(a.comprar || 0));
-  }, [estoquesLojas, estoquesMaquinas, filtrosSugestao, lojas, maquinas, pecas]);
+  }, [estoquesLojas, estoquesMaquinas, filtrosSugestao, insumos, lojas, maquinas, pecas]);
 
   const montarItemCompra = (dados = form) => {
     const quantidadeNumerica = Number(dados.quantidade);
@@ -428,10 +451,14 @@ export default function Compras() {
       {
         tempId: crypto.randomUUID(),
         nomeItem:
-          sugestao.tipo === "peca" ? `Peca: ${sugestao.titulo}` : sugestao.titulo,
+          sugestao.tipo === "peca"
+            ? `Peca: ${sugestao.titulo}`
+            : sugestao.tipo === "insumo"
+              ? `Insumo: ${sugestao.titulo}`
+              : sugestao.titulo,
         produtoId: sugestao.produtoId || null,
         pecaId: sugestao.pecaId || null,
-        insumoId: null,
+        insumoId: sugestao.insumoId || null,
         fornecedorId: null,
         lojaId: sugestao.lojaId || null,
         descricaoUso:
@@ -838,7 +865,7 @@ export default function Compras() {
                   Sugestao de compra
                 </h2>
                 <p className="text-sm text-gray-500">
-                  Veja faltas consolidadas por loja, produto e pecas, depois mande para a compra.
+                  Veja faltas consolidadas por loja, produto, pecas e insumos, depois mande para a compra.
                 </p>
               </div>
               <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700">
@@ -861,7 +888,7 @@ export default function Compras() {
                       }))
                     }
                     className="w-full rounded-lg border border-orange-200 bg-white py-3 pl-10 pr-3 text-sm font-semibold outline-none focus:border-primary focus:ring-4 focus:ring-orange-100"
-                  placeholder="Buscar produto, loja ou peca"
+                  placeholder="Buscar produto, loja, peca ou insumo"
                   />
                 </div>
                 <button
@@ -886,6 +913,7 @@ export default function Compras() {
                   ["loja", "Por loja"],
                   ["produto", "Por produto"],
                   ["peca", "Pecas"],
+                  ["insumo", "Insumos"],
                 ].map(([value, label]) => {
                   const ativo = filtrosSugestao.tipo === value;
                   return (

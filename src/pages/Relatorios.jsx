@@ -465,6 +465,15 @@ export function Relatorios() {
       (acc, maquina) => acc + toNumber(maquina?.totais?.custoProdutosSairam),
       0,
     );
+    const gastoFixoTotalPeriodo = toNumber(
+      dadosRelatorio?.totais?.gastoFixoTotalPeriodo,
+    );
+    const gastoVariavelTotalPeriodo = toNumber(
+      dadosRelatorio?.totais?.gastoVariavelTotalPeriodo,
+    );
+    const gastoComprasOperacionaisPeriodo = toNumber(
+      dadosRelatorio?.totais?.gastoComprasOperacionaisPeriodo,
+    );
 
     return {
       ...dadosRelatorio,
@@ -473,6 +482,12 @@ export function Relatorios() {
         ...(dadosRelatorio?.totais || {}),
         custoProdutosTotal,
         gastoProdutosTotalPeriodo: custoProdutosTotal,
+        gastoProdutosVendidosPeriodo: custoProdutosTotal,
+        gastoTotalPeriodo:
+          gastoFixoTotalPeriodo +
+          gastoVariavelTotalPeriodo +
+          custoProdutosTotal +
+          gastoComprasOperacionaisPeriodo,
       },
     };
   };
@@ -1607,7 +1622,7 @@ export function Relatorios() {
                   </div>
                 </div>
 
-                {/* Custo total de produtos */}
+                {/* Custo de produtos vendidos */}
                 <div className="card bg-gradient-to-br from-yellow-100 to-yellow-400 text-yellow-900 border-yellow-400 border-2">
                   <div className="text-2xl sm:text-3xl mb-2">💸</div>
                   <div className="text-xl sm:text-2xl font-bold">
@@ -1627,7 +1642,7 @@ export function Relatorios() {
                     })()}
                   </div>
                   <div className="text-xs sm:text-sm opacity-90">
-                    Custo total de produtos
+                    Custo de pelucias vendidas
                   </div>
                   <div className="text-2xl sm:text-3xl mb-2">📤</div>
                   <div className="text-xl sm:text-2xl font-bold">
@@ -1649,6 +1664,28 @@ export function Relatorios() {
                   </div>
                   <div className="text-xs sm:text-sm opacity-90">
                     Gastos Variáveis
+                  </div>
+                </div>
+                <div className="card bg-gradient-to-br from-slate-700 to-slate-900 text-white">
+                  <div className="text-2xl sm:text-3xl mb-2">ðŸ›’</div>
+                  <div className="text-xl sm:text-2xl font-bold">
+                    R${" "}
+                    {Number(
+                      relatorio.totais?.gastoComprasOperacionaisPeriodo || 0,
+                    ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-xs sm:text-sm opacity-90">
+                    Compras de pecas/insumos
+                  </div>
+                  <div className="text-[10px] sm:text-xs opacity-80 mt-1">
+                    Pecas: R${" "}
+                    {Number(
+                      relatorio.totais?.gastoComprasPecasPeriodo || 0,
+                    ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}{" "}
+                    | Insumos: R${" "}
+                    {Number(
+                      relatorio.totais?.gastoComprasInsumosPeriodo || 0,
+                    ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </div>
                 </div>
                 <div className="card bg-gradient-to-br from-violet-500 to-purple-800 text-white">
@@ -1690,7 +1727,10 @@ export function Relatorios() {
                     ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </div>
                   <div className="text-xs sm:text-sm opacity-90">
-                    Gasto Total
+                    Gastos do periodo
+                  </div>
+                  <div className="text-[10px] sm:text-xs opacity-80 mt-1">
+                    Fixos + variaveis + pelucias vendidas + pecas/insumos
                   </div>
                 </div>
                 <div className="card bg-gradient-to-br from-emerald-600 to-green-800 text-white">
@@ -1763,6 +1803,57 @@ export function Relatorios() {
                   </div>
                 </div>
               </div>
+
+              {Array.isArray(relatorio.comprasOperacionais) &&
+                relatorio.comprasOperacionais.length > 0 && (
+                  <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h3 className="text-base font-bold text-gray-900">
+                          Compras operacionais recebidas
+                        </h3>
+                        <p className="text-xs text-gray-600">
+                          Pecas e insumos entram como gasto no periodo quando sao recebidos.
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                        {relatorio.comprasOperacionais.length} itens
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto rounded-lg border border-slate-200">
+                      <table className="table-modern">
+                        <thead>
+                          <tr>
+                            <th>Tipo</th>
+                            <th>Item</th>
+                            <th>Fornecedor</th>
+                            <th>Qtd</th>
+                            <th>Valor</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {relatorio.comprasOperacionais.map((compra) => (
+                            <tr key={compra.id}>
+                              <td>{compra.tipo}</td>
+                              <td>{compra.nomeItem}</td>
+                              <td>{compra.fornecedorNome}</td>
+                              <td>
+                                {Number(compra.quantidade || 0).toLocaleString("pt-BR")}{" "}
+                                {compra.unidade || "un"}
+                              </td>
+                              <td>
+                                R${" "}
+                                {Number(compra.valorTotal || 0).toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 2,
+                                })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
               <div className="mt-5 border-t border-purple-200 pt-4 no-print">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
