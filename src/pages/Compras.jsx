@@ -1022,10 +1022,10 @@ export default function Compras() {
         </div>
 
         {mostrarModalFornecedor && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 sm:p-4">
             <form
               onSubmit={salvarFornecedor}
-              className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-lg border border-orange-100 bg-white p-5 shadow-2xl"
+              className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-lg border border-orange-100 bg-white p-4 shadow-2xl sm:p-5"
             >
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <h2 className="text-lg font-bold text-gray-900">
@@ -1097,7 +1097,7 @@ export default function Compras() {
 
               <div className="mt-4 rounded-lg border border-orange-100 bg-orange-50/60 p-3">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-bold text-gray-900">Produtos e preços</h3>
+                  <h3 className="text-sm font-bold text-gray-900">Produtos e custos</h3>
                   <button
                     type="button"
                     className="btn-secondary text-xs"
@@ -1118,10 +1118,10 @@ export default function Compras() {
                   {formFornecedor.produtos.map((produto, index) => (
                     <div
                       key={`produto-${index}`}
-                      className="grid grid-cols-1 gap-2 rounded-lg border border-orange-100 bg-white p-2 md:grid-cols-12"
+                      className="grid grid-cols-1 gap-2 rounded-lg border border-orange-100 bg-white p-2 md:grid-cols-6 lg:grid-cols-12"
                     >
                       <input
-                        className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-4"
+                        className="min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-6 lg:col-span-4"
                         value={produto.produtoNome}
                         onChange={(e) =>
                           atualizarProdutoFornecedor(index, "produtoNome", e.target.value)
@@ -1130,7 +1130,7 @@ export default function Compras() {
                         required
                       />
                       <input
-                        className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-2"
+                        className="min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-2 lg:col-span-2"
                         type="number"
                         min="0.01"
                         step="0.01"
@@ -1142,7 +1142,7 @@ export default function Compras() {
                         required
                       />
                       <input
-                        className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-2"
+                        className="min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-2 lg:col-span-1"
                         value={produto.unidade}
                         onChange={(e) =>
                           atualizarProdutoFornecedor(index, "unidade", e.target.value)
@@ -1150,7 +1150,7 @@ export default function Compras() {
                         placeholder="un"
                       />
                       <input
-                        className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-2"
+                        className="min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500 md:col-span-2 lg:col-span-2"
                         type="number"
                         min="0"
                         step="0.01"
@@ -1158,15 +1158,15 @@ export default function Compras() {
                         onChange={(e) =>
                           atualizarProdutoFornecedor(index, "preco", e.target.value)
                         }
-                        placeholder="Preço"
+                        placeholder="Custo total"
                         required
                       />
-                      <div className="flex h-[38px] items-center rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-bold text-gray-900 md:col-span-1">
+                      <div className="flex h-[38px] min-w-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-bold text-gray-900 md:col-span-3 lg:col-span-2">
                         {moeda.format(calcularUnitarioFornecedor(produto))}
                       </div>
                       <button
                         type="button"
-                        className="btn-danger text-xs md:col-span-1"
+                        className="btn-danger min-h-[38px] px-3 text-xs md:col-span-3 lg:col-span-1"
                         disabled={formFornecedor.produtos.length === 1}
                         onClick={() =>
                           setFormFornecedor({
