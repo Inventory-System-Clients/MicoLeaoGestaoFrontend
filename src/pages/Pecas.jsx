@@ -1,10 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
+import { confirmar } from "../utils/alerts";
+
+const formPecaInicial = {
+  codigo: "",
+  nome: "",
+  descricao: "",
+  unidade: "un",
+  quantidadeEstoque: "",
+  estoqueMinimo: "",
+  custoUnitario: "",
+};
 
 const formatarDataHora = (dataIso) => {
   if (!dataIso) return "-";
@@ -12,6 +23,16 @@ const formatarDataHora = (dataIso) => {
   if (Number.isNaN(data.getTime())) return "-";
   return data.toLocaleString("pt-BR");
 };
+
+const moeda = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+
+const normalizarTexto = (valor) =>
+  String(valor || "")
+    .trim()
+    .toLowerCase();
 
 export default function Pecas() {
   const { usuario, loading: authLoading } = useAuth();
@@ -22,14 +43,17 @@ export default function Pecas() {
   const [estoquesFuncionarios, setEstoquesFuncionarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const [formPeca, setFormPeca] = useState({
-    codigo: "",
-    nome: "",
-    unidade: "",
-    estoqueMinimo: "",
-    custoUnitario: "",
+  const [formPeca, setFormPeca] = useState(formPecaInicial);
+  const [editandoPeca, setEditandoPeca] = useState(null);
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState("estoque");
+  const [filtros, setFiltros] = useState({
+    busca: "",
+    status: "ativas",
+    ordenacao: "nome",
   });
 
   const [acaoAbertaId, setAcaoAbertaId] = useState(null);
@@ -45,7 +69,7 @@ export default function Pecas() {
       setError("");
       const [pecasRes, funcionariosRes, enviosRes, estoquesRes] =
         await Promise.all([
-          api.get("/pecas"),
+          api.get("/pecas", { params: { incluirInativas: true } }),
           api.get("/manutencoes/funcionarios"),
           api.get("/pecas/envios"),
           api.get("/pecas/estoque-funcionario"),
@@ -71,35 +95,148 @@ export default function Pecas() {
     carregarDados();
   }, [authLoading, carregarDados]);
 
-  const handleCriarPeca = async (event) => {
+  const pecasFiltradas = useMemo(() => {
+    const busca = normalizarTexto(filtros.busca);
+    const lista = pecas.filter((peca) => {
+      const texto = normalizarTexto(
+        [peca.codigo, peca.nome, peca.descricao, peca.unidade].join(" "),
+      );
+      const estoqueBaixo =
+        peca.estoqueMinimo !== null &&
+        peca.estoqueMinimo !== undefined &&
+        Number(peca.quantidadeEstoque || 0) < Number(peca.estoqueMinimo || 0);
+
+      if (filtros.status === "ativas" && peca.ativo === false) return false;
+      if (filtros.status === "inativas" && peca.ativo !== false) return false;
+      if (filtros.status === "baixo" && !estoqueBaixo) return false;
+      if (busca && !texto.includes(busca)) return false;
+      return true;
+    });
+
+    return [...lista].sort((a, b) => {
+      if (filtros.ordenacao === "estoque") {
+        return Number(a.quantidadeEstoque || 0) - Number(b.quantidadeEstoque || 0);
+      }
+      if (filtros.ordenacao === "recentes") {
+        return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+      }
+      return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+    });
+  }, [filtros, pecas]);
+
+  const resumo = useMemo(() => {
+    const ativas = pecas.filter((peca) => peca.ativo !== false);
+    const baixoEstoque = ativas.filter(
+      (peca) =>
+        peca.estoqueMinimo !== null &&
+        peca.estoqueMinimo !== undefined &&
+        Number(peca.quantidadeEstoque || 0) < Number(peca.estoqueMinimo || 0),
+    );
+    const totalCentral = ativas.reduce(
+      (acc, peca) => acc + Number(peca.quantidadeEstoque || 0),
+      0,
+    );
+    const totalCarrinhos = estoquesFuncionarios
+      .filter((item) => Number(item.quantidade || 0) > 0)
+      .reduce((acc, item) => acc + Number(item.quantidade || 0), 0);
+
+    return {
+      total: pecas.length,
+      ativas: ativas.length,
+      baixoEstoque: baixoEstoque.length,
+      totalCentral,
+      totalCarrinhos,
+    };
+  }, [estoquesFuncionarios, pecas]);
+
+  const abrirNovaPeca = () => {
+    setEditandoPeca(null);
+    setFormPeca(formPecaInicial);
+    setMostrarFormulario(true);
+  };
+
+  const abrirEdicao = (peca) => {
+    setEditandoPeca(peca);
+    setFormPeca({
+      codigo: peca.codigo || "",
+      nome: peca.nome || "",
+      descricao: peca.descricao || "",
+      unidade: peca.unidade || "un",
+      quantidadeEstoque: peca.quantidadeEstoque ?? "",
+      estoqueMinimo: peca.estoqueMinimo ?? "",
+      custoUnitario: peca.custoUnitario ?? "",
+    });
+    setMostrarFormulario(true);
+  };
+
+  const fecharFormulario = () => {
+    setEditandoPeca(null);
+    setFormPeca(formPecaInicial);
+    setMostrarFormulario(false);
+  };
+
+  const handleSalvarPeca = async (event) => {
     event.preventDefault();
     if (!formPeca.nome.trim()) {
-      setError("Informe o nome da peça.");
+      setError("Informe o nome da peca.");
       return;
     }
 
     try {
       setSubmitting(true);
       setError("");
-      await api.post("/pecas", {
+      setSuccess("");
+
+      const payload = {
         codigo: formPeca.codigo.trim() || null,
         nome: formPeca.nome.trim(),
+        descricao: formPeca.descricao.trim() || null,
         unidade: formPeca.unidade.trim() || null,
-        estoqueMinimo: formPeca.estoqueMinimo || 0,
+        quantidadeEstoque: Number(formPeca.quantidadeEstoque || 0),
+        estoqueMinimo: Number(formPeca.estoqueMinimo || 0),
         custoUnitario: formPeca.custoUnitario || null,
-      });
-      setFormPeca({
-        codigo: "",
-        nome: "",
-        unidade: "",
-        estoqueMinimo: "",
-        custoUnitario: "",
-      });
+      };
+
+      if (editandoPeca) {
+        await api.put(`/pecas/${editandoPeca.id}`, payload);
+        setSuccess("Peca atualizada com sucesso.");
+      } else {
+        await api.post("/pecas", payload);
+        setSuccess("Peca cadastrada com sucesso.");
+      }
+
+      fecharFormulario();
       await carregarDados();
     } catch (err) {
-      setError(err.response?.data?.error || "Erro ao criar peça");
+      setError(
+        err.response?.data?.error ||
+          (editandoPeca ? "Erro ao atualizar peca" : "Erro ao criar peca"),
+      );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleExcluirPeca = async (peca) => {
+    const confirmado = await confirmar({
+      title: peca.ativo === false ? "Excluir peca definitivamente?" : "Desativar peca?",
+      text:
+        peca.ativo === false
+          ? "Essa peca ja esta inativa e sera removida permanentemente."
+          : "A peca fica inativa e pode ser removida definitivamente depois.",
+      confirmButtonText: peca.ativo === false ? "Excluir" : "Desativar",
+    });
+
+    if (!confirmado) return;
+
+    try {
+      setError("");
+      setSuccess("");
+      const response = await api.delete(`/pecas/${peca.id}`);
+      setSuccess(response.data?.message || "Peca removida com sucesso.");
+      await carregarDados();
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao excluir peca");
     }
   };
 
@@ -114,20 +251,22 @@ export default function Pecas() {
     event.preventDefault();
     const quantidadeNumerica = Number(formQuantidade.quantidade);
     if (!Number.isInteger(quantidadeNumerica) || quantidadeNumerica <= 0) {
-      setError("Informe uma quantidade válida (inteiro maior que zero).");
+      setError("Informe uma quantidade valida (inteiro maior que zero).");
       return;
     }
 
     try {
       setSubmitting(true);
       setError("");
+      setSuccess("");
       await api.post(`/pecas/${pecaId}/lancar-quantidade`, {
         quantidade: quantidadeNumerica,
       });
       setAcaoAbertaId(null);
+      setSuccess("Quantidade adicionada ao estoque central.");
       await carregarDados();
     } catch (err) {
-      setError(err.response?.data?.error || "Erro ao lançar quantidade");
+      setError(err.response?.data?.error || "Erro ao lancar quantidade");
     } finally {
       setSubmitting(false);
     }
@@ -137,26 +276,28 @@ export default function Pecas() {
     event.preventDefault();
     const quantidadeNumerica = Number(formEnvio.quantidade);
     if (!formEnvio.funcionarioId) {
-      setError("Selecione o funcionário.");
+      setError("Selecione o funcionario.");
       return;
     }
     if (!Number.isInteger(quantidadeNumerica) || quantidadeNumerica <= 0) {
-      setError("Informe uma quantidade válida (inteiro maior que zero).");
+      setError("Informe uma quantidade valida (inteiro maior que zero).");
       return;
     }
 
     try {
       setSubmitting(true);
       setError("");
+      setSuccess("");
       await api.post(`/pecas/${pecaId}/enviar`, {
         funcionarioId: formEnvio.funcionarioId,
         quantidade: quantidadeNumerica,
         observacao: formEnvio.observacao || null,
       });
       setAcaoAbertaId(null);
+      setSuccess("Peca enviada para o carrinho do funcionario.");
       await carregarDados();
     } catch (err) {
-      setError(err.response?.data?.error || "Erro ao enviar peça para funcionário");
+      setError(err.response?.data?.error || "Erro ao enviar peca para funcionario");
     } finally {
       setSubmitting(false);
     }
@@ -170,319 +311,618 @@ export default function Pecas() {
     <div className="min-h-screen bg-background-light bg-pattern teddy-pattern">
       <Navbar />
 
-      <div className="mx-auto max-w-5xl space-y-4 px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
         <PageHeader
-          title="Peças"
-          subtitle={`Usuário: ${usuario?.nome || "-"} (${usuario?.role || "-"})`}
-          icon="🔧"
+          title="Pecas"
+          subtitle={`Usuario: ${usuario?.nome || "-"} (${usuario?.role || "-"})`}
+          icon="🧰"
+          action={{
+            label: "+ Nova Peca",
+            onClick: abrirNovaPeca,
+          }}
         />
 
         {error && (
           <AlertBox type="error" message={error} onClose={() => setError("")} />
         )}
+        {success && (
+          <AlertBox type="success" message={success} onClose={() => setSuccess("")} />
+        )}
 
-        <div className="card">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Nova peça
-          </h2>
-          <form
-            onSubmit={handleCriarPeca}
-            className="grid grid-cols-1 gap-4 md:grid-cols-5"
-          >
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Código
-              </label>
-              <input
-                value={formPeca.codigo}
-                onChange={(e) =>
-                  setFormPeca((prev) => ({ ...prev, codigo: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                placeholder="Ex: PC-001"
-              />
+        <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          {[
+            ["Pecas cadastradas", resumo.total],
+            ["Ativas", resumo.ativas],
+            ["Estoque baixo", resumo.baixoEstoque],
+            ["No deposito", resumo.totalCentral],
+            ["Com funcionarios", resumo.totalCarrinhos],
+          ].map(([label, value], index) => (
+            <div
+              key={label}
+              className={`rounded-lg border p-4 shadow-sm ${
+                index === 2 && value > 0
+                  ? "border-red-200 bg-red-50"
+                  : "border-orange-100 bg-white"
+              }`}
+            >
+              <p className="text-xs font-bold uppercase text-gray-500">{label}</p>
+              <p className="mt-1 text-2xl font-black text-gray-900">{value}</p>
             </div>
-            <div className="md:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Nome
-              </label>
-              <input
-                value={formPeca.nome}
-                onChange={(e) =>
-                  setFormPeca((prev) => ({ ...prev, nome: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                placeholder="Ex: Trava da garra"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Unidade
-              </label>
-              <input
-                value={formPeca.unidade}
-                onChange={(e) =>
-                  setFormPeca((prev) => ({ ...prev, unidade: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                placeholder="Ex: un"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Estoque mínimo
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={formPeca.estoqueMinimo}
-                onChange={(e) =>
-                  setFormPeca((prev) => ({
-                    ...prev,
-                    estoqueMinimo: e.target.value,
-                  }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              />
-            </div>
-            <div className="md:col-span-5 flex justify-end">
+          ))}
+        </section>
+
+        <section className="rounded-lg border border-orange-100 bg-white p-3 shadow-sm">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {[
+              ["estoque", "Estoque de pecas", "Cadastrar, editar e enviar"],
+              ["carrinhos", "Carrinhos", "Pecas com funcionarios"],
+              ["envios", "Envios recentes", "Ultimas movimentacoes"],
+            ].map(([key, title, subtitle]) => (
               <button
-                type="submit"
-                disabled={submitting}
-                className="btn-primary disabled:opacity-60"
+                key={key}
+                type="button"
+                onClick={() => setAbaAtiva(key)}
+                className={`rounded-lg border p-4 text-left transition ${
+                  abaAtiva === key
+                    ? "border-orange-500 bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md"
+                    : "border-gray-200 bg-white text-gray-900 hover:border-orange-300 hover:bg-orange-50"
+                }`}
               >
-                {submitting ? "Salvando..." : "Adicionar peça"}
+                <span className="block text-sm font-black">{title}</span>
+                <span
+                  className={`mt-1 block text-xs ${
+                    abaAtiva === key ? "text-white/85" : "text-gray-500"
+                  }`}
+                >
+                  {subtitle}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {mostrarFormulario && (
+          <section className="card-gradient">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-black text-gray-900">
+                  {editandoPeca ? "Editar peca" : "Cadastrar nova peca"}
+                </h2>
+                <p className="text-sm text-gray-600">
+                  Controle o cadastro base do estoque central de manutencao.
+                </p>
+              </div>
+              <button type="button" onClick={fecharFormulario} className="btn-secondary">
+                Fechar
               </button>
             </div>
-          </form>
-        </div>
 
-        <div className="card">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Peças ({pecas.length})
-          </h2>
+            <form onSubmit={handleSalvarPeca} className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+              <div className="lg:col-span-2">
+                <label className="mb-1 block text-sm font-bold text-gray-700">
+                  Codigo
+                </label>
+                <input
+                  value={formPeca.codigo}
+                  onChange={(e) =>
+                    setFormPeca((prev) => ({ ...prev, codigo: e.target.value }))
+                  }
+                  className="input-field"
+                  placeholder="PC-001"
+                />
+              </div>
+              <div className="lg:col-span-4">
+                <label className="mb-1 block text-sm font-bold text-gray-700">
+                  Nome *
+                </label>
+                <input
+                  value={formPeca.nome}
+                  onChange={(e) =>
+                    setFormPeca((prev) => ({ ...prev, nome: e.target.value }))
+                  }
+                  className="input-field"
+                  placeholder="Ex: Bobina fina"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="mb-1 block text-sm font-bold text-gray-700">
+                  Unidade
+                </label>
+                <input
+                  value={formPeca.unidade}
+                  onChange={(e) =>
+                    setFormPeca((prev) => ({ ...prev, unidade: e.target.value }))
+                  }
+                  className="input-field"
+                  placeholder="un"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="mb-1 block text-sm font-bold text-gray-700">
+                  Quantidade inicial
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={formPeca.quantidadeEstoque}
+                  onChange={(e) =>
+                    setFormPeca((prev) => ({
+                      ...prev,
+                      quantidadeEstoque: e.target.value,
+                    }))
+                  }
+                  className="input-field"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="mb-1 block text-sm font-bold text-gray-700">
+                  Estoque minimo
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={formPeca.estoqueMinimo}
+                  onChange={(e) =>
+                    setFormPeca((prev) => ({
+                      ...prev,
+                      estoqueMinimo: e.target.value,
+                    }))
+                  }
+                  className="input-field"
+                />
+              </div>
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-sm font-bold text-gray-700">
+                  Custo unitario
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formPeca.custoUnitario}
+                  onChange={(e) =>
+                    setFormPeca((prev) => ({
+                      ...prev,
+                      custoUnitario: e.target.value,
+                    }))
+                  }
+                  className="input-field"
+                  placeholder="0,00"
+                />
+              </div>
+              <div className="lg:col-span-9">
+                <label className="mb-1 block text-sm font-bold text-gray-700">
+                  Descricao
+                </label>
+                <input
+                  value={formPeca.descricao}
+                  onChange={(e) =>
+                    setFormPeca((prev) => ({ ...prev, descricao: e.target.value }))
+                  }
+                  className="input-field"
+                  placeholder="Ex: usada na garra, carrinho, fonte..."
+                />
+              </div>
+              <div className="flex justify-end gap-3 lg:col-span-12">
+                <button type="button" onClick={fecharFormulario} className="btn-secondary">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={submitting} className="btn-primary disabled:opacity-60">
+                  {submitting ? "Salvando..." : editandoPeca ? "Salvar alteracoes" : "Cadastrar peca"}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
 
-          {pecas.length === 0 ? (
-            <p className="text-sm text-gray-600">Nenhuma peça cadastrada.</p>
-          ) : (
-            <div className="space-y-3">
-              {pecas.map((peca) => {
-                const estoqueBaixo =
-                  peca.estoqueMinimo !== null &&
-                  peca.estoqueMinimo !== undefined &&
-                  Number(peca.quantidadeEstoque) < Number(peca.estoqueMinimo);
-                const chaveQuantidade = `quantidade:${peca.id}`;
-                const chaveEnvio = `envio:${peca.id}`;
+        {abaAtiva === "estoque" && (
+          <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="card">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-gray-900">
+                    Estoque central
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    Gerencie pecas, saldo do deposito e envio para funcionarios.
+                  </p>
+                </div>
+                <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700">
+                  {pecasFiltradas.length} resultados
+                </span>
+              </div>
 
-                return (
-                  <div
-                    key={peca.id}
-                    className="rounded-lg border border-gray-200 p-4"
+              <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Buscar
+                  </label>
+                  <input
+                    value={filtros.busca}
+                    onChange={(e) =>
+                      setFiltros((prev) => ({ ...prev, busca: e.target.value }))
+                    }
+                    className="input-field"
+                    placeholder="Nome, codigo ou descricao"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Status
+                  </label>
+                  <select
+                    value={filtros.status}
+                    onChange={(e) =>
+                      setFiltros((prev) => ({ ...prev, status: e.target.value }))
+                    }
+                    className="select-field"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-base font-semibold text-gray-900">
-                          {peca.codigo ? `${peca.codigo} - ` : ""}
-                          {peca.nome}
-                        </h3>
+                    <option value="ativas">Ativas</option>
+                    <option value="baixo">Estoque baixo</option>
+                    <option value="todos">Todas</option>
+                    <option value="inativas">Inativas</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Ordenar
+                  </label>
+                  <select
+                    value={filtros.ordenacao}
+                    onChange={(e) =>
+                      setFiltros((prev) => ({ ...prev, ordenacao: e.target.value }))
+                    }
+                    className="select-field"
+                  >
+                    <option value="nome">Nome</option>
+                    <option value="estoque">Menor estoque</option>
+                    <option value="recentes">Atualizadas</option>
+                  </select>
+                </div>
+              </div>
+
+              {pecasFiltradas.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-orange-200 p-8 text-center text-sm text-gray-600">
+                  Nenhuma peca encontrada com estes filtros.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="table-modern">
+                    <thead>
+                      <tr>
+                        <th>Peca</th>
+                        <th>Estoque</th>
+                        <th>Minimo</th>
+                        <th>Custo</th>
+                        <th>Acoes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pecasFiltradas.map((peca) => {
+                        const estoqueBaixo =
+                          peca.estoqueMinimo !== null &&
+                          peca.estoqueMinimo !== undefined &&
+                          Number(peca.quantidadeEstoque || 0) <
+                            Number(peca.estoqueMinimo || 0);
+                        const chaveQuantidade = `quantidade:${peca.id}`;
+                        const chaveEnvio = `envio:${peca.id}`;
+
+                        return (
+                          <tr key={peca.id}>
+                            <td>
+                              <div className="min-w-[220px]">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-black text-gray-900">
+                                    {peca.nome}
+                                  </p>
+                                  {peca.ativo === false && (
+                                    <Badge variant="danger" size="sm">
+                                      Inativa
+                                    </Badge>
+                                  )}
+                                  {estoqueBaixo && (
+                                    <Badge variant="danger" size="sm">
+                                      Baixo
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                  {peca.codigo || "Sem codigo"}
+                                  {peca.descricao ? ` - ${peca.descricao}` : ""}
+                                </p>
+                              </div>
+                            </td>
+                            <td>
+                              <span className="text-base font-black text-emerald-700">
+                                {peca.quantidadeEstoque || 0}
+                              </span>{" "}
+                              <span className="text-xs text-gray-500">
+                                {peca.unidade || "un"}
+                              </span>
+                            </td>
+                            <td>{peca.estoqueMinimo ?? 0}</td>
+                            <td>
+                              {peca.custoUnitario
+                                ? moeda.format(Number(peca.custoUnitario))
+                                : "-"}
+                            </td>
+                            <td>
+                              <div className="flex min-w-[360px] flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  className="btn-secondary px-3 py-2 text-xs"
+                                  onClick={() => abrirAcao(peca.id, "quantidade")}
+                                >
+                                  {acaoAbertaId === chaveQuantidade ? "Cancelar" : "+ Estoque"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary px-3 py-2 text-xs"
+                                  onClick={() => abrirAcao(peca.id, "envio")}
+                                  disabled={peca.ativo === false}
+                                >
+                                  {acaoAbertaId === chaveEnvio ? "Cancelar" : "Carrinho"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary px-3 py-2 text-xs"
+                                  onClick={() => abrirEdicao(peca)}
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-danger px-3 py-2 text-xs"
+                                  onClick={() => handleExcluirPeca(peca)}
+                                >
+                                  Excluir
+                                </button>
+                              </div>
+
+                              {acaoAbertaId === chaveQuantidade && (
+                                <form
+                                  onSubmit={(e) => handleLancarQuantidade(e, peca.id)}
+                                  className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border border-orange-100 bg-orange-50 p-3"
+                                >
+                                  <div>
+                                    <label className="mb-1 block text-xs font-bold text-gray-700">
+                                      Adicionar ao deposito
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      step="1"
+                                      value={formQuantidade.quantidade}
+                                      onChange={(e) =>
+                                        setFormQuantidade({ quantidade: e.target.value })
+                                      }
+                                      className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                                    />
+                                  </div>
+                                  <button
+                                    type="submit"
+                                    disabled={submitting}
+                                    className="btn-primary px-4 py-2 text-xs disabled:opacity-60"
+                                  >
+                                    Confirmar
+                                  </button>
+                                </form>
+                              )}
+
+                              {acaoAbertaId === chaveEnvio && (
+                                <form
+                                  onSubmit={(e) => handleEnviarPeca(e, peca.id)}
+                                  className="mt-3 grid grid-cols-1 gap-2 rounded-lg border border-orange-100 bg-orange-50 p-3 md:grid-cols-4"
+                                >
+                                  <select
+                                    value={formEnvio.funcionarioId}
+                                    onChange={(e) =>
+                                      setFormEnvio((prev) => ({
+                                        ...prev,
+                                        funcionarioId: e.target.value,
+                                      }))
+                                    }
+                                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                                  >
+                                    <option value="">Funcionario...</option>
+                                    {funcionarios.map((funcionario) => (
+                                      <option key={funcionario.id} value={funcionario.id}>
+                                        {funcionario.nome}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    value={formEnvio.quantidade}
+                                    onChange={(e) =>
+                                      setFormEnvio((prev) => ({
+                                        ...prev,
+                                        quantidade: e.target.value,
+                                      }))
+                                    }
+                                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                                    placeholder="Qtd"
+                                  />
+                                  <input
+                                    value={formEnvio.observacao}
+                                    onChange={(e) =>
+                                      setFormEnvio((prev) => ({
+                                        ...prev,
+                                        observacao: e.target.value,
+                                      }))
+                                    }
+                                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
+                                    placeholder="Obs."
+                                  />
+                                  <button
+                                    type="submit"
+                                    disabled={submitting}
+                                    className="btn-primary px-4 py-2 text-xs disabled:opacity-60"
+                                  >
+                                    Enviar
+                                  </button>
+                                </form>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <aside className="space-y-5">
+              <div className="card">
+                <h2 className="mb-3 text-base font-black text-gray-900">
+                  Atalhos do estoque
+                </h2>
+                <div className="space-y-2 text-sm">
+                  <button
+                    type="button"
+                    className="w-full rounded-lg border border-orange-200 bg-orange-50 px-3 py-3 text-left font-bold text-orange-800"
+                    onClick={() => setFiltros((prev) => ({ ...prev, status: "baixo" }))}
+                  >
+                    Ver pecas com estoque baixo
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-left font-bold text-slate-700"
+                    onClick={() => setAbaAtiva("carrinhos")}
+                  >
+                    Conferir carrinhos dos funcionarios
+                  </button>
+                </div>
+              </div>
+
+              <div className="card">
+                <h2 className="mb-3 text-base font-black text-gray-900">
+                  Ultimos envios
+                </h2>
+                {envios.length === 0 ? (
+                  <p className="text-sm text-gray-600">Nenhum envio registrado.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {envios.slice(0, 5).map((envio) => (
+                      <div key={envio.id} className="rounded-lg border border-gray-100 p-3">
+                        <p className="text-sm font-bold text-gray-900">
+                          {envio.peca?.nome || "-"}
+                        </p>
                         <p className="text-xs text-gray-600">
-                          Estoque central: {peca.quantidadeEstoque}{" "}
-                          {peca.unidade || ""}
+                          {envio.quantidade} {envio.peca?.unidade || "un"} para{" "}
+                          {envio.funcionario?.nome || "-"}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-400">
+                          {formatarDataHora(envio.dataEnvio)}
                         </p>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {estoqueBaixo && (
-                          <Badge variant="danger" size="sm">
-                            Estoque baixo
-                          </Badge>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => abrirAcao(peca.id, "quantidade")}
-                          className="btn-secondary text-sm"
-                        >
-                          {acaoAbertaId === chaveQuantidade
-                            ? "Cancelar"
-                            : "Lançar quantidade"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => abrirAcao(peca.id, "envio")}
-                          className="btn-secondary text-sm"
-                        >
-                          {acaoAbertaId === chaveEnvio
-                            ? "Cancelar"
-                            : "Enviar para funcionário"}
-                        </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </aside>
+          </section>
+        )}
+
+        {abaAtiva === "carrinhos" && (
+          <section className="card">
+            <div className="mb-4">
+              <h2 className="text-lg font-black text-gray-900">
+                Carrinhos dos funcionarios
+              </h2>
+              <p className="text-sm text-gray-500">
+                Pecas que sairam do deposito e estao com cada funcionario.
+              </p>
+            </div>
+
+            {estoquesFuncionarios.filter((item) => Number(item.quantidade || 0) > 0)
+              .length === 0 ? (
+              <div className="rounded-lg border border-dashed border-orange-200 p-8 text-center text-sm text-gray-600">
+                Nenhum funcionario com pecas em estoque.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {estoquesFuncionarios
+                  .filter((item) => Number(item.quantidade || 0) > 0)
+                  .map((item) => (
+                    <article
+                      key={item.id}
+                      className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-black text-gray-900">
+                            {item.funcionario?.nome || "-"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {item.peca?.codigo || "Sem codigo"}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-black text-emerald-700">
+                          {item.quantidade} {item.peca?.unidade || "un"}
+                        </span>
                       </div>
-                    </div>
+                      <p className="text-sm font-bold text-gray-800">
+                        {item.peca?.nome}
+                      </p>
+                    </article>
+                  ))}
+              </div>
+            )}
+          </section>
+        )}
 
-                    {acaoAbertaId === chaveQuantidade && (
-                      <form
-                        onSubmit={(e) => handleLancarQuantidade(e, peca.id)}
-                        className="mt-3 flex flex-wrap items-end gap-3 rounded-lg bg-gray-50 p-3"
-                      >
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-gray-700">
-                            Quantidade a adicionar
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={formQuantidade.quantidade}
-                            onChange={(e) =>
-                              setFormQuantidade({ quantidade: e.target.value })
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <button
-                          type="submit"
-                          disabled={submitting}
-                          className="btn-primary text-sm disabled:opacity-60"
-                        >
-                          {submitting ? "Salvando..." : "Confirmar"}
-                        </button>
-                      </form>
-                    )}
-
-                    {acaoAbertaId === chaveEnvio && (
-                      <form
-                        onSubmit={(e) => handleEnviarPeca(e, peca.id)}
-                        className="mt-3 grid grid-cols-1 gap-3 rounded-lg bg-gray-50 p-3 md:grid-cols-4"
-                      >
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-gray-700">
-                            Funcionário
-                          </label>
-                          <select
-                            value={formEnvio.funcionarioId}
-                            onChange={(e) =>
-                              setFormEnvio((prev) => ({
-                                ...prev,
-                                funcionarioId: e.target.value,
-                              }))
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                          >
-                            <option value="">Selecione...</option>
-                            {funcionarios.map((funcionario) => (
-                              <option key={funcionario.id} value={funcionario.id}>
-                                {funcionario.nome}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-gray-700">
-                            Quantidade
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={formEnvio.quantidade}
-                            onChange={(e) =>
-                              setFormEnvio((prev) => ({
-                                ...prev,
-                                quantidade: e.target.value,
-                              }))
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-gray-700">
-                            Observação
-                          </label>
-                          <input
-                            value={formEnvio.observacao}
-                            onChange={(e) =>
-                              setFormEnvio((prev) => ({
-                                ...prev,
-                                observacao: e.target.value,
-                              }))
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div className="flex items-end">
-                          <button
-                            type="submit"
-                            disabled={submitting}
-                            className="btn-primary text-sm disabled:opacity-60"
-                          >
-                            {submitting ? "Salvando..." : "Enviar"}
-                          </button>
-                        </div>
-                      </form>
-                    )}
-                  </div>
-                );
-              })}
+        {abaAtiva === "envios" && (
+          <section className="card">
+            <div className="mb-4">
+              <h2 className="text-lg font-black text-gray-900">
+                Historico de envios
+              </h2>
+              <p className="text-sm text-gray-500">
+                Movimentacoes de pecas do deposito para funcionarios.
+              </p>
             </div>
-          )}
-        </div>
 
-        <div className="card">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Envios recentes
-          </h2>
-          {envios.length === 0 ? (
-            <p className="text-sm text-gray-600">Nenhum envio registrado.</p>
-          ) : (
-            <div className="space-y-2 text-xs text-gray-700">
-              {envios.slice(0, 10).map((envio) => (
-                <div
-                  key={envio.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2"
-                >
-                  <span>
-                    {formatarDataHora(envio.dataEnvio)} —{" "}
-                    <strong>{envio.peca?.nome}</strong>: {envio.quantidade}{" "}
-                    {envio.peca?.unidade || ""} para{" "}
-                    {envio.funcionario?.nome || "-"}
-                  </span>
-                  <span className="text-gray-500">
-                    enviado por {envio.enviadoPor?.nome || "-"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="card">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Estoque de peças por funcionário
-          </h2>
-          {estoquesFuncionarios.length === 0 ? (
-            <p className="text-sm text-gray-600">
-              Nenhum funcionário com peças em estoque.
-            </p>
-          ) : (
-            <div className="space-y-2 text-xs text-gray-700">
-              {estoquesFuncionarios
-                .filter((item) => item.quantidade > 0)
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2"
-                  >
-                    <span>
-                      <strong>{item.funcionario?.nome}</strong> —{" "}
-                      {item.peca?.nome}
-                    </span>
-                    <span className="text-gray-500">
-                      {item.quantidade} {item.peca?.unidade || ""}
-                    </span>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
-      </div>
+            {envios.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-orange-200 p-8 text-center text-sm text-gray-600">
+                Nenhum envio registrado.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="table-modern">
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Peca</th>
+                      <th>Funcionario</th>
+                      <th>Quantidade</th>
+                      <th>Enviado por</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {envios.map((envio) => (
+                      <tr key={envio.id}>
+                        <td>{formatarDataHora(envio.dataEnvio)}</td>
+                        <td>{envio.peca?.nome || "-"}</td>
+                        <td>{envio.funcionario?.nome || "-"}</td>
+                        <td>
+                          {envio.quantidade} {envio.peca?.unidade || "un"}
+                        </td>
+                        <td>{envio.enviadoPor?.nome || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+      </main>
 
       <Footer />
     </div>
