@@ -500,14 +500,12 @@ export default function Envios() {
                           onClick={() => handleDespachar(envio)}
                           className="btn-primary text-sm"
                         >
-                          {isEntregador ? "Dar baixa" : "Despachar"}
+                          Dar baixa
                         </button>
-                        {isEntregador && (
-                          <p className="text-xs text-gray-500">
-                            Clique em Dar baixa para registrar que você retirou
-                            o envio e ele passa para conferência de lacre.
-                          </p>
-                        )}
+                        <p className="text-xs text-gray-500">
+                          Clique em Dar baixa para registrar que este envio saiu
+                          do depósito e será enviado para conferência de lacre.
+                        </p>
                       </div>
                     ) : (
                       <Badge variant="info" size="sm">
