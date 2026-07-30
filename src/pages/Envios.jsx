@@ -17,7 +17,8 @@ const STATUS_LACRE = {
 
 const novoLacreVazio = () => ({
   numero: "",
-  itens: [{ produtoId: "", quantidade: "" }],
+  produtoId: "",
+  quantidade: "",
 });
 
 const formatarDataHora = (dataIso) => {
@@ -48,6 +49,8 @@ export default function Envios() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [numerosRetirada, setNumerosRetirada] = useState({});
+  const [filtroDataHoraInicio, setFiltroDataHoraInicio] = useState("");
+  const [filtroDataHoraFim, setFiltroDataHoraFim] = useState("");
 
   const [form, setForm] = useState({
     lojaDestinoId: prefill?.lojaDestinoId || "",
@@ -57,58 +60,76 @@ export default function Envios() {
       prefill?.produtoId
         ? {
             numero: "",
-            itens: [
-              {
-                produtoId: prefill.produtoId,
-                quantidade: prefill.quantidade || "",
-              },
-            ],
+            produtoId: prefill.produtoId,
+            quantidade: prefill.quantidade || "",
           }
         : novoLacreVazio(),
     ],
   });
 
-  const carregarDados = useCallback(async () => {
-    try {
-      setError("");
-      if (isEntregador) {
-        const enviosRes = await api.get("/envios");
+  const carregarDados = useCallback(
+    async (params = {}) => {
+      try {
+        setError("");
+        if (isEntregador) {
+          const enviosRes = await api.get("/envios", { params });
+          setEnvios(Array.isArray(enviosRes.data) ? enviosRes.data : []);
+          setLoading(false);
+          return;
+        }
+
+        const [enviosRes, lojasRes, usuariosRes, produtosRes, divergentesRes] =
+          await Promise.all([
+            api.get("/envios", { params }),
+            api.get("/lojas"),
+            api.get("/usuarios"),
+            api.get("/produtos"),
+            api.get("/lacres/divergentes"),
+          ]);
+
         setEnvios(Array.isArray(enviosRes.data) ? enviosRes.data : []);
+        setLojas(
+          filtrarLojasOperacionais(
+            Array.isArray(lojasRes.data) ? lojasRes.data : [],
+          ),
+        );
+        setUsuarios(
+          Array.isArray(usuariosRes.data)
+            ? usuariosRes.data.filter((user) => user.role === "ENTREGADOR")
+            : [],
+        );
+        setProdutos(Array.isArray(produtosRes.data) ? produtosRes.data : []);
+        setDivergentes(
+          Array.isArray(divergentesRes.data) ? divergentesRes.data : [],
+        );
+      } catch (err) {
+        setError(err.response?.data?.error || "Erro ao carregar dados");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      const [enviosRes, lojasRes, usuariosRes, produtosRes, divergentesRes] =
-        await Promise.all([
-          api.get("/envios"),
-          api.get("/lojas"),
-          api.get("/usuarios"),
-          api.get("/produtos"),
-          api.get("/lacres/divergentes"),
-        ]);
-
-      setEnvios(Array.isArray(enviosRes.data) ? enviosRes.data : []);
-      setLojas(filtrarLojasOperacionais(Array.isArray(lojasRes.data) ? lojasRes.data : []));
-      setUsuarios(
-        Array.isArray(usuariosRes.data)
-          ? usuariosRes.data.filter((user) => user.role === "ENTREGADOR")
-          : [],
-      );
-      setProdutos(Array.isArray(produtosRes.data) ? produtosRes.data : []);
-      setDivergentes(
-        Array.isArray(divergentesRes.data) ? divergentesRes.data : [],
-      );
-    } catch (err) {
-      setError(err.response?.data?.error || "Erro ao carregar dados");
-    } finally {
-      setLoading(false);
-    }
-  }, [isEntregador]);
+    },
+    [isEntregador],
+  );
 
   useEffect(() => {
     if (authLoading) return;
     carregarDados();
   }, [authLoading, carregarDados]);
+
+  const aplicarFiltros = async () => {
+    const params = {};
+    if (filtroDataHoraInicio) params.dataInicio = filtroDataHoraInicio;
+    if (filtroDataHoraFim) params.dataFim = filtroDataHoraFim;
+    setLoading(true);
+    await carregarDados(params);
+  };
+
+  const limparFiltros = async () => {
+    setFiltroDataHoraInicio("");
+    setFiltroDataHoraFim("");
+    setLoading(true);
+    await carregarDados();
+  };
 
   const adicionarLacre = () => {
     setForm((prev) => ({
@@ -133,40 +154,11 @@ export default function Envios() {
     }));
   };
 
-  const adicionarItem = (indexLacre) => {
+  const atualizarLacreCampo = (indexLacre, campo, valor) => {
     setForm((prev) => ({
       ...prev,
       lacres: prev.lacres.map((lacre, idx) =>
-        idx === indexLacre
-          ? { ...lacre, itens: [...lacre.itens, { produtoId: "", quantidade: "" }] }
-          : lacre,
-      ),
-    }));
-  };
-
-  const removerItem = (indexLacre, indexItem) => {
-    setForm((prev) => ({
-      ...prev,
-      lacres: prev.lacres.map((lacre, idx) =>
-        idx === indexLacre
-          ? { ...lacre, itens: lacre.itens.filter((_, i) => i !== indexItem) }
-          : lacre,
-      ),
-    }));
-  };
-
-  const atualizarItem = (indexLacre, indexItem, campo, valor) => {
-    setForm((prev) => ({
-      ...prev,
-      lacres: prev.lacres.map((lacre, idx) =>
-        idx === indexLacre
-          ? {
-              ...lacre,
-              itens: lacre.itens.map((item, i) =>
-                i === indexItem ? { ...item, [campo]: valor } : item,
-              ),
-            }
-          : lacre,
+        idx === indexLacre ? { ...lacre, [campo]: valor } : lacre,
       ),
     }));
   };
@@ -188,10 +180,12 @@ export default function Envios() {
         observacao: form.observacao || null,
         lacres: form.lacres.map((lacre) => ({
           numero: lacre.numero,
-          itens: lacre.itens.map((item) => ({
-            produtoId: item.produtoId,
-            quantidade: Number(item.quantidade),
-          })),
+          itens: [
+            {
+              produtoId: lacre.produtoId,
+              quantidade: Number(lacre.quantidade),
+            },
+          ],
         })),
       });
       setForm({
@@ -254,6 +248,52 @@ export default function Envios() {
           <AlertBox type="error" message={error} onClose={() => setError("")} />
         )}
 
+        <div className="card">
+          <h2 className="mb-3 text-lg font-semibold text-gray-900">
+            Filtros de período
+          </h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Início
+              </label>
+              <input
+                type="datetime-local"
+                value={filtroDataHoraInicio}
+                onChange={(e) => setFiltroDataHoraInicio(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Fim
+              </label>
+              <input
+                type="datetime-local"
+                value={filtroDataHoraFim}
+                onChange={(e) => setFiltroDataHoraFim(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <button
+                type="button"
+                onClick={aplicarFiltros}
+                className="btn-primary text-sm"
+              >
+                Aplicar filtros
+              </button>
+              <button
+                type="button"
+                onClick={limparFiltros}
+                className="btn-secondary text-sm"
+              >
+                Limpar filtros
+              </button>
+            </div>
+          </div>
+        </div>
+
         {!isEntregador && prefill?.produtoId && (
           <AlertBox
             type="info"
@@ -262,186 +302,171 @@ export default function Envios() {
         )}
 
         {!isEntregador && (
-        <form onSubmit={handleCriarEnvio} className="card">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Montar novo envio
-          </h2>
+          <form onSubmit={handleCriarEnvio} className="card">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+              Montar novo envio
+            </h2>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Loja de destino
-              </label>
-              <select
-                value={form.lojaDestinoId}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, lojaDestinoId: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              >
-                <option value="">Selecione...</option>
-                {lojas.map((loja) => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Transportador
-              </label>
-              <select
-                value={form.transportadorId}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    transportadorId: e.target.value,
-                  }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              >
-                <option value="">Selecione...</option>
-                {usuarios.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Observação
-              </label>
-              <input
-                value={form.observacao}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, observacao: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {form.lacres.map((lacre, indexLacre) => (
-              <div
-                key={indexLacre}
-                className="rounded-lg border border-gray-200 p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex-1">
-                    <label className="mb-1 block text-xs font-medium text-gray-700">
-                      Número do lacre
-                    </label>
-                    <input
-                      value={lacre.numero}
-                      onChange={(e) =>
-                        atualizarNumeroLacre(indexLacre, e.target.value)
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                      placeholder="Ex: 5011"
-                    />
-                  </div>
-                  {form.lacres.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removerLacre(indexLacre)}
-                      className="btn-secondary text-xs"
-                    >
-                      Remover lacre
-                    </button>
-                  )}
-                </div>
-
-                <div className="mt-2 space-y-2">
-                  {lacre.itens.map((item, indexItem) => (
-                    <div key={indexItem} className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <label className="mb-1 block text-xs font-medium text-gray-700">
-                          Produto
-                        </label>
-                        <select
-                          value={item.produtoId}
-                          onChange={(e) =>
-                            atualizarItem(
-                              indexLacre,
-                              indexItem,
-                              "produtoId",
-                              e.target.value,
-                            )
-                          }
-                          className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                        >
-                          <option value="">Selecione...</option>
-                          {produtos.map((produto) => (
-                            <option key={produto.id} value={produto.id}>
-                              {produto.nome}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="w-28">
-                        <label className="mb-1 block text-xs font-medium text-gray-700">
-                          Quantidade
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={item.quantidade}
-                          onChange={(e) =>
-                            atualizarItem(
-                              indexLacre,
-                              indexItem,
-                              "quantidade",
-                              e.target.value,
-                            )
-                          }
-                          className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                        />
-                      </div>
-                      {lacre.itens.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removerItem(indexLacre, indexItem)}
-                          className="btn-secondary text-xs"
-                        >
-                          Remover
-                        </button>
-                      )}
-                    </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Loja de destino
+                </label>
+                <select
+                  value={form.lojaDestinoId}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      lojaDestinoId: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                >
+                  <option value="">Selecione...</option>
+                  {lojas.map((loja) => (
+                    <option key={loja.id} value={loja.id}>
+                      {loja.nome}
+                    </option>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => adicionarItem(indexLacre)}
-                    className="btn-secondary text-xs"
-                  >
-                    + Adicionar item
-                  </button>
-                </div>
+                </select>
               </div>
-            ))}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Transportador
+                </label>
+                <select
+                  value={form.transportadorId}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      transportadorId: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                >
+                  <option value="">Selecione...</option>
+                  {usuarios.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Observação
+                </label>
+                <input
+                  value={form.observacao}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, observacao: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
 
-            <button
-              type="button"
-              onClick={adicionarLacre}
-              className="btn-secondary text-sm"
-            >
-              + Adicionar lacre
-            </button>
-          </div>
+            <div className="mt-4 space-y-3">
+              {form.lacres.map((lacre, indexLacre) => (
+                <div
+                  key={indexLacre}
+                  className="rounded-lg border border-gray-200 p-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex-1 min-w-60">
+                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                        Número do lacre
+                      </label>
+                      <input
+                        value={lacre.numero}
+                        onChange={(e) =>
+                          atualizarLacreCampo(
+                            indexLacre,
+                            "numero",
+                            e.target.value,
+                          )
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                        placeholder="Ex: 5011"
+                      />
+                    </div>
 
-          <div className="mt-4 flex justify-end">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="btn-primary disabled:opacity-60"
-            >
-              {submitting ? "Salvando..." : "Montar envio"}
-            </button>
-          </div>
-        </form>
+                    <div className="flex-1 min-w-60">
+                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                        Produto
+                      </label>
+                      <select
+                        value={lacre.produtoId}
+                        onChange={(e) =>
+                          atualizarLacreCampo(
+                            indexLacre,
+                            "produtoId",
+                            e.target.value,
+                          )
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                      >
+                        <option value="">Selecione...</option>
+                        {produtos.map((produto) => (
+                          <option key={produto.id} value={produto.id}>
+                            {produto.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="w-28 min-w-30">
+                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                        Quantidade
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={lacre.quantidade}
+                        onChange={(e) =>
+                          atualizarLacreCampo(
+                            indexLacre,
+                            "quantidade",
+                            e.target.value,
+                          )
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    {form.lacres.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removerLacre(indexLacre)}
+                        className="btn-secondary text-xs self-end"
+                      >
+                        Remover lacre
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={adicionarLacre}
+                className="btn-secondary text-sm"
+              >
+                + Adicionar lacre
+              </button>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="btn-primary disabled:opacity-60"
+              >
+                {submitting ? "Salvando..." : "Montar envio"}
+              </button>
+            </div>
+          </form>
         )}
 
         <div className="card">
@@ -542,40 +567,40 @@ export default function Envios() {
         </div>
 
         {!isEntregador && (
-        <div className="card">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Lacres divergentes
-          </h2>
-          {divergentes.length === 0 ? (
-            <p className="text-sm text-gray-600">
-              Nenhum lacre divergente no momento.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {divergentes.map((lacre) => (
-                <div
-                  key={lacre.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs"
-                >
-                  <span>
-                    Loja <strong>{lacre.envio?.lojaDestino?.nome}</strong> —
-                    esperado <strong>{lacre.numero}</strong>, digitado{" "}
-                    <strong>{lacre.numeroDigitado}</strong> por{" "}
-                    {lacre.conferidoPor?.nome || "-"} em{" "}
-                    {formatarDataHora(lacre.conferidoEm)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleReabrir(lacre.id)}
-                    className="btn-secondary text-xs"
+          <div className="card">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+              Lacres divergentes
+            </h2>
+            {divergentes.length === 0 ? (
+              <p className="text-sm text-gray-600">
+                Nenhum lacre divergente no momento.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {divergentes.map((lacre) => (
+                  <div
+                    key={lacre.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs"
                   >
-                    Reabrir para nova conferência
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                    <span>
+                      Loja <strong>{lacre.envio?.lojaDestino?.nome}</strong> —
+                      esperado <strong>{lacre.numero}</strong>, digitado{" "}
+                      <strong>{lacre.numeroDigitado}</strong> por{" "}
+                      {lacre.conferidoPor?.nome || "-"} em{" "}
+                      {formatarDataHora(lacre.conferidoEm)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleReabrir(lacre.id)}
+                      className="btn-secondary text-xs"
+                    >
+                      Reabrir para nova conferência
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
