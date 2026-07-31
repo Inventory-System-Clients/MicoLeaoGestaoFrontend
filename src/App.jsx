@@ -275,7 +275,7 @@ function App() {
           <Route
             path="/movimentacoes"
             element={
-              <PrivateRoute>
+              <PrivateRoute adminOnly>
                 <Movimentacoes />
               </PrivateRoute>
             }
