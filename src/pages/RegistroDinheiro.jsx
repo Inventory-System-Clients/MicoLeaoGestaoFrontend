@@ -333,6 +333,7 @@ export function RegistroDinheiro() {
                     <th>Esperado</th>
                     <th>Diferença</th>
                     <th>Conferido por</th>
+                    <th>Registrado por</th>
                     <th>Registrado em</th>
                   </tr>
                 </thead>
@@ -371,6 +372,7 @@ export function RegistroDinheiro() {
                           R$ {formatCurrency(diferenca)}
                         </td>
                         <td>{item.conferidoPor?.nome || "-"}</td>
+                        <td>{item.contadoPor?.nome || "-"}</td>
                         <td>{formatDateTime(item.createdAt)}</td>
                       </tr>
                     );
