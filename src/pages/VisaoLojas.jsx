@@ -10,6 +10,76 @@ const DIAS_SEM_MOVIMENTACAO = 15;
 
 const numero = (valor) => Number(valor || 0);
 
+// Mesma tolerância usada no alerta "Pelúcias fora do esperado" (Alertas):
+// só considera fora do esperado quando a diferença passa de 3 jogadas pra
+// mais ou pra menos, pra pequenas oscilações não virarem pendência.
+const TOLERANCIA_JOGADAS = 3;
+
+// Espelha o cálculo de backend/src/controllers/relatorioController.js
+// (alertasBomDesempenho) pra loja e alerta mostrarem o mesmo número.
+const calcularAlertasJogadas = (maquinasDaLoja, movimentacoes) => {
+  const alertas = [];
+
+  for (const maquina of maquinasDaLoja) {
+    const jogadasEsperadas = numero(maquina.jogadasBoasPorPelucia);
+    const valorFicha = numero(maquina.valorFicha);
+    const fichasParaJogar = numero(maquina.fichasNecessarias) || 1;
+    const valorPorJogada = Number((valorFicha * fichasParaJogar).toFixed(2));
+
+    if (jogadasEsperadas <= 0 || valorFicha <= 0 || valorPorJogada <= 0) {
+      continue;
+    }
+
+    const movsDaMaquina = movimentacoes
+      .filter((mov) => String(mov.maquinaId) === String(maquina.id))
+      .sort(
+        (a, b) =>
+          new Date(b.dataColeta || b.createdAt) -
+          new Date(a.dataColeta || a.createdAt),
+      );
+
+    if (movsDaMaquina.length < 2) continue;
+
+    const atual = movsDaMaquina[0];
+    const anterior = movsDaMaquina[1];
+    const quantidadeSaiu = numero(atual.sairam);
+
+    if (
+      atual.contadorIn === null ||
+      atual.contadorIn === undefined ||
+      anterior.contadorIn === null ||
+      anterior.contadorIn === undefined ||
+      quantidadeSaiu <= 0
+    ) {
+      continue;
+    }
+
+    const diffIn = numero(atual.contadorIn) - numero(anterior.contadorIn);
+    if (diffIn <= 0) continue;
+
+    const jogadasPeriodo = Number((diffIn / valorPorJogada).toFixed(2));
+    const jogadasPorPelucia = Number(
+      (jogadasPeriodo / quantidadeSaiu).toFixed(2),
+    );
+    const diferenca = Number(
+      (jogadasPorPelucia - jogadasEsperadas).toFixed(2),
+    );
+
+    if (Math.abs(diferenca) > TOLERANCIA_JOGADAS) {
+      alertas.push({
+        maquinaId: maquina.id,
+        maquinaNome: maquina.nome || maquina.codigo || "Máquina",
+        jogadasPorPelucia,
+        jogadasEsperadas,
+        diferenca,
+        abaixoDaMeta: diferenca < 0,
+      });
+    }
+  }
+
+  return alertas;
+};
+
 const formatarData = (valor) => {
   if (!valor) return "Sem registro";
   const data = new Date(valor);
@@ -91,8 +161,10 @@ const montarPontosAtencao = (item) => {
     );
   }
 
-  if (item.abaixoDaMedia) {
-    pontos.push("última saída de pelúcias abaixo da média");
+  for (const alerta of item.alertasJogadas) {
+    pontos.push(
+      `${alerta.maquinaNome}: ${alerta.jogadasPorPelucia} jogada(s) por pelúcia (esperado ${alerta.jogadasEsperadas} ± ${TOLERANCIA_JOGADAS})`,
+    );
   }
 
   return pontos;
@@ -181,11 +253,13 @@ export function VisaoLojas() {
             const mediaFichasPorPelucia =
               totalSairam > 0 ? totalFichas / totalSairam : 0;
             const ultimaSaida = numero(ultimaMovimentacao?.sairam);
-            const abaixoDaMedia =
-              ultimaMovimentacao &&
-              movimentacoes.length >= 3 &&
-              mediaPelucias > 0 &&
-              ultimaSaida < mediaPelucias * 0.75;
+            const alertasJogadas = calcularAlertasJogadas(
+              maquinasDaLoja,
+              movimentacoes,
+            );
+            const temMetaConfigurada = maquinasDaLoja.some(
+              (maquina) => numero(maquina.jogadasBoasPorPelucia) > 0,
+            );
 
             const dataExtintor = obterDataExtintor(loja);
             const diasExtintor = dataExtintor
@@ -198,7 +272,7 @@ export function VisaoLojas() {
             const pendencias =
               itensAbaixoMinimo.length +
               manutencoesAbertas.length +
-              (abaixoDaMedia ? 1 : 0) +
+              alertasJogadas.length +
               (diasSemMov !== null && diasSemMov >= DIAS_SEM_MOVIMENTACAO
                 ? 1
                 : 0) +
@@ -229,7 +303,8 @@ export function VisaoLojas() {
               totalVisitas,
               mediaFichasPorPelucia,
               ultimaSaida,
-              abaixoDaMedia,
+              alertasJogadas,
+              temMetaConfigurada,
               pendencias,
             };
           }),
@@ -468,11 +543,30 @@ export function VisaoLojas() {
                 </div>
                 <div className="rounded-lg border border-slate-200 p-3">
                   <p className="font-bold text-gray-800">Pelúcias</p>
-                  <p className="mt-1 text-gray-600">
-                    {item.abaixoDaMedia
-                      ? "Última saída abaixo da média"
-                      : "Dentro da média registrada"}
-                  </p>
+                  {item.alertasJogadas.length > 0 ? (
+                    <div className="mt-1 space-y-1">
+                      {item.alertasJogadas.map((alerta) => (
+                        <p
+                          key={alerta.maquinaId}
+                          className="text-red-600 font-medium"
+                        >
+                          ⚠️ {alerta.maquinaNome}:{" "}
+                          {alerta.abaixoDaMeta
+                            ? "saindo rápido demais"
+                            : "saindo devagar demais"}{" "}
+                          ({alerta.jogadasPorPelucia} jogada
+                          {alerta.jogadasPorPelucia === 1 ? "" : "s"}/pelúcia,
+                          esperado {alerta.jogadasEsperadas})
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-gray-600">
+                      {item.temMetaConfigurada
+                        ? "Dentro da meta configurada"
+                        : "Sem meta de jogadas configurada"}
+                    </p>
+                  )}
                   <p className="mt-1 text-xs text-gray-500">
                     Última saída: {item.ultimaSaida} pelúcia
                     {item.ultimaSaida === 1 ? "" : "s"} · Média:{" "}
@@ -488,9 +582,11 @@ export function VisaoLojas() {
                       ` · ${item.mediaFichasPorPelucia.toFixed(1)} fichas por pelúcia`}
                   </p>
                   <p className="mt-2 text-[11px] italic text-gray-400">
-                    Cálculo: pelúcias que saíram ÷ número de movimentações
-                    registradas (considerando as últimas 50 coletas desta
-                    loja).
+                    Meta: comparação entre jogadas por pelúcia real (contador
+                    IN da máquina) e a meta cadastrada, com tolerância de ±
+                    {TOLERANCIA_JOGADAS} jogadas. Abaixo: "Média de saída" é a
+                    média histórica de pelúcias por visita (últimas 50
+                    coletas), só informativa.
                   </p>
                 </div>
               </div>
