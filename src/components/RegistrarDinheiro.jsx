@@ -3,20 +3,34 @@ import api from "../services/api";
 import { aviso } from "../utils/alerts";
 import { enviarImagemParaCloudinary } from "../utils/cloudinary";
 
+const paraDataISO = (data) => {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+};
+
+const dataDeHoje = () => paraDataISO(new Date());
+
+const dataDiasAtras = (dias) => {
+  const data = new Date();
+  data.setDate(data.getDate() - dias);
+  return paraDataISO(data);
+};
+
+const diaSeguinte = (dataISO) => {
+  const [ano, mes, dia] = dataISO.split("-").map(Number);
+  const data = new Date(ano, mes - 1, dia);
+  data.setDate(data.getDate() + 1);
+  return paraDataISO(data);
+};
+
 const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
-  const obterMesAnteriorPadrao = () => {
-    const hoje = new Date();
-    const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
-    const ano = mesAnterior.getFullYear();
-    const mes = String(mesAnterior.getMonth() + 1).padStart(2, "0");
-
-    return `${ano}-${mes}`;
-  };
-
   const [lojaSelecionada, setLojaSelecionada] = useState("");
   const [maquinaSelecionada, setMaquinaSelecionada] = useState("");
   const [registrarTotalLoja, setRegistrarTotalLoja] = useState(false);
-  const [mesReferencia, setMesReferencia] = useState(obterMesAnteriorPadrao);
+  const [dataInicio, setDataInicio] = useState(() => dataDiasAtras(30));
+  const [dataFim, setDataFim] = useState(dataDeHoje);
   const [valorDinheiro, setValorDinheiro] = useState("");
   const [valorCartaoPix, setValorCartaoPix] = useState("");
   const [valorBlink, setValorBlink] = useState("");
@@ -30,36 +44,43 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
   const [valorEsperado, setValorEsperado] = useState(null);
   const [carregandoEsperado, setCarregandoEsperado] = useState(false);
 
-  const obterPeriodoDoMes = (valorMes) => {
-    if (!valorMes) return null;
+  // Sempre que a loja/máquina (ou "total da loja") muda, busca o último
+  // fechamento já registrado pra esse recorte e usa o dia seguinte como
+  // início sugerido — assim os períodos ficam contínuos, sem buracos nem
+  // sobreposição. Se nunca fechou antes, cai pros últimos 30 dias.
+  useEffect(() => {
+    const temEscopo = registrarTotalLoja
+      ? Boolean(lojaSelecionada)
+      : Boolean(lojaSelecionada && maquinaSelecionada);
 
-    const [anoTexto, mesTexto] = valorMes.split("-");
-    const ano = Number(anoTexto);
-    const mes = Number(mesTexto);
+    if (!temEscopo) return undefined;
 
-    if (
-      !Number.isInteger(ano) ||
-      !Number.isInteger(mes) ||
-      mes < 1 ||
-      mes > 12
-    ) {
-      return null;
-    }
+    let cancelado = false;
 
-    const inicio = new Date(ano, mes - 1, 1, 0, 0, 0);
-    const fim = new Date(ano, mes, 0, 23, 59, 59);
+    api
+      .get("/registro-dinheiro/ultimo-fechamento", {
+        params: {
+          lojaId: lojaSelecionada,
+          maquinaId: registrarTotalLoja ? undefined : maquinaSelecionada,
+          registrarTotalLoja,
+        },
+      })
+      .then((response) => {
+        if (cancelado) return;
+        const ultimoFim = response.data?.ultimoFim;
+        setDataInicio(
+          ultimoFim ? diaSeguinte(paraDataISO(new Date(ultimoFim))) : dataDiasAtras(30),
+        );
+        setDataFim(dataDeHoje());
+      })
+      .catch(() => {
+        // Busca falhou: mantém as datas atuais, o campo continua editável.
+      });
 
-    const formatarDataHoraLocal = (data) => {
-      const pad = (numero) => String(numero).padStart(2, "0");
-
-      return `${data.getFullYear()}-${pad(data.getMonth() + 1)}-${pad(data.getDate())}T${pad(data.getHours())}:${pad(data.getMinutes())}:${pad(data.getSeconds())}`;
+    return () => {
+      cancelado = true;
     };
-
-    return {
-      inicio: formatarDataHoraLocal(inicio),
-      fim: formatarDataHoraLocal(fim),
-    };
-  };
+  }, [lojaSelecionada, maquinaSelecionada, registrarTotalLoja]);
 
   const parseLocaleNumber = (value) => {
     if (value === "" || value === null || value === undefined) return null;
@@ -118,11 +139,10 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
   // loja/máquina/período estiverem preenchidos, pra já mostrar a divergência
   // em tempo real enquanto a pessoa conta o dinheiro.
   useEffect(() => {
-    const periodoSelecionado = obterPeriodoDoMes(mesReferencia);
-
     if (
       !lojaSelecionada ||
-      !periodoSelecionado ||
+      !dataInicio ||
+      !dataFim ||
       (!registrarTotalLoja && !maquinaSelecionada)
     ) {
       setValorEsperado(null);
@@ -138,8 +158,8 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
           lojaId: lojaSelecionada,
           maquinaId: registrarTotalLoja ? undefined : maquinaSelecionada,
           registrarTotalLoja,
-          inicio: periodoSelecionado.inicio,
-          fim: periodoSelecionado.fim,
+          inicio: `${dataInicio}T00:00:00`,
+          fim: `${dataFim}T23:59:59`,
         },
       })
       .then((response) => {
@@ -157,7 +177,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
     return () => {
       cancelado = true;
     };
-  }, [lojaSelecionada, maquinaSelecionada, registrarTotalLoja, mesReferencia]);
+  }, [lojaSelecionada, maquinaSelecionada, registrarTotalLoja, dataInicio, dataFim]);
 
   const valorContadoTotal =
     (parseLocaleNumber(valorDinheiro) || 0) +
@@ -169,11 +189,18 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const periodoSelecionado = obterPeriodoDoMes(mesReferencia);
 
     // Garantir que campos obrigatórios estejam preenchidos corretamente
-    if (!lojaSelecionada || !periodoSelecionado) {
-      aviso("Campos obrigatórios", "Preencha loja e mês de fechamento.");
+    if (!lojaSelecionada || !dataInicio || !dataFim) {
+      aviso("Campos obrigatórios", "Preencha loja e o período de fechamento.");
+      return;
+    }
+
+    if (dataInicio > dataFim) {
+      aviso(
+        "Período inválido",
+        "A data de início não pode ser depois da data fim.",
+      );
       return;
     }
 
@@ -223,8 +250,8 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
       loja: lojaSelecionada,
       maquina: registrarTotalLoja ? null : maquinaSelecionada || null,
       registrarTotalLoja,
-      inicio: periodoSelecionado.inicio,
-      fim: periodoSelecionado.fim,
+      inicio: `${dataInicio}T00:00:00`,
+      fim: `${dataFim}T23:59:59`,
       valorDinheiro: dinheiroNumero,
       valorCartaoPix: cartaoPixNumero,
       valorBlink: blinkNumero,
@@ -415,18 +442,37 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
         <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-blue-800">
           <span className="text-lg">📅</span> Fechamento
         </h3>
-        <div className="max-w-xs">
-          <label className="mb-1 block text-sm font-bold text-gray-700">
-            Mês
-          </label>
-          <input
-            type="month"
-            value={mesReferencia}
-            onChange={(e) => setMesReferencia(e.target.value)}
-            required
-            className="input-field"
-          />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:max-w-md">
+          <div>
+            <label className="mb-1 block text-sm font-bold text-gray-700">
+              Data início
+            </label>
+            <input
+              type="date"
+              value={dataInicio}
+              onChange={(e) => setDataInicio(e.target.value)}
+              required
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-bold text-gray-700">
+              Data fim
+            </label>
+            <input
+              type="date"
+              value={dataFim}
+              onChange={(e) => setDataFim(e.target.value)}
+              required
+              className="input-field"
+            />
+          </div>
         </div>
+        <p className="mt-2 text-xs text-gray-500">
+          A data início já vem preenchida com o dia seguinte ao último
+          fechamento dessa loja/máquina (ou os últimos 30 dias, se for o
+          primeiro). Pode alterar livremente.
+        </p>
       </div>
 
       {/* Valores contados */}

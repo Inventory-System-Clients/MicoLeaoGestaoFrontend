@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
@@ -30,6 +30,26 @@ const formatDate = (value) => {
   return date.toLocaleDateString("pt-BR");
 };
 
+const paraDataISO = (data) => {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+};
+
+const filtrosPadrao = () => {
+  const hoje = new Date();
+  const trintaDiasAtras = new Date();
+  trintaDiasAtras.setDate(hoje.getDate() - 30);
+  return {
+    lojaId: "",
+    maquinaId: "",
+    conferidoPorId: "",
+    dataInicio: paraDataISO(trintaDiasAtras),
+    dataFim: paraDataISO(hoje),
+  };
+};
+
 export function RegistroDinheiro() {
   const [lojas, setLojas] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
@@ -39,6 +59,8 @@ export function RegistroDinheiro() {
   const [loadingHistorico, setLoadingHistorico] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [filtros, setFiltros] = useState(filtrosPadrao);
+  const [filtrosAplicados, setFiltrosAplicados] = useState(filtrosPadrao);
 
   const carregarBase = async () => {
     try {
@@ -61,10 +83,19 @@ export function RegistroDinheiro() {
     }
   };
 
-  const carregarHistorico = async () => {
+  const carregarHistorico = async (filtrosAtuais) => {
     try {
       setLoadingHistorico(true);
-      const response = await api.get("/registro-dinheiro");
+      const params = {};
+      if (filtrosAtuais.lojaId) params.lojaId = filtrosAtuais.lojaId;
+      if (filtrosAtuais.maquinaId) params.maquinaId = filtrosAtuais.maquinaId;
+      if (filtrosAtuais.conferidoPorId) {
+        params.conferidoPorId = filtrosAtuais.conferidoPorId;
+      }
+      if (filtrosAtuais.dataInicio) params.dataInicio = filtrosAtuais.dataInicio;
+      if (filtrosAtuais.dataFim) params.dataFim = filtrosAtuais.dataFim;
+
+      const response = await api.get("/registro-dinheiro", { params });
       setHistorico(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
       console.error("Erro ao carregar histórico de registro de dinheiro:", err);
@@ -76,8 +107,27 @@ export function RegistroDinheiro() {
 
   useEffect(() => {
     carregarBase();
-    carregarHistorico();
   }, []);
+
+  useEffect(() => {
+    carregarHistorico(filtrosAplicados);
+  }, [filtrosAplicados]);
+
+  const aplicarFiltros = (event) => {
+    event.preventDefault();
+    setFiltrosAplicados({ ...filtros });
+  };
+
+  const limparFiltros = () => {
+    const padrao = filtrosPadrao();
+    setFiltros(padrao);
+    setFiltrosAplicados(padrao);
+  };
+
+  const maquinasDaLojaFiltro = useMemo(() => {
+    if (!filtros.lojaId) return maquinas;
+    return maquinas.filter((m) => m.lojaId === filtros.lojaId);
+  }, [filtros.lojaId, maquinas]);
 
   const handleSubmit = async (data) => {
     try {
@@ -90,7 +140,7 @@ export function RegistroDinheiro() {
           ? `Registro salvo, mas com divergência de R$ ${diferenca.toFixed(2)} em relação ao valor esperado pelo sistema.`
           : "Registro de dinheiro salvo com sucesso, sem divergência!",
       );
-      await carregarHistorico();
+      await carregarHistorico(filtrosAplicados);
     } catch (err) {
       setError(
         err?.response?.data?.error || "Erro ao registrar dinheiro.",
@@ -137,6 +187,127 @@ export function RegistroDinheiro() {
           <h2 className="text-xl font-bold text-gray-900 mb-4">
             Histórico de Registros
           </h2>
+
+          <form
+            onSubmit={aplicarFiltros}
+            className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4"
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  🏪 Loja
+                </label>
+                <select
+                  value={filtros.lojaId}
+                  onChange={(e) =>
+                    setFiltros((prev) => ({
+                      ...prev,
+                      lojaId: e.target.value,
+                      maquinaId: "",
+                    }))
+                  }
+                  className="select-field"
+                >
+                  <option value="">Todas</option>
+                  {lojas.map((loja) => (
+                    <option key={loja.id} value={loja.id}>
+                      {loja.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  🎮 Máquina
+                </label>
+                <select
+                  value={filtros.maquinaId}
+                  onChange={(e) =>
+                    setFiltros((prev) => ({
+                      ...prev,
+                      maquinaId: e.target.value,
+                    }))
+                  }
+                  className="select-field"
+                >
+                  <option value="">Todas</option>
+                  {maquinasDaLojaFiltro.map((maquina) => (
+                    <option key={maquina.id} value={maquina.id}>
+                      {maquina.codigo} - {maquina.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  👤 Quem conferiu
+                </label>
+                <select
+                  value={filtros.conferidoPorId}
+                  onChange={(e) =>
+                    setFiltros((prev) => ({
+                      ...prev,
+                      conferidoPorId: e.target.value,
+                    }))
+                  }
+                  className="select-field"
+                >
+                  <option value="">Todos</option>
+                  {usuarios.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    📅 De
+                  </label>
+                  <input
+                    type="date"
+                    value={filtros.dataInicio}
+                    onChange={(e) =>
+                      setFiltros((prev) => ({
+                        ...prev,
+                        dataInicio: e.target.value,
+                      }))
+                    }
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    📅 Até
+                  </label>
+                  <input
+                    type="date"
+                    value={filtros.dataFim}
+                    onChange={(e) =>
+                      setFiltros((prev) => ({
+                        ...prev,
+                        dataFim: e.target.value,
+                      }))
+                    }
+                    className="input-field"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="submit" className="btn-primary">
+                Aplicar filtros
+              </button>
+              <button
+                type="button"
+                onClick={limparFiltros}
+                className="btn-secondary"
+              >
+                Últimos 30 dias
+              </button>
+            </div>
+          </form>
 
           {loadingHistorico ? (
             <div className="py-8 text-center text-gray-600">Carregando histórico...</div>
