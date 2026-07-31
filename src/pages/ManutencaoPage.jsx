@@ -17,16 +17,47 @@ const TIPOS_PROBLEMA = [
 ];
 
 const STATUS_OPCOES = [
-  { value: "ABERTA", label: "Aberta", variant: "warning" },
-  { value: "EM_ANDAMENTO", label: "Em andamento", variant: "info" },
-  { value: "AGUARDANDO_PECA", label: "Aguardando peça", variant: "danger" },
-  { value: "CONCLUIDA", label: "Concluída", variant: "success" },
+  {
+    value: "ABERTA",
+    label: "Aberta",
+    variant: "warning",
+    emoji: "🟠",
+    borderClass: "border-amber-300",
+    bgClass: "bg-amber-50/60",
+  },
+  {
+    value: "EM_ANDAMENTO",
+    label: "Em andamento",
+    variant: "info",
+    emoji: "🔵",
+    borderClass: "border-blue-300",
+    bgClass: "bg-blue-50/60",
+  },
+  {
+    value: "AGUARDANDO_PECA",
+    label: "Aguardando peça",
+    variant: "danger",
+    emoji: "🔴",
+    borderClass: "border-red-300",
+    bgClass: "bg-red-50/60",
+  },
+  {
+    value: "CONCLUIDA",
+    label: "Concluída",
+    variant: "success",
+    emoji: "🟢",
+    borderClass: "border-emerald-300",
+    bgClass: "bg-emerald-50/50",
+  },
 ];
 
 const obterStatusInfo = (status) =>
   STATUS_OPCOES.find((opcao) => opcao.value === status) || {
     label: status || "-",
     variant: "info",
+    emoji: "⚪",
+    borderClass: "border-gray-200",
+    bgClass: "bg-white",
   };
 
 const obterLabelTipoProblema = (tipo) =>
@@ -52,6 +83,8 @@ export default function ManutencaoPage() {
   const [atualizando, setAtualizando] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  const [funcionarioParaAdicionar, setFuncionarioParaAdicionar] = useState("");
 
   const [usoPecaAbertoId, setUsoPecaAbertoId] = useState(null);
   const [formUsoPeca, setFormUsoPeca] = useState({
@@ -205,11 +238,35 @@ export default function ManutencaoPage() {
     };
   }, [form.maquinaId]);
 
-  const handleSelectFuncionarios = (event) => {
-    const ids = Array.from(event.target.selectedOptions).map(
-      (opt) => opt.value,
+  const handleAdicionarFuncionario = () => {
+    if (!funcionarioParaAdicionar) return;
+    setForm((prev) =>
+      prev.funcionariosIds.includes(funcionarioParaAdicionar)
+        ? prev
+        : {
+            ...prev,
+            funcionariosIds: [
+              ...prev.funcionariosIds,
+              funcionarioParaAdicionar,
+            ],
+          },
     );
-    setForm((prev) => ({ ...prev, funcionariosIds: ids }));
+    setFuncionarioParaAdicionar("");
+  };
+
+  const handleRemoverFuncionario = (id) => {
+    setForm((prev) => ({
+      ...prev,
+      funcionariosIds: prev.funcionariosIds.filter((fid) => fid !== id),
+      responsavelId: prev.responsavelId === id ? "" : prev.responsavelId,
+    }));
+  };
+
+  const handleDefinirResponsavel = (id) => {
+    setForm((prev) => ({
+      ...prev,
+      responsavelId: prev.responsavelId === id ? "" : id,
+    }));
   };
 
   const handleSelectLoja = (event) => {
@@ -290,6 +347,7 @@ export default function ManutencaoPage() {
         tipoProblema: "",
         prazo: "",
       });
+      setFuncionarioParaAdicionar("");
       await carregarDados();
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao criar manutenção");
@@ -684,54 +742,94 @@ export default function ManutencaoPage() {
               <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-emerald-800">
                 <span className="text-lg">👷</span> Responsáveis
               </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-1 block text-sm font-bold text-gray-700">
-                    Funcionário responsável{" "}
-                    <span className="text-xs font-normal text-gray-500">
-                      (opcional)
-                    </span>
-                  </label>
+
+              <div>
+                <label className="mb-1 block text-sm font-bold text-gray-700">
+                  Adicionar funcionário{" "}
+                  <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
                   <select
-                    value={form.responsavelId}
+                    value={funcionarioParaAdicionar}
                     onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        responsavelId: e.target.value,
-                      }))
+                      setFuncionarioParaAdicionar(e.target.value)
                     }
                     className="select-field"
                   >
-                    <option value="">Selecione...</option>
-                    {funcionarios.map((funcionario) => (
-                      <option key={funcionario.id} value={funcionario.id}>
-                        {funcionario.nome}
-                      </option>
-                    ))}
+                    <option value="">Selecione um funcionário...</option>
+                    {funcionarios
+                      .filter(
+                        (funcionario) =>
+                          !form.funcionariosIds.includes(funcionario.id),
+                      )
+                      .map((funcionario) => (
+                        <option key={funcionario.id} value={funcionario.id}>
+                          {funcionario.nome} ({funcionario.email})
+                        </option>
+                      ))}
                   </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-bold text-gray-700">
-                    Quem pode visualizar/resolver{" "}
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    multiple
-                    value={form.funcionariosIds}
-                    onChange={handleSelectFuncionarios}
-                    className="select-field min-h-40"
+                  <button
+                    type="button"
+                    onClick={handleAdicionarFuncionario}
+                    disabled={!funcionarioParaAdicionar}
+                    className="btn-secondary shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {funcionarios.map((funcionario) => (
-                      <option key={funcionario.id} value={funcionario.id}>
-                        {funcionario.nome} ({funcionario.email})
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Segure Ctrl (ou Cmd no Mac) para selecionar vários.
-                  </p>
+                    ➕ Adicionar
+                  </button>
                 </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Adicione quantos funcionários forem necessários — todos
+                  poderão ver e resolver essa manutenção. Clique na ⭐ de um
+                  deles para marcá-lo como responsável principal (opcional).
+                </p>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {form.funcionariosIds.length === 0 ? (
+                  <p className="text-xs text-gray-500">
+                    Nenhum funcionário adicionado ainda.
+                  </p>
+                ) : (
+                  form.funcionariosIds.map((id) => {
+                    const funcionario = funcionarios.find(
+                      (item) => item.id === id,
+                    );
+                    const ehResponsavel = form.responsavelId === id;
+
+                    return (
+                      <span
+                        key={id}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                          ehResponsavel
+                            ? "border-emerald-400 bg-emerald-100 text-emerald-900"
+                            : "border-gray-300 bg-white text-gray-700"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleDefinirResponsavel(id)}
+                          title={
+                            ehResponsavel
+                              ? "Responsável principal"
+                              : "Marcar como responsável principal"
+                          }
+                          className="text-sm leading-none"
+                        >
+                          {ehResponsavel ? "⭐" : "☆"}
+                        </button>
+                        {funcionario?.nome || "Funcionário"}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoverFuncionario(id)}
+                          title="Remover"
+                          className="ml-0.5 leading-none text-gray-400 hover:text-red-600"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -924,15 +1022,17 @@ export default function ManutencaoPage() {
         )}
 
         <div className="card">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Manutenções</h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+              <span className="text-xl">🗂️</span> Manutenções
+            </h2>
             <button
               type="button"
               onClick={handleAtualizarDados}
               disabled={atualizando}
               className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {atualizando ? "Atualizando..." : "Atualizar"}
+              {atualizando ? "Atualizando..." : "🔄 Atualizar"}
             </button>
           </div>
 
@@ -941,7 +1041,7 @@ export default function ManutencaoPage() {
               Nenhuma manutenção encontrada.
             </p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {manutencoesVisiveis.map((item) => {
                 const podePermitido =
                   isAdmin ||
@@ -955,47 +1055,63 @@ export default function ManutencaoPage() {
                 return (
                   <div
                     key={item.id}
-                    className="rounded-lg border border-gray-200 p-4"
+                    className={`rounded-xl border-2 p-4 shadow-sm transition-shadow hover:shadow-md ${statusInfo.borderClass} ${statusInfo.bgClass}`}
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-base font-semibold text-gray-900">
-                        {item.titulo}
-                      </h3>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-bold text-gray-900">
+                          {item.titulo}
+                        </h3>
+                        <p className="mt-1 text-sm text-gray-700">
+                          {item.descricao}
+                        </p>
+                      </div>
                       <Badge variant={statusInfo.variant} size="sm">
-                        {statusInfo.label}
+                        {statusInfo.emoji} {statusInfo.label}
                       </Badge>
                     </div>
 
-                    <p className="mt-2 text-sm text-gray-700">
-                      {item.descricao}
-                    </p>
-
-                    <div className="mt-2 space-y-1 text-xs text-gray-600">
+                    <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1.5 rounded-lg bg-white/80 p-3 text-xs text-gray-700 sm:grid-cols-2">
                       <p>
-                        Máquina:{" "}
+                        🎮 <span className="font-semibold">Máquina:</span>{" "}
                         {item.maquina
                           ? `${item.maquina.codigo} ${item.maquina.nome || ""}`
                           : "-"}
                       </p>
-                      <p>Loja: {item.loja?.nome || "-"}</p>
                       <p>
-                        Tipo de problema:{" "}
+                        🏪 <span className="font-semibold">Loja:</span>{" "}
+                        {item.loja?.nome || "-"}
+                      </p>
+                      <p>
+                        🏷️ <span className="font-semibold">Tipo:</span>{" "}
                         {obterLabelTipoProblema(item.tipoProblema)}
                       </p>
-                      <p>Responsável: {item.responsavel?.nome || "-"}</p>
-                      <p>Prazo: {formatarData(item.prazo)}</p>
-                      <p>Criado por: {item.criadoPor?.nome || "-"}</p>
+                      <p>
+                        👷 <span className="font-semibold">Responsável:</span>{" "}
+                        {item.responsavel?.nome || "-"}
+                      </p>
+                      <p>
+                        📅 <span className="font-semibold">Prazo:</span>{" "}
+                        {formatarData(item.prazo)}
+                      </p>
+                      <p>
+                        ✍️ <span className="font-semibold">Criado por:</span>{" "}
+                        {item.criadoPor?.nome || "-"}
+                      </p>
                       {isAdmin && (
                         <p>
-                          Custo:{" "}
+                          💰 <span className="font-semibold">Custo:</span>{" "}
                           {item.custo !== null && item.custo !== undefined
                             ? `R$ ${item.custo}`
                             : "-"}
                         </p>
                       )}
                       {isAdmin && (
-                        <p>
-                          Funcionários permitidos:{" "}
+                        <p className="sm:col-span-2">
+                          👥{" "}
+                          <span className="font-semibold">
+                            Podem visualizar/resolver:
+                          </span>{" "}
                           {(item.funcionariosPermitidos || [])
                             .map((f) => f.nome)
                             .join(", ") || "-"}
@@ -1003,9 +1119,19 @@ export default function ManutencaoPage() {
                       )}
                       {isAdmin && item.status === "CONCLUIDA" && (
                         <>
-                          <p>Concluído por: {item.resolvidoPor?.nome || "-"}</p>
                           <p>
-                            Concluído em: {formatarDataHora(item.resolvidoEm)}
+                            ✅{" "}
+                            <span className="font-semibold">
+                              Concluído por:
+                            </span>{" "}
+                            {item.resolvidoPor?.nome || "-"}
+                          </p>
+                          <p>
+                            🕒{" "}
+                            <span className="font-semibold">
+                              Concluído em:
+                            </span>{" "}
+                            {formatarDataHora(item.resolvidoEm)}
                           </p>
                         </>
                       )}
@@ -1013,28 +1139,28 @@ export default function ManutencaoPage() {
 
                     {podeAtualizar && (
                       <div className="mt-3 flex items-center gap-2">
-                        <label className="text-xs font-medium text-gray-700">
-                          Atualizar status:
+                        <label className="text-xs font-bold text-gray-700">
+                          🔄 Atualizar status:
                         </label>
                         <select
                           value={item.status}
                           onChange={(e) =>
                             handleAtualizarStatus(item.id, e.target.value)
                           }
-                          className="rounded-lg border border-gray-300 px-2 py-1 text-sm outline-none focus:border-blue-500"
+                          className="select-field w-auto py-1.5 text-sm"
                         >
                           {STATUS_OPCOES.map((opcao) => (
                             <option key={opcao.value} value={opcao.value}>
-                              {opcao.label}
+                              {opcao.emoji} {opcao.label}
                             </option>
                           ))}
                         </select>
                       </div>
                     )}
 
-                    <div className="mt-3 border-t border-gray-100 pt-3">
-                      <p className="text-xs font-semibold text-gray-700">
-                        Peças usadas:
+                    <div className="mt-3 border-t border-gray-200/70 pt-3">
+                      <p className="text-xs font-bold text-gray-700">
+                        🔩 Peças usadas
                       </p>
                       {(item.pecasUsadas || []).length === 0 ? (
                         <p className="text-xs text-gray-500">
@@ -1062,7 +1188,7 @@ export default function ManutencaoPage() {
                           >
                             {usoPecaAbertoId === item.id
                               ? "Cancelar"
-                              : "Registrar uso de peça"}
+                              : "🔧 Registrar uso de peça"}
                           </button>
                         </div>
                       )}
@@ -1070,7 +1196,7 @@ export default function ManutencaoPage() {
                       {usoPecaAbertoId === item.id && (
                         <form
                           onSubmit={(e) => handleRegistrarUsoPeca(e, item.id)}
-                          className="mt-2 grid grid-cols-1 gap-2 rounded-lg bg-gray-50 p-3 md:grid-cols-3"
+                          className="mt-2 grid grid-cols-1 gap-2 rounded-lg bg-white/80 p-3 md:grid-cols-3"
                         >
                           <div>
                             <label className="mb-1 block text-xs font-medium text-gray-700">
@@ -1084,7 +1210,7 @@ export default function ManutencaoPage() {
                                   pecaId: e.target.value,
                                 }))
                               }
-                              className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                              className="select-field py-1.5 text-sm"
                             >
                               <option value="">Selecione...</option>
                               {pecas.map((peca) => (
@@ -1109,7 +1235,7 @@ export default function ManutencaoPage() {
                                   quantidade: e.target.value,
                                 }))
                               }
-                              className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                              className="input-field py-1.5 text-sm"
                             />
                           </div>
                           <div>
@@ -1124,7 +1250,7 @@ export default function ManutencaoPage() {
                                   observacao: e.target.value,
                                 }))
                               }
-                              className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                              className="input-field py-1.5 text-sm"
                             />
                           </div>
                           <div className="md:col-span-3 flex justify-end">
