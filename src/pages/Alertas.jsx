@@ -210,6 +210,22 @@ export default function Alertas() {
     }
   };
 
+  const handleResolverDivergenciaBlink = async (registroId) => {
+    try {
+      setErroResolucao("");
+      setResolvendoId(registroId);
+      await api.patch(`/registro-dinheiro/${registroId}/resolver-alerta-blink`);
+      await recarregar();
+    } catch (error) {
+      setErroResolucao(
+        error.response?.data?.error ||
+          "Falha ao resolver a divergência do Blink",
+      );
+    } finally {
+      setResolvendoId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background-light bg-pattern teddy-pattern">
       <Navbar />
@@ -331,6 +347,49 @@ export default function Alertas() {
                           ? "Resolvendo..."
                           : "Marcar como resolvido"}
                       </button>
+                    </article>
+                  ))}
+                </div>
+              ) : tipo.id === "divergencia-blink" ? (
+                <div className="space-y-3">
+                  {tipo.itens.map((item) => (
+                    <article
+                      key={item.id}
+                      className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <p className="font-bold text-gray-900">{item.titulo}</p>
+                        <p className="text-sm text-gray-600">{item.mensagem}</p>
+                        {item.lojaNome && (
+                          <p className="text-sm text-gray-600">
+                            Loja: <strong>{item.lojaNome}</strong>
+                          </p>
+                        )}
+                        {item.createdAt && (
+                          <p className="text-sm text-gray-600">
+                            Registrado em:{" "}
+                            <strong>{formatarData(item.createdAt)}</strong>
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2 sm:justify-end">
+                        <Link
+                          to="/registrar-dinheiro"
+                          className="text-sm font-bold text-amber-700 hover:text-amber-900"
+                        >
+                          Ver registros →
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleResolverDivergenciaBlink(item.id)}
+                          disabled={resolvendoId === item.id}
+                          className="btn-secondary text-sm disabled:opacity-60"
+                        >
+                          {resolvendoId === item.id
+                            ? "Resolvendo..."
+                            : "Marcar como resolvido"}
+                        </button>
+                      </div>
                     </article>
                   ))}
                 </div>

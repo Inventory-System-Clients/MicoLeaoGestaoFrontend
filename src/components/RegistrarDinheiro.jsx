@@ -34,8 +34,6 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
   const [valorDinheiro, setValorDinheiro] = useState("");
   const [valorCartaoPix, setValorCartaoPix] = useState("");
   const [valorBlink, setValorBlink] = useState("");
-  const [percentualTaxaCartaoMedia, setPercentualTaxaCartaoMedia] =
-    useState("");
   const [observacoes, setObservacoes] = useState("");
   const [gastosVariaveis, setGastosVariaveis] = useState([]);
   const [conferidoPorId, setConferidoPorId] = useState("");
@@ -179,13 +177,20 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
     };
   }, [lojaSelecionada, maquinaSelecionada, registrarTotalLoja, dataInicio, dataFim]);
 
+  // O Blink é só um valor de comparação (trocadora) — não entra na soma
+  // contada contra o valor esperado pelo sistema (fichas).
   const valorContadoTotal =
     (parseLocaleNumber(valorDinheiro) || 0) +
-    (parseLocaleNumber(valorCartaoPix) || 0) +
-    (parseLocaleNumber(valorBlink) || 0);
+    (parseLocaleNumber(valorCartaoPix) || 0);
 
   const diferenca =
     valorEsperado !== null ? Number((valorContadoTotal - valorEsperado).toFixed(2)) : null;
+
+  const valorBlinkNumeroPreview = parseLocaleNumber(valorBlink);
+  const diferencaBlinkPreview =
+    registrarTotalLoja && valorBlinkNumeroPreview !== null
+      ? Number((valorContadoTotal - valorBlinkNumeroPreview).toFixed(2))
+      : null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -212,7 +217,6 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
     const dinheiroNumero = parseLocaleNumber(valorDinheiro);
     const cartaoPixNumero = parseLocaleNumber(valorCartaoPix);
     const blinkNumero = parseLocaleNumber(valorBlink);
-    const taxaMediaNumero = parseLocaleNumber(percentualTaxaCartaoMedia);
 
     if (valorDinheiro !== "" && dinheiroNumero === null) {
       aviso("Valor inválido", "Valor de dinheiro inválido.");
@@ -226,11 +230,6 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
 
     if (valorBlink !== "" && blinkNumero === null) {
       aviso("Valor inválido", "Valor do Blink inválido.");
-      return;
-    }
-
-    if (percentualTaxaCartaoMedia !== "" && taxaMediaNumero === null) {
-      aviso("Taxa inválida", "Taxa média de cartão inválida.");
       return;
     }
 
@@ -254,8 +253,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
       fim: `${dataFim}T23:59:59`,
       valorDinheiro: dinheiroNumero,
       valorCartaoPix: cartaoPixNumero,
-      valorBlink: blinkNumero,
-      percentualTaxaCartaoMedia: taxaMediaNumero,
+      valorBlink: registrarTotalLoja ? blinkNumero : null,
       observacoes: observacoes === "" ? null : observacoes,
       conferidoPorId: conferidoPorId || null,
       comprovanteUrl: comprovanteUrl.trim() === "" ? null : comprovanteUrl.trim(),
@@ -345,7 +343,10 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
           <input
             type="checkbox"
             checked={registrarTotalLoja}
-            onChange={(e) => setRegistrarTotalLoja(e.target.checked)}
+            onChange={(e) => {
+              setRegistrarTotalLoja(e.target.checked);
+              if (!e.target.checked) setValorBlink("");
+            }}
           />
           Registrar valor total da loja (não selecionar máquina)
         </label>
@@ -480,73 +481,75 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
         <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-emerald-800">
           <span className="text-lg">💰</span> Valores contados
         </h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {!registrarTotalLoja && (
-            <div>
-              <label className="mb-1 block text-sm font-bold text-gray-700">
-                💵 Dinheiro
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={valorDinheiro}
-                onChange={(e) => setValorDinheiro(e.target.value)}
-                placeholder="Ex: 10,50"
-                className="input-field"
-              />
-            </div>
-          )}
-
-          {!registrarTotalLoja && (
-            <div>
-              <label className="mb-1 block text-sm font-bold text-gray-700">
-                💳 Cartão / Pix
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={valorCartaoPix}
-                onChange={(e) => setValorCartaoPix(e.target.value)}
-                placeholder="Ex: 25,90"
-                className="input-field"
-              />
-            </div>
-          )}
-
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div>
             <label className="mb-1 block text-sm font-bold text-gray-700">
-              ⚡ Blink
+              💵 Dinheiro
             </label>
             <input
               type="text"
               inputMode="decimal"
-              value={valorBlink}
-              onChange={(e) => setValorBlink(e.target.value)}
-              placeholder="Ex: 15,00"
+              value={valorDinheiro}
+              onChange={(e) => setValorDinheiro(e.target.value)}
+              placeholder="Ex: 10,50"
               className="input-field"
             />
           </div>
 
-          {!registrarTotalLoja && (
+          <div>
+            <label className="mb-1 block text-sm font-bold text-gray-700">
+              💳 Cartão / Pix
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={valorCartaoPix}
+              onChange={(e) => setValorCartaoPix(e.target.value)}
+              placeholder="Ex: 25,90"
+              className="input-field"
+            />
+          </div>
+
+          {registrarTotalLoja && (
             <div>
               <label className="mb-1 block text-sm font-bold text-gray-700">
-                📊 Taxa cartão %
+                ⚡ Blink
               </label>
               <input
                 type="text"
                 inputMode="decimal"
-                value={percentualTaxaCartaoMedia}
-                onChange={(e) => setPercentualTaxaCartaoMedia(e.target.value)}
-                placeholder="Ex: 4,99"
+                value={valorBlink}
+                onChange={(e) => setValorBlink(e.target.value)}
+                placeholder="Ex: 15,00"
                 className="input-field"
               />
             </div>
           )}
         </div>
+
         {registrarTotalLoja && (
-          <p className="mt-2 text-xs text-gray-500">
-            Blink: valor total vindo da trocadora (sistema Blink) no período.
-          </p>
+          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+            <p className="text-xs text-gray-600">
+              ⚡ <strong>Blink é só para comparação</strong>: não entra na
+              soma contada, só serve pra conferir se bate com Dinheiro +
+              Cartão/Pix. Se a diferença for maior que R$ 0,01, um alerta é
+              criado automaticamente na página de{" "}
+              <strong>Alertas</strong>.
+            </p>
+            {valorBlinkNumeroPreview !== null && (
+              <p
+                className={`mt-2 text-sm font-black ${
+                  Math.abs(diferencaBlinkPreview) < 0.01
+                    ? "text-emerald-700"
+                    : "text-red-700"
+                }`}
+              >
+                {Math.abs(diferencaBlinkPreview) < 0.01
+                  ? "✅ Bate com Dinheiro + Cartão/Pix"
+                  : `⚠️ Diferença de R$ ${diferencaBlinkPreview.toFixed(2)} em relação ao Blink`}
+              </p>
+            )}
+          </div>
         )}
 
         {(valorEsperado !== null || carregandoEsperado) && (

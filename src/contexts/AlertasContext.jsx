@@ -88,6 +88,12 @@ const DEFINICAO_TIPOS = [
     cor: "amber",
   },
   { id: "veiculos", label: "Veículos", icone: "🚗", cor: "blue" },
+  {
+    id: "divergencia-blink",
+    label: "Divergência Blink",
+    icone: "⚡",
+    cor: "amber",
+  },
 ];
 
 const tiposVazios = () =>
@@ -129,6 +135,7 @@ export function AlertasProvider({ children }) {
         carrinhoTransitoRes,
         lacresDivergentesRes,
         comprasPendentesRes,
+        divergenciaBlinkRes,
       ] = await Promise.all([
         api
           .get("/relatorios/alertas-estoque")
@@ -167,6 +174,7 @@ export function AlertasProvider({ children }) {
         api
           .get("/compras", { params: { status: "PESQUISANDO,COMPRADO" } })
           .catch(() => ({ data: [] })),
+        api.get("/registro-dinheiro/alertas-blink").catch(() => ({ data: [] })),
       ]);
 
       const lojas = Array.isArray(lojasRes.data) ? lojasRes.data : [];
@@ -223,6 +231,24 @@ export function AlertasProvider({ children }) {
           }))
         : [];
 
+      const divergenciaBlinkItens = Array.isArray(divergenciaBlinkRes.data)
+        ? divergenciaBlinkRes.data.map((registro) => {
+            const contado =
+              Number(registro.valorDinheiro || 0) +
+              Number(registro.valorCartaoPix || 0);
+            const blink = Number(registro.valorBlink || 0);
+            const diferenca = Number(registro.diferencaBlink || 0);
+            return {
+              id: registro.id,
+              titulo: "Divergência Blink",
+              lojaNome: registro.loja?.nome,
+              lojaId: registro.loja?.id,
+              mensagem: `Dinheiro+Cartão/Pix: R$ ${contado.toFixed(2)} · Blink: R$ ${blink.toFixed(2)} · Diferença: R$ ${diferenca.toFixed(2)}`,
+              createdAt: registro.createdAt,
+            };
+          })
+        : [];
+
       const resultados = [
         { id: "movimentacao", itens: movimentacaoItens },
         {
@@ -256,6 +282,7 @@ export function AlertasProvider({ children }) {
         },
         { id: "compra-pendente", itens: compraPendenteItens },
         { id: "veiculos", itens: veiculosItens },
+        { id: "divergencia-blink", itens: divergenciaBlinkItens },
       ].map((resultado) => {
         const definicao = DEFINICAO_TIPOS.find(
           (tipo) => tipo.id === resultado.id,
