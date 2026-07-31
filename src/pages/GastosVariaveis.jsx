@@ -271,7 +271,7 @@ export function GastosVariaveis() {
 
         {modalAberto && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-            <div className="relative w-full max-w-full sm:max-w-3xl md:max-w-4xl lg:max-w-5xl rounded-3xl border border-orange-100 bg-white p-6 shadow-2xl">
+            <div className="relative w-full max-w-full sm:max-w-3xl md:max-w-4xl lg:max-w-5xl p-0">
               <button
                 type="button"
                 onClick={() => setModalAberto(false)}
