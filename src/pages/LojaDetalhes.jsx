@@ -27,6 +27,21 @@ const formatarDataLoja = (valor) => {
   return data.toLocaleDateString("pt-BR");
 };
 
+const paraDataISO = (data) => {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+};
+
+const dataDeHoje = () => paraDataISO(new Date());
+
+const dataDiasAtras = (dias) => {
+  const data = new Date();
+  data.setDate(data.getDate() - dias);
+  return paraDataISO(data);
+};
+
 export function LojaDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -37,8 +52,8 @@ export function LojaDetalhes() {
   const [maquinaSelecionada, setMaquinaSelecionada] = useState(null);
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [loadingMovimentacoes, setLoadingMovimentacoes] = useState(false);
-  const [dataInicio, setDataInicio] = useState("");
-  const [dataFim, setDataFim] = useState("");
+  const [dataInicio, setDataInicio] = useState(() => dataDiasAtras(30));
+  const [dataFim, setDataFim] = useState(dataDeHoje);
 
   useEffect(() => {
     carregarDados();
@@ -52,7 +67,7 @@ export function LojaDetalhes() {
         await Promise.all([
           api.get(`/lojas/${id}`),
           api.get(`/maquinas`),
-          api.get(`/movimentacoes`),
+          api.get(`/movimentacoes`, { params: { lojaId: id, limite: 200 } }),
           api.get(`/produtos`),
         ]);
 
@@ -115,12 +130,18 @@ export function LojaDetalhes() {
     }
   };
 
-  const carregarMovimentacoes = async (maquinaId) => {
+  const carregarMovimentacoes = async (maquinaId, inicio, fim) => {
     try {
       setLoadingMovimentacoes(true);
-      const movRes = await api.get(`/movimentacoes?maquinaId=${maquinaId}`);
+      const movRes = await api.get(`/movimentacoes`, {
+        params: {
+          maquinaId,
+          dataInicio: inicio || undefined,
+          dataFim: fim || undefined,
+          limite: 200,
+        },
+      });
       setMovimentacoes(movRes.data || []);
-      console.log("Movimentações recebidas:", movRes.data);
     } catch (error) {
       console.error("Erro ao carregar movimentações:", error);
       setMovimentacoes([]);
@@ -135,7 +156,22 @@ export function LojaDetalhes() {
       setMovimentacoes([]);
     } else {
       setMaquinaSelecionada(maquina);
-      carregarMovimentacoes(maquina.id);
+      carregarMovimentacoes(maquina.id, dataInicio, dataFim);
+    }
+  };
+
+  const handleAplicarFiltrosMovimentacoes = () => {
+    if (!maquinaSelecionada) return;
+    carregarMovimentacoes(maquinaSelecionada.id, dataInicio, dataFim);
+  };
+
+  const handleLimparFiltrosMovimentacoes = () => {
+    const inicioPadrao = dataDiasAtras(30);
+    const fimPadrao = dataDeHoje();
+    setDataInicio(inicioPadrao);
+    setDataFim(fimPadrao);
+    if (maquinaSelecionada) {
+      carregarMovimentacoes(maquinaSelecionada.id, inicioPadrao, fimPadrao);
     }
   };
 
@@ -500,17 +536,23 @@ export function LojaDetalhes() {
                         />
                       </div>
                     </div>
-                    {(dataInicio || dataFim) && (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
                       <button
-                        onClick={() => {
-                          setDataInicio("");
-                          setDataFim("");
-                        }}
-                        className="mt-2 text-sm text-primary hover:text-primary-dark flex items-center gap-1"
+                        type="button"
+                        onClick={handleAplicarFiltrosMovimentacoes}
+                        disabled={loadingMovimentacoes}
+                        className="btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        ✕ Limpar filtros
+                        🔎 Aplicar filtros
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={handleLimparFiltrosMovimentacoes}
+                        className="text-sm text-primary hover:text-primary-dark flex items-center gap-1"
+                      >
+                        ✕ Limpar filtros (últimos 30 dias)
+                      </button>
+                    </div>
                   </div>
 
                   {loadingMovimentacoes ? (
@@ -522,21 +564,7 @@ export function LojaDetalhes() {
                     </div>
                   ) : movimentacoes.length > 0 ? (
                     <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {movimentacoes
-                        .filter((mov) => {
-                          const movData = new Date(mov.createdAt);
-                          const inicio = dataInicio
-                            ? new Date(dataInicio)
-                            : null;
-                          const fim = dataFim
-                            ? new Date(dataFim + "T23:59:59")
-                            : null;
-
-                          if (inicio && movData < inicio) return false;
-                          if (fim && movData > fim) return false;
-                          return true;
-                        })
-                        .map((mov) => (
+                      {movimentacoes.map((mov) => (
                           <div
                             key={mov.id}
                             className="p-4 border border-gray-200 rounded-lg bg-white hover:bg-gray-50"
