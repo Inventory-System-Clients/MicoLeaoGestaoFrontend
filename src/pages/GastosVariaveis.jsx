@@ -205,7 +205,8 @@ export function GastosVariaveis() {
     {
       key: "loja",
       label: "Loja",
-      render: (g) => g.loja?.nome || lojas.find((l) => l.id === g.lojaId)?.nome || "-",
+      render: (g) =>
+        g.loja?.nome || lojas.find((l) => l.id === g.lojaId)?.nome || "-",
     },
     { key: "usuario", label: "Usuário", render: (g) => g.usuario?.nome || "-" },
     { key: "veiculo", label: "Veículo", render: (g) => g.veiculo?.nome || "-" },
@@ -214,7 +215,11 @@ export function GastosVariaveis() {
       label: "Valor",
       render: (g) => `R$ ${formatCurrency(g.valor)}`,
     },
-    { key: "observacao", label: "Observação", render: (g) => g.observacao || "-" },
+    {
+      key: "observacao",
+      label: "Observação",
+      render: (g) => g.observacao || "-",
+    },
     {
       key: "acoes",
       label: "Ações",
@@ -266,7 +271,7 @@ export function GastosVariaveis() {
 
         {modalAberto && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-            <div className="relative w-full max-w-md rounded-lg border border-orange-100 bg-white p-6 shadow-2xl">
+            <div className="relative w-full max-w-full sm:max-w-3xl rounded-3xl border border-orange-100 bg-white p-6 shadow-2xl">
               <button
                 type="button"
                 onClick={() => setModalAberto(false)}
@@ -367,9 +372,7 @@ export function GastosVariaveis() {
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium">
-                  Observação:
-                </label>
+                <label className="block text-sm font-medium">Observação:</label>
                 <input
                   value={editForm.observacao}
                   onChange={(e) =>
