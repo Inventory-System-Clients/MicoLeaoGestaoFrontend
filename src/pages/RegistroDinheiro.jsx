@@ -92,7 +92,8 @@ export function RegistroDinheiro() {
       if (filtrosAtuais.conferidoPorId) {
         params.conferidoPorId = filtrosAtuais.conferidoPorId;
       }
-      if (filtrosAtuais.dataInicio) params.dataInicio = filtrosAtuais.dataInicio;
+      if (filtrosAtuais.dataInicio)
+        params.dataInicio = filtrosAtuais.dataInicio;
       if (filtrosAtuais.dataFim) params.dataFim = filtrosAtuais.dataFim;
 
       const response = await api.get("/registro-dinheiro", { params });
@@ -141,10 +142,13 @@ export function RegistroDinheiro() {
           : "Registro de dinheiro salvo com sucesso, sem divergência!",
       );
       await carregarHistorico(filtrosAplicados);
+      if (Math.abs(diferenca) >= 0.01) {
+        window.location.reload();
+      }
+      return response.data;
     } catch (err) {
-      setError(
-        err?.response?.data?.error || "Erro ao registrar dinheiro.",
-      );
+      setError(err?.response?.data?.error || "Erro ao registrar dinheiro.");
+      return null;
     }
   };
 
@@ -310,7 +314,9 @@ export function RegistroDinheiro() {
           </form>
 
           {loadingHistorico ? (
-            <div className="py-8 text-center text-gray-600">Carregando histórico...</div>
+            <div className="py-8 text-center text-gray-600">
+              Carregando histórico...
+            </div>
           ) : historico.length === 0 ? (
             <div className="py-8 text-center text-gray-600">
               Nenhum registro de dinheiro encontrado.
