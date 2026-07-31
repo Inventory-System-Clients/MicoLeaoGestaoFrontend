@@ -237,14 +237,100 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Loja e máquina */}
+      <div className="rounded-lg border border-orange-100 bg-orange-50/70 p-4">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-orange-800">
+          <span className="text-lg">🏪</span> Loja e máquina
+        </h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-bold text-gray-700">
+              Loja
+            </label>
+            <select
+              value={lojaSelecionada}
+              onChange={handleLojaChange}
+              required
+              className="select-field"
+            >
+              <option value="">Selecione a loja</option>
+              {lojas &&
+                lojas.map((loja) => (
+                  <option key={loja.id} value={loja.id}>
+                    {loja.nome}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-bold text-gray-700">
+              🎮 Máquina
+            </label>
+            <select
+              value={maquinaSelecionada}
+              onChange={(e) => setMaquinaSelecionada(e.target.value)}
+              disabled={registrarTotalLoja}
+              className="select-field disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Selecione a máquina</option>
+              {maquinas &&
+                (() => {
+                  // Encontrar a loja selecionada pelo id
+                  const lojaObj = lojas?.find((l) => l.id === lojaSelecionada);
+                  // Se for Agarramais Aeroporto, mostrar todas as máquinas da loja
+                  if (
+                    lojaObj &&
+                    lojaObj.nome &&
+                    lojaObj.nome.trim().toLowerCase().includes("aeroporto")
+                  ) {
+                    return maquinas
+                      .filter((m) => m.lojaId === lojaSelecionada)
+                      .map((maquina) => (
+                        <option key={maquina.id} value={maquina.id}>
+                          {maquina.nome}
+                        </option>
+                      ));
+                  } else {
+                    // Lógica padrão: só takeball e poltrona
+                    return maquinas
+                      .filter(
+                        (m) =>
+                          m.lojaId === lojaSelecionada &&
+                          ((typeof m.nome === "string" &&
+                            m.nome.trim().toUpperCase().endsWith("TAKEBALL")) ||
+                            (typeof m.nome === "string" &&
+                              m.nome.toLowerCase().includes("poltrona"))),
+                      )
+                      .map((maquina) => (
+                        <option key={maquina.id} value={maquina.id}>
+                          {maquina.nome}
+                        </option>
+                      ));
+                  }
+                })()}
+            </select>
+          </div>
+        </div>
+
+        <label className="mt-3 flex items-center gap-2 text-sm font-medium text-gray-700">
+          <input
+            type="checkbox"
+            checked={registrarTotalLoja}
+            onChange={(e) => setRegistrarTotalLoja(e.target.checked)}
+          />
+          Registrar valor total da loja (não selecionar máquina)
+        </label>
+      </div>
+
       {/* Gastos Variáveis - só aparece se registrarTotalLoja estiver marcado */}
       {registrarTotalLoja && (
-        <div className="rounded-lg border border-orange-100 bg-orange-50 p-4">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <label className="text-sm font-bold text-gray-700">
-              Gastos Variáveis
-            </label>
+            <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-amber-800">
+              <span className="text-lg">🧾</span> Gastos Variáveis
+            </h3>
             <button
               type="button"
               onClick={handleAddGasto}
@@ -262,7 +348,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
             {gastosVariaveis.map((gasto, idx) => (
               <div
                 key={idx}
-                className="grid grid-cols-1 gap-2 rounded-lg border border-orange-100 bg-white p-2 sm:grid-cols-[2fr_1fr_2fr_auto]"
+                className="grid grid-cols-1 gap-2 rounded-lg border border-amber-100 bg-white p-2 sm:grid-cols-[2fr_1fr_2fr_auto]"
               >
                 <div>
                   <label className="mb-1 block text-xs font-bold text-gray-600">
@@ -324,257 +410,201 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
         </div>
       )}
 
-      <div>
-        <label className="mb-1 block text-sm font-bold text-gray-700">
-          Loja
-        </label>
-        <select
-          value={lojaSelecionada}
-          onChange={handleLojaChange}
-          required
-          className="select-field"
-        >
-          <option value="">Selecione a loja</option>
-          {lojas &&
-            lojas.map((loja) => (
-              <option key={loja.id} value={loja.id}>
-                {loja.nome}
-              </option>
-            ))}
-        </select>
-      </div>
-
-      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-        <input
-          type="checkbox"
-          checked={registrarTotalLoja}
-          onChange={(e) => setRegistrarTotalLoja(e.target.checked)}
-        />
-        Registrar valor total da loja (não selecionar máquina)
-      </label>
-
-      <div>
-        <label className="mb-1 block text-sm font-bold text-gray-700">
-          Máquina
-        </label>
-        <select
-          value={maquinaSelecionada}
-          onChange={(e) => setMaquinaSelecionada(e.target.value)}
-          disabled={registrarTotalLoja}
-          className="select-field disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <option value="">Selecione a máquina</option>
-          {maquinas &&
-            (() => {
-              // Encontrar a loja selecionada pelo id
-              const lojaObj = lojas?.find((l) => l.id === lojaSelecionada);
-              // Se for Agarramais Aeroporto, mostrar todas as máquinas da loja
-              if (
-                lojaObj &&
-                lojaObj.nome &&
-                lojaObj.nome.trim().toLowerCase().includes("aeroporto")
-              ) {
-                return maquinas
-                  .filter((m) => m.lojaId === lojaSelecionada)
-                  .map((maquina) => (
-                    <option key={maquina.id} value={maquina.id}>
-                      {maquina.nome}
-                    </option>
-                  ));
-              } else {
-                // Lógica padrão: só takeball e poltrona
-                return maquinas
-                  .filter(
-                    (m) =>
-                      m.lojaId === lojaSelecionada &&
-                      ((typeof m.nome === "string" &&
-                        m.nome.trim().toUpperCase().endsWith("TAKEBALL")) ||
-                        (typeof m.nome === "string" &&
-                          m.nome.toLowerCase().includes("poltrona"))),
-                  )
-                  .map((maquina) => (
-                    <option key={maquina.id} value={maquina.id}>
-                      {maquina.nome}
-                    </option>
-                  ));
-              }
-            })()}
-        </select>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-bold text-gray-700">
-          Fechamento — mês
-        </label>
-        <input
-          type="month"
-          value={mesReferencia}
-          onChange={(e) => setMesReferencia(e.target.value)}
-          required
-          className="input-field"
-        />
-      </div>
-
-      {!registrarTotalLoja && (
-        <div>
+      {/* Período */}
+      <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-4">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-blue-800">
+          <span className="text-lg">📅</span> Fechamento
+        </h3>
+        <div className="max-w-xs">
           <label className="mb-1 block text-sm font-bold text-gray-700">
-            Dinheiro (R$)
+            Mês
           </label>
           <input
-            type="text"
-            inputMode="decimal"
-            value={valorDinheiro}
-            onChange={(e) => setValorDinheiro(e.target.value)}
-            placeholder="Ex: 10,50"
+            type="month"
+            value={mesReferencia}
+            onChange={(e) => setMesReferencia(e.target.value)}
+            required
             className="input-field"
           />
         </div>
-      )}
-
-      {!registrarTotalLoja && (
-        <div>
-          <label className="mb-1 block text-sm font-bold text-gray-700">
-            Cartão / Pix (R$)
-          </label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={valorCartaoPix}
-            onChange={(e) => setValorCartaoPix(e.target.value)}
-            placeholder="Ex: 25,90"
-            className="input-field"
-          />
-        </div>
-      )}
-
-      <div>
-        <label className="mb-1 block text-sm font-bold text-gray-700">
-          Blink (R$)
-        </label>
-        {registrarTotalLoja && (
-          <p className="mb-1 text-xs text-gray-500">
-            Valor total vindo da trocadora (sistema Blink) no período.
-          </p>
-        )}
-        <input
-          type="text"
-          inputMode="decimal"
-          value={valorBlink}
-          onChange={(e) => setValorBlink(e.target.value)}
-          placeholder="Ex: 15,00"
-          className="input-field"
-        />
       </div>
 
-      {(valorEsperado !== null || carregandoEsperado) && (
-        <div
-          className={`rounded-lg border-2 p-3 ${
-            diferenca === null
-              ? "border-gray-200 bg-gray-50"
-              : Math.abs(diferenca) < 0.01
-                ? "border-emerald-300 bg-emerald-50"
-                : "border-red-300 bg-red-50"
-          }`}
-        >
-          {carregandoEsperado ? (
-            <span className="text-sm text-gray-600">
-              Calculando valor esperado...
-            </span>
-          ) : (
-            <>
-              <p className="text-sm font-semibold text-gray-700">
-                Esperado pelo sistema: R$ {valorEsperado.toFixed(2)} · Contado:
-                R$ {valorContadoTotal.toFixed(2)}
-              </p>
-              <p
-                className={`mt-1 font-black ${
-                  Math.abs(diferenca) < 0.01
-                    ? "text-emerald-700"
-                    : "text-red-700"
-                }`}
-              >
-                {Math.abs(diferenca) < 0.01
-                  ? "✅ Sem divergência"
-                  : `⚠️ Divergência de R$ ${diferenca.toFixed(2)}`}
-              </p>
-            </>
+      {/* Valores contados */}
+      <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 p-4">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-emerald-800">
+          <span className="text-lg">💰</span> Valores contados
+        </h3>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {!registrarTotalLoja && (
+            <div>
+              <label className="mb-1 block text-sm font-bold text-gray-700">
+                💵 Dinheiro
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={valorDinheiro}
+                onChange={(e) => setValorDinheiro(e.target.value)}
+                placeholder="Ex: 10,50"
+                className="input-field"
+              />
+            </div>
+          )}
+
+          {!registrarTotalLoja && (
+            <div>
+              <label className="mb-1 block text-sm font-bold text-gray-700">
+                💳 Cartão / Pix
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={valorCartaoPix}
+                onChange={(e) => setValorCartaoPix(e.target.value)}
+                placeholder="Ex: 25,90"
+                className="input-field"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="mb-1 block text-sm font-bold text-gray-700">
+              ⚡ Blink
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={valorBlink}
+              onChange={(e) => setValorBlink(e.target.value)}
+              placeholder="Ex: 15,00"
+              className="input-field"
+            />
+          </div>
+
+          {!registrarTotalLoja && (
+            <div>
+              <label className="mb-1 block text-sm font-bold text-gray-700">
+                📊 Taxa cartão %
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={percentualTaxaCartaoMedia}
+                onChange={(e) => setPercentualTaxaCartaoMedia(e.target.value)}
+                placeholder="Ex: 4,99"
+                className="input-field"
+              />
+            </div>
           )}
         </div>
-      )}
-
-      {!registrarTotalLoja && (
-        <div>
-          <label className="mb-1 block text-sm font-bold text-gray-700">
-            Taxa média de cartão (%)
-          </label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={percentualTaxaCartaoMedia}
-            onChange={(e) => setPercentualTaxaCartaoMedia(e.target.value)}
-            placeholder="Ex: 4,99"
-            className="input-field"
-          />
-        </div>
-      )}
-
-      <div>
-        <label className="mb-1 block text-sm font-bold text-gray-700">
-          Quem conferiu (opcional)
-        </label>
-        <select
-          value={conferidoPorId}
-          onChange={(e) => setConferidoPorId(e.target.value)}
-          className="select-field"
-        >
-          <option value="">Ninguém conferiu junto</option>
-          {usuarios &&
-            usuarios.map((usuario) => (
-              <option key={usuario.id} value={usuario.id}>
-                {usuario.nome}
-              </option>
-            ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-bold text-gray-700">
-          Foto/comprovante (opcional)
-        </label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleSelecionarComprovante}
-          disabled={enviandoComprovante}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
-        />
-        {enviandoComprovante && (
-          <p className="mt-1 text-xs text-gray-500">Enviando foto...</p>
+        {registrarTotalLoja && (
+          <p className="mt-2 text-xs text-gray-500">
+            Blink: valor total vindo da trocadora (sistema Blink) no período.
+          </p>
         )}
-        {!enviandoComprovante && comprovanteUrl && (
-          <div className="mt-2 flex items-center gap-3">
-            <img
-              src={comprovanteUrl}
-              alt="Comprovante"
-              className="h-14 w-14 rounded-lg border border-gray-300 object-cover"
-            />
-            <span className="text-xs font-semibold text-emerald-700">
-              ✅ Foto anexada
-            </span>
-            <button
-              type="button"
-              onClick={() => setComprovanteUrl("")}
-              className="text-xs font-bold text-red-600 hover:text-red-700"
-            >
-              Remover
-            </button>
+
+        {(valorEsperado !== null || carregandoEsperado) && (
+          <div
+            className={`mt-4 rounded-lg border-2 p-3 ${
+              diferenca === null
+                ? "border-gray-200 bg-gray-50"
+                : Math.abs(diferenca) < 0.01
+                  ? "border-emerald-300 bg-emerald-100"
+                  : "border-red-300 bg-red-50"
+            }`}
+          >
+            {carregandoEsperado ? (
+              <span className="text-sm text-gray-600">
+                🧮 Calculando valor esperado...
+              </span>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-gray-700">
+                  🧮 Esperado pelo sistema: R$ {valorEsperado.toFixed(2)} ·
+                  Contado: R$ {valorContadoTotal.toFixed(2)}
+                </p>
+                <p
+                  className={`mt-1 font-black ${
+                    Math.abs(diferenca) < 0.01
+                      ? "text-emerald-700"
+                      : "text-red-700"
+                  }`}
+                >
+                  {Math.abs(diferenca) < 0.01
+                    ? "✅ Sem divergência"
+                    : `⚠️ Divergência de R$ ${diferenca.toFixed(2)}`}
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
 
+      {/* Conferência e comprovante */}
+      <div className="rounded-lg border border-violet-100 bg-violet-50/70 p-4">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-violet-800">
+          <span className="text-lg">🔎</span> Conferência
+        </h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-bold text-gray-700">
+              👤 Quem conferiu (opcional)
+            </label>
+            <select
+              value={conferidoPorId}
+              onChange={(e) => setConferidoPorId(e.target.value)}
+              className="select-field"
+            >
+              <option value="">Ninguém conferiu junto</option>
+              {usuarios &&
+                usuarios.map((usuario) => (
+                  <option key={usuario.id} value={usuario.id}>
+                    {usuario.nome}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-bold text-gray-700">
+              📸 Foto/comprovante (opcional)
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleSelecionarComprovante}
+              disabled={enviandoComprovante}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-orange-500"
+            />
+            {enviandoComprovante && (
+              <p className="mt-1 text-xs text-gray-500">Enviando foto...</p>
+            )}
+            {!enviandoComprovante && comprovanteUrl && (
+              <div className="mt-2 flex items-center gap-3">
+                <img
+                  src={comprovanteUrl}
+                  alt="Comprovante"
+                  className="h-14 w-14 rounded-lg border border-gray-300 object-cover"
+                />
+                <span className="text-xs font-semibold text-emerald-700">
+                  ✅ Foto anexada
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setComprovanteUrl("")}
+                  className="text-xs font-bold text-red-600 hover:text-red-700"
+                >
+                  Remover
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div>
         <label className="mb-1 block text-sm font-bold text-gray-700">
-          Observações
+          📝 Observações
         </label>
         <textarea
           value={observacoes}
