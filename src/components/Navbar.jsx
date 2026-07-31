@@ -53,6 +53,7 @@ export function Navbar() {
         { to: "/roteiros", label: "Roteiros", icon: "🗺️" },
         { to: "/manutencao", label: "Manutenção", icon: "🛠️", alert: true },
         { to: "/conferencia-lacre", label: "Conferência de Lacre", icon: "🔏" },
+        { to: "/sangrias", label: "Sangria", icon: "💰" },
       ],
     },
     {

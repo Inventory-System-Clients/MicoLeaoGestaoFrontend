@@ -1249,12 +1249,6 @@ export function Movimentacoes() {
             >
               {showForm ? "Cancelar" : "Nova Movimentação"}
             </button>
-            <button
-              className="px-6 py-2 bg-rose-600 text-white rounded hover:bg-rose-700 font-bold shadow text-base"
-              onClick={() => navigate("/sangrias")}
-            >
-              Sangria
-            </button>
             {usuario?.role !== "FUNCIONARIO" && (
               <button
                 className="px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 font-bold shadow text-base"
