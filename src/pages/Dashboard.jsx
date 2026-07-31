@@ -1020,9 +1020,7 @@ export function Dashboard() {
       setLoadingManutencoesPendentes(true);
       const response = await api.get("/manutencoes");
       const lista = Array.isArray(response.data) ? response.data : [];
-      setManutencoesPendentes(
-        lista.filter((item) => item.status === "PENDENTE"),
-      );
+      setManutencoesPendentes(lista);
     } catch (error) {
       console.error("Erro ao carregar manutenções pendentes:", error);
       setManutencoesPendentes([]);

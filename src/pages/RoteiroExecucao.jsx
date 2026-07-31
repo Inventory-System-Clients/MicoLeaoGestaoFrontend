@@ -598,14 +598,15 @@ export function RoteiroExecucao() {
                       return (
                         <div
                           key={maquina.id}
-                          role="button"
-                          tabIndex={0}
-                          className={`rounded-lg border p-4 text-left cursor-pointer ${
+                          role={maquinaConcluida ? undefined : "button"}
+                          tabIndex={maquinaConcluida ? undefined : 0}
+                          className={`rounded-lg border p-4 text-left ${
                             maquinaConcluida
                               ? "border-emerald-300 bg-emerald-50"
-                              : "border-slate-200 bg-slate-50 hover:border-orange-300 hover:bg-orange-50"
+                              : "cursor-pointer border-slate-200 bg-slate-50 hover:border-orange-300 hover:bg-orange-50"
                           }`}
                           onClick={() =>
+                            !maquinaConcluida &&
                             itemLojaSelecionada &&
                             abrirMovimentacaoRoteiro(
                               itemLojaSelecionada,
@@ -613,6 +614,7 @@ export function RoteiroExecucao() {
                             )
                           }
                           onKeyDown={(event) => {
+                            if (maquinaConcluida) return;
                             if (event.key === "Enter" || event.key === " ") {
                               event.preventDefault();
                               itemLojaSelecionada &&
