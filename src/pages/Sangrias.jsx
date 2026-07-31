@@ -120,7 +120,12 @@ export function Sangrias() {
     lojaId: "",
     dataInicio: "",
     dataFim: "",
+    usuarioId: "",
+    valorMin: "",
+    valorMax: "",
+    observacao: "",
   });
+  const [ordenacao, setOrdenacao] = useState("recentes");
 
   const totalCalculadoNotas = useMemo(
     () =>
@@ -190,6 +195,10 @@ export function Sangrias() {
       if (filtrosAtuais.lojaId) params.lojaId = filtrosAtuais.lojaId;
       if (filtrosAtuais.dataInicio) params.dataInicio = filtrosAtuais.dataInicio;
       if (filtrosAtuais.dataFim) params.dataFim = filtrosAtuais.dataFim;
+      if (filtrosAtuais.usuarioId) params.usuarioId = filtrosAtuais.usuarioId;
+      if (filtrosAtuais.valorMin) params.valorMin = filtrosAtuais.valorMin;
+      if (filtrosAtuais.valorMax) params.valorMax = filtrosAtuais.valorMax;
+      if (filtrosAtuais.observacao) params.observacao = filtrosAtuais.observacao;
 
       const response = await api.get("/sangrias", { params });
       setEndpointIndisponivel(false);
@@ -361,10 +370,25 @@ export function Sangrias() {
       lojaId: "",
       dataInicio: "",
       dataFim: "",
+      usuarioId: "",
+      valorMin: "",
+      valorMax: "",
+      observacao: "",
     };
     setFiltros(filtrosLimpos);
+    setOrdenacao("recentes");
     await carregarHistorico(filtrosLimpos);
   };
+
+  const opcoesUsuario = useMemo(() => {
+    const mapa = new Map();
+    historico.forEach((item) => {
+      const usuarioNome = item.usuario?.nome || item.usuarioNome;
+      const usuarioId = item.usuario?.id || item.usuarioId;
+      if (usuarioId && usuarioNome) mapa.set(String(usuarioId), usuarioNome);
+    });
+    return Array.from(mapa.entries());
+  }, [historico]);
 
   const resumoHistorico = useMemo(() => {
     return historico.reduce(
@@ -397,6 +421,19 @@ export function Sangrias() {
     item?.createdAt ||
     item?.created_at ||
     null;
+
+  const historicoOrdenado = useMemo(() => {
+    const valorDe = (item) =>
+      toNumber(item.quantidade ?? item.valorTotal ?? item.totalRetirado);
+    const dataDe = (item) => new Date(getSangriaDataHora(item) || 0).getTime();
+
+    return [...historico].sort((a, b) => {
+      if (ordenacao === "antigos") return dataDe(a) - dataDe(b);
+      if (ordenacao === "maiorValor") return valorDe(b) - valorDe(a);
+      if (ordenacao === "menorValor") return valorDe(a) - valorDe(b);
+      return dataDe(b) - dataDe(a);
+    });
+  }, [historico, ordenacao]);
 
   const idsVisiveis = useMemo(
     () => historico.map((item) => getSangriaId(item)).filter(Boolean),
@@ -675,89 +712,8 @@ export function Sangrias() {
           {podeVerHistorico ? (
             <div className="card">
               <h2 className="text-xl font-bold text-gray-900 mb-4">
-                Filtros do Histórico
+                Resumo do período filtrado
               </h2>
-
-              <form onSubmit={handleFiltroSubmit} className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    🏪 Loja
-                  </label>
-                  <select
-                    value={filtros.lojaId}
-                    onChange={(event) =>
-                      setFiltros((prev) => ({
-                        ...prev,
-                        lojaId: event.target.value,
-                      }))
-                    }
-                    className="input-field w-full"
-                    disabled={loadingLojas || endpointIndisponivel}
-                  >
-                    <option value="">Todas as lojas</option>
-                    {lojas.map((loja) => (
-                      <option key={loja.id} value={loja.id}>
-                        {loja.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      📅 Data inicial
-                    </label>
-                    <input
-                      type="date"
-                      value={filtros.dataInicio}
-                      onChange={(event) =>
-                        setFiltros((prev) => ({
-                          ...prev,
-                          dataInicio: event.target.value,
-                        }))
-                      }
-                      className="input-field w-full"
-                      disabled={endpointIndisponivel}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      📅 Data final
-                    </label>
-                    <input
-                      type="date"
-                      value={filtros.dataFim}
-                      onChange={(event) =>
-                        setFiltros((prev) => ({
-                          ...prev,
-                          dataFim: event.target.value,
-                        }))
-                      }
-                      className="input-field w-full"
-                      disabled={endpointIndisponivel}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={loadingList || endpointIndisponivel}
-                  >
-                    {loadingList ? "⏳ Filtrando..." : "🔎 Filtrar Histórico"}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={handleLimparFiltros}
-                    disabled={loadingList || endpointIndisponivel}
-                  >
-                    Limpar
-                  </button>
-                </div>
-              </form>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-3 rounded-lg border border-gray-200 bg-white">
@@ -786,6 +742,190 @@ export function Sangrias() {
             <h2 className="text-xl font-bold text-gray-900 mb-4">
               Histórico de Sangrias
             </h2>
+
+            <form
+              onSubmit={handleFiltroSubmit}
+              className="mb-6 rounded-lg border border-gray-200 bg-slate-50 p-4"
+            >
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🏪 Loja
+                  </label>
+                  <select
+                    value={filtros.lojaId}
+                    onChange={(event) =>
+                      setFiltros((prev) => ({
+                        ...prev,
+                        lojaId: event.target.value,
+                      }))
+                    }
+                    className="input-field w-full"
+                    disabled={loadingLojas || endpointIndisponivel}
+                  >
+                    <option value="">Todas as lojas</option>
+                    {lojas.map((loja) => (
+                      <option key={loja.id} value={loja.id}>
+                        {loja.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    👤 Quem registrou
+                  </label>
+                  <select
+                    value={filtros.usuarioId}
+                    onChange={(event) =>
+                      setFiltros((prev) => ({
+                        ...prev,
+                        usuarioId: event.target.value,
+                      }))
+                    }
+                    className="input-field w-full"
+                    disabled={endpointIndisponivel}
+                  >
+                    <option value="">Todos</option>
+                    {opcoesUsuario.map(([id, nome]) => (
+                      <option key={id} value={id}>
+                        {nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    📅 Data inicial
+                  </label>
+                  <input
+                    type="date"
+                    value={filtros.dataInicio}
+                    onChange={(event) =>
+                      setFiltros((prev) => ({
+                        ...prev,
+                        dataInicio: event.target.value,
+                      }))
+                    }
+                    className="input-field w-full"
+                    disabled={endpointIndisponivel}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    📅 Data final
+                  </label>
+                  <input
+                    type="date"
+                    value={filtros.dataFim}
+                    onChange={(event) =>
+                      setFiltros((prev) => ({
+                        ...prev,
+                        dataFim: event.target.value,
+                      }))
+                    }
+                    className="input-field w-full"
+                    disabled={endpointIndisponivel}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    💵 Valor mínimo
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={filtros.valorMin}
+                    onChange={(event) =>
+                      setFiltros((prev) => ({
+                        ...prev,
+                        valorMin: event.target.value,
+                      }))
+                    }
+                    className="input-field w-full"
+                    placeholder="0,00"
+                    disabled={endpointIndisponivel}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    💵 Valor máximo
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={filtros.valorMax}
+                    onChange={(event) =>
+                      setFiltros((prev) => ({
+                        ...prev,
+                        valorMax: event.target.value,
+                      }))
+                    }
+                    className="input-field w-full"
+                    placeholder="0,00"
+                    disabled={endpointIndisponivel}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    📝 Buscar na observação
+                  </label>
+                  <input
+                    type="text"
+                    value={filtros.observacao}
+                    onChange={(event) =>
+                      setFiltros((prev) => ({
+                        ...prev,
+                        observacao: event.target.value,
+                      }))
+                    }
+                    className="input-field w-full"
+                    placeholder="Ex: diferença de caixa"
+                    disabled={endpointIndisponivel}
+                  />
+                </div>
+
+                <div className="sm:col-span-2 lg:col-span-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ↕️ Ordenar por
+                  </label>
+                  <select
+                    value={ordenacao}
+                    onChange={(event) => setOrdenacao(event.target.value)}
+                    className="input-field w-full sm:w-64"
+                  >
+                    <option value="recentes">Mais recentes</option>
+                    <option value="antigos">Mais antigos</option>
+                    <option value="maiorValor">Maior valor</option>
+                    <option value="menorValor">Menor valor</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={loadingList || endpointIndisponivel}
+                >
+                  {loadingList ? "⏳ Filtrando..." : "🔎 Filtrar Histórico"}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleLimparFiltros}
+                  disabled={loadingList || endpointIndisponivel}
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            </form>
 
             <div className="mb-4 flex flex-wrap gap-3">
               <button
@@ -826,6 +966,7 @@ export function Sangrias() {
                     </th>
                     <th>Loja</th>
                     <th>Data/Hora</th>
+                    <th>Registrado por</th>
                     <th>Total Retirado</th>
                     <th>Total pelas Notas</th>
                     <th>Observação</th>
@@ -833,7 +974,7 @@ export function Sangrias() {
                   </tr>
                 </thead>
                 <tbody>
-                  {historico.map((item) => {
+                  {historicoOrdenado.map((item) => {
                     const idSangria = getSangriaId(item);
                     const idSelecionado =
                       idSangria && selectedIds.includes(String(idSangria));
@@ -860,6 +1001,7 @@ export function Sangrias() {
                         <td>
                           {formatDateTime(dataHoraSangria)}
                         </td>
+                        <td>{item.usuario?.nome || item.usuarioNome || "-"}</td>
                         <td>
                           R${" "}
                           {formatCurrency(
