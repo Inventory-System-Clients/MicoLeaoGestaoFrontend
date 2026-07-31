@@ -212,15 +212,20 @@ export default function ManutencaoPage() {
     setForm((prev) => ({ ...prev, funcionariosIds: ids }));
   };
 
+  const handleSelectLoja = (event) => {
+    const lojaId = event.target.value;
+    setForm((prev) => ({ ...prev, lojaId, maquinaId: "" }));
+  };
+
   const handleSelectMaquina = (event) => {
     const maquinaId = event.target.value;
-    const maquina = maquinas.find((item) => item.id === maquinaId);
-    setForm((prev) => ({
-      ...prev,
-      maquinaId,
-      lojaId: maquina ? maquina.lojaId || "" : prev.lojaId,
-    }));
+    setForm((prev) => ({ ...prev, maquinaId }));
   };
+
+  const maquinasDaLoja = useMemo(
+    () => maquinas.filter((maquina) => maquina.lojaId === form.lojaId),
+    [maquinas, form.lojaId],
+  );
 
   const handleCriar = async (event) => {
     event.preventDefault();
@@ -486,88 +491,121 @@ export default function ManutencaoPage() {
         )}
 
         {isAdmin && (
-          <form onSubmit={handleCriar} className="card">
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">
-              Lançar manutenção
-            </h2>
+          <form onSubmit={handleCriar} className="card-gradient space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+                <span className="text-xl">🛠️</span> Lançar manutenção
+              </h2>
+              <span className="text-xs font-medium text-gray-500">
+                <span className="text-red-500">*</span> campos obrigatórios,
+                o resto é opcional
+              </span>
+            </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Título
-                </label>
-                <input
-                  value={form.titulo}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, titulo: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                  placeholder="Ex: Troca de trava da máquina 12"
-                />
+            {/* O que aconteceu */}
+            <div className="rounded-lg border border-orange-100 bg-orange-50/70 p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-orange-800">
+                <span className="text-lg">📋</span> O que aconteceu?
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-700">
+                    Título <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    value={form.titulo}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, titulo: e.target.value }))
+                    }
+                    className="input-field"
+                    placeholder="Ex: Troca de trava da máquina 12"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-700">
+                    Problema relatado <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={form.descricao}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        descricao: e.target.value,
+                      }))
+                    }
+                    className="input-field min-h-28"
+                    placeholder="Descreva o problema relatado"
+                  />
+                </div>
               </div>
+            </div>
 
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Problema relatado
-                </label>
-                <textarea
-                  value={form.descricao}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, descricao: e.target.value }))
-                  }
-                  className="min-h-28 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                  placeholder="Descreva o problema relatado"
-                />
-              </div>
+            {/* Onde é o problema */}
+            <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-blue-800">
+                <span className="text-lg">📍</span> Onde é o problema?
+              </h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-700">
+                    🏪 Loja{" "}
+                    <span className="text-xs font-normal text-gray-500">
+                      (selecione primeiro)
+                    </span>
+                  </label>
+                  <select
+                    value={form.lojaId}
+                    onChange={handleSelectLoja}
+                    className="select-field"
+                  >
+                    <option value="">Selecione a loja...</option>
+                    {lojas.map((loja) => (
+                      <option key={loja.id} value={loja.id}>
+                        {loja.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Máquina vinculada
-                </label>
-                <select
-                  value={form.maquinaId}
-                  onChange={handleSelectMaquina}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  <option value="">Nenhuma (problema da loja)</option>
-                  {maquinas.map((maquina) => (
-                    <option key={maquina.id} value={maquina.id}>
-                      {maquina.codigo} {maquina.nome ? `- ${maquina.nome}` : ""}
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-700">
+                    🎮 Máquina{" "}
+                    <span className="text-xs font-normal text-gray-500">
+                      (opcional)
+                    </span>
+                  </label>
+                  <select
+                    value={form.maquinaId}
+                    onChange={handleSelectMaquina}
+                    disabled={!form.lojaId}
+                    className="select-field disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <option value="">
+                      {form.lojaId
+                        ? "Nenhuma (problema é da loja)"
+                        : "Selecione a loja primeiro"}
                     </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Loja
-                </label>
-                <select
-                  value={form.lojaId}
-                  disabled={Boolean(form.maquinaId)}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, lojaId: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 disabled:bg-gray-100"
-                >
-                  <option value="">Selecione...</option>
-                  {lojas.map((loja) => (
-                    <option key={loja.id} value={loja.id}>
-                      {loja.nome}
-                    </option>
-                  ))}
-                </select>
-                {form.maquinaId && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    Preenchida automaticamente pela máquina selecionada.
-                  </p>
-                )}
+                    {maquinasDaLoja.map((maquina) => (
+                      <option key={maquina.id} value={maquina.id}>
+                        {maquina.codigo}{" "}
+                        {maquina.nome ? `- ${maquina.nome}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {!form.lojaId && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Escolha a loja para poder escolher a máquina.
+                    </p>
+                  )}
+                </div>
               </div>
 
               {historicoMaquina && (
-                <div className="md:col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="mt-3 rounded-lg border border-gray-200 bg-white/70 p-3">
                   <p className="text-sm font-semibold text-gray-800">
-                    Histórico desta máquina ({historicoMaquina.manutencoes.length})
+                    Histórico desta máquina (
+                    {historicoMaquina.manutencoes.length})
                   </p>
                   {historicoMaquina.recorrente && (
                     <p className="mt-1 text-xs font-medium text-amber-700">
@@ -591,70 +629,123 @@ export default function ManutencaoPage() {
                   )}
                 </div>
               )}
+            </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Tipo de problema
-                </label>
-                <select
-                  value={form.tipoProblema}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      tipoProblema: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  <option value="">Selecione...</option>
-                  {TIPOS_PROBLEMA.map((tipo) => (
-                    <option key={tipo.value} value={tipo.value}>
-                      {tipo.label}
-                    </option>
-                  ))}
-                </select>
+            {/* Classificação */}
+            <div className="rounded-lg border border-violet-100 bg-violet-50/70 p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-violet-800">
+                <span className="text-lg">🏷️</span> Classificação{" "}
+                <span className="text-xs font-normal normal-case text-gray-500">
+                  (opcional)
+                </span>
+              </h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-700">
+                    Tipo de problema
+                  </label>
+                  <select
+                    value={form.tipoProblema}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        tipoProblema: e.target.value,
+                      }))
+                    }
+                    className="select-field"
+                  >
+                    <option value="">Selecione...</option>
+                    {TIPOS_PROBLEMA.map((tipo) => (
+                      <option key={tipo.value} value={tipo.value}>
+                        {tipo.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-700">
+                    📅 Prazo / data de aviso
+                  </label>
+                  <input
+                    type="date"
+                    value={form.prazo}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, prazo: e.target.value }))
+                    }
+                    className="input-field"
+                  />
+                </div>
               </div>
+            </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Prazo / data de aviso
-                </label>
-                <input
-                  type="date"
-                  value={form.prazo}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, prazo: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                />
+            {/* Responsáveis */}
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-emerald-800">
+                <span className="text-lg">👷</span> Responsáveis
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-700">
+                    Funcionário responsável{" "}
+                    <span className="text-xs font-normal text-gray-500">
+                      (opcional)
+                    </span>
+                  </label>
+                  <select
+                    value={form.responsavelId}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        responsavelId: e.target.value,
+                      }))
+                    }
+                    className="select-field"
+                  >
+                    <option value="">Selecione...</option>
+                    {funcionarios.map((funcionario) => (
+                      <option key={funcionario.id} value={funcionario.id}>
+                        {funcionario.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-gray-700">
+                    Quem pode visualizar/resolver{" "}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    multiple
+                    value={form.funcionariosIds}
+                    onChange={handleSelectFuncionarios}
+                    className="select-field min-h-40"
+                  >
+                    {funcionarios.map((funcionario) => (
+                      <option key={funcionario.id} value={funcionario.id}>
+                        {funcionario.nome} ({funcionario.email})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Segure Ctrl (ou Cmd no Mac) para selecionar vários.
+                  </p>
+                </div>
               </div>
+            </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Funcionário responsável
-                </label>
-                <select
-                  value={form.responsavelId}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      responsavelId: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  <option value="">Selecione...</option>
-                  {funcionarios.map((funcionario) => (
-                    <option key={funcionario.id} value={funcionario.id}>
-                      {funcionario.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Custo da manutenção (R$)
+            {/* Custo */}
+            <div className="rounded-lg border border-amber-100 bg-amber-50/70 p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-amber-800">
+                <span className="text-lg">💰</span> Custo da manutenção{" "}
+                <span className="text-xs font-normal normal-case text-gray-500">
+                  (opcional)
+                </span>
+              </h3>
+              <div className="sm:w-1/2">
+                <label className="mb-1 block text-sm font-bold text-gray-700">
+                  Custo (R$)
                 </label>
                 <input
                   type="number"
@@ -664,40 +755,23 @@ export default function ManutencaoPage() {
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, custo: e.target.value }))
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                  className="input-field"
                   placeholder="Ex: 150.00"
                 />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Funcionários que podem visualizar/resolver
-                </label>
-                <select
-                  multiple
-                  value={form.funcionariosIds}
-                  onChange={handleSelectFuncionarios}
-                  className="min-h-40 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  {funcionarios.map((funcionario) => (
-                    <option key={funcionario.id} value={funcionario.id}>
-                      {funcionario.nome} ({funcionario.email})
-                    </option>
-                  ))}
-                </select>
                 <p className="mt-1 text-xs text-gray-500">
-                  Use Ctrl para selecionar múltiplos.
+                  Se informado, gera automaticamente um gasto variável para a
+                  loja ou máquina selecionada.
                 </p>
               </div>
             </div>
 
-            <div className="mt-4 flex justify-end">
+            <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={submitting}
                 className="btn-primary disabled:opacity-60"
               >
-                {submitting ? "Salvando..." : "Lançar manutenção"}
+                {submitting ? "Salvando..." : "🛠️ Lançar manutenção"}
               </button>
             </div>
           </form>
