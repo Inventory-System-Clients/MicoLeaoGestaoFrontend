@@ -15,7 +15,7 @@ export function LoadingSpinner({ size = "md", message = "Carregando..." }) {
           <img
             src={mascoteMicoLeao}
             alt="Mascote Mico Leao"
-            className="h-10 w-10 animate-bounce object-contain"
+            className="h-10 w-10 object-contain"
           />
         </div>
       </div>
@@ -37,7 +37,7 @@ export function PageLoader() {
             <img
               src={mascoteMicoLeao}
               alt="Mascote Mico Leao"
-              className="h-14 w-14 animate-bounce object-contain"
+              className="h-14 w-14 object-contain"
             />
           </div>
         </div>
