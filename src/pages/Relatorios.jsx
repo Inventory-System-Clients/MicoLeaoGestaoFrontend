@@ -17,6 +17,8 @@ export function Relatorios() {
   const [lojas, setLojas] = useState([]);
   const [usuariosMap, setUsuariosMap] = useState({});
   const [lojaSelecionada, setLojaSelecionada] = useState("");
+  const [roteiros, setRoteiros] = useState([]);
+  const [roteiroSelecionado, setRoteiroSelecionado] = useState("");
   const [mesReferencia, setMesReferencia] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
@@ -49,6 +51,7 @@ export function Relatorios() {
   useEffect(() => {
     carregarLojas();
     carregarUsuarios();
+    carregarRoteiros();
     definirDatasDefault();
   }, []);
 
@@ -152,6 +155,44 @@ export function Relatorios() {
         error,
       );
       setUsuariosMap({});
+    }
+  };
+
+  const carregarRoteiros = async () => {
+    try {
+      const response = await api.get("/roteiros");
+      const lista = Array.isArray(response.data) ? response.data : [];
+      setRoteiros(lista.filter((roteiro) => roteiro.ativo !== false));
+    } catch (error) {
+      console.warn("Não foi possível carregar roteiros para o filtro:", error);
+      setRoteiros([]);
+    }
+  };
+
+  const obterLojaIdsDoRoteiro = (roteiroId) => {
+    const roteiro = roteiros.find((r) => String(r.id) === String(roteiroId));
+    if (!roteiro) return [];
+    return (roteiro.itens || [])
+      .filter((item) => item.tipo === "LOJA" && item.lojaId)
+      .map((item) => String(item.lojaId));
+  };
+
+  const handleRoteiroChange = (roteiroId) => {
+    setRoteiroSelecionado(roteiroId);
+    if (!roteiroId) return;
+
+    const lojaIds = obterLojaIdsDoRoteiro(roteiroId);
+    if (lojaIds.length === 1) {
+      setLojaSelecionada(lojaIds[0]);
+    } else if (lojaIds.length > 1) {
+      setLojaSelecionada(TODAS_LOJAS_VALUE);
+    }
+  };
+
+  const handleLojaSelecionadaChange = (valor) => {
+    setLojaSelecionada(valor);
+    if (valor !== TODAS_LOJAS_VALUE) {
+      setRoteiroSelecionado("");
     }
   };
 
@@ -602,10 +643,19 @@ export function Relatorios() {
       setComparativoMensal(null);
 
       if (lojaSelecionada === TODAS_LOJAS_VALUE) {
+        const lojaIdsDoRoteiro = roteiroSelecionado
+          ? obterLojaIdsDoRoteiro(roteiroSelecionado)
+          : [];
+        const paramsLojaIds =
+          lojaIdsDoRoteiro.length > 0
+            ? { lojaIds: lojaIdsDoRoteiro.join(",") }
+            : {};
+
         const response = await api.get("/relatorios/todas-lojas", {
           params: {
             dataInicio,
             dataFim,
+            ...paramsLojaIds,
           },
         });
 
@@ -618,6 +668,7 @@ export function Relatorios() {
             params: {
               dataInicio: dataInicioMesAnterior,
               dataFim: dataFimMesAnterior,
+              ...paramsLojaIds,
             },
           });
 
@@ -1098,7 +1149,7 @@ export function Relatorios() {
               </label>
               <select
                 value={lojaSelecionada}
-                onChange={(e) => setLojaSelecionada(e.target.value)}
+                onChange={(e) => handleLojaSelecionadaChange(e.target.value)}
                 className="input-field w-full"
               >
                 <option value="">Selecione uma loja</option>
@@ -1109,6 +1160,39 @@ export function Relatorios() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                🗺️ Roteiro
+              </label>
+              <select
+                value={roteiroSelecionado}
+                onChange={(e) => handleRoteiroChange(e.target.value)}
+                className="input-field w-full"
+                disabled={roteiros.length === 0}
+              >
+                <option value="">
+                  {roteiros.length === 0 ? "Nenhum roteiro cadastrado" : "Nenhum (usar loja acima)"}
+                </option>
+                {roteiros.map((roteiro) => (
+                  <option key={roteiro.id} value={roteiro.id}>
+                    {roteiro.nome}
+                  </option>
+                ))}
+              </select>
+              {roteiroSelecionado && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {(() => {
+                    const ids = obterLojaIdsDoRoteiro(roteiroSelecionado);
+                    const nomes = ids
+                      .map((id) => lojas.find((l) => String(l.id) === id)?.nome)
+                      .filter(Boolean);
+                    return ids.length > 0
+                      ? `${ids.length} loja(s): ${nomes.join(", ")}`
+                      : "Este roteiro não tem lojas cadastradas.";
+                  })()}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1205,9 +1289,8 @@ export function Relatorios() {
                 Resumo Geral da Loja
               </h3>
               <div className="flex flex-wrap gap-4 sm:gap-4">
-                {/* Quantidade de Fichas (DASHBOARD) */}
-                {/* Valor das Fichas (Dashboard) */}
-                <div className="card bg-gradient-to-br from-blue-400 to-blue-600 text-white">
+                {/* Quantidade de Fichas + Valor das Fichas (Dashboard) */}
+                <div className="flex flex-col card bg-gradient-to-br from-blue-400 to-blue-600 text-white items-center justify-center">
                   <div className="text-2xl sm:text-3xl mb-2">🎟️</div>
                   <div className="text-xl sm:text-2xl font-bold">
                     {dashboard && dashboard.totais
@@ -1219,23 +1302,27 @@ export function Relatorios() {
                   <div className="text-xs sm:text-sm opacity-90">
                     Quantidade de Fichas
                   </div>
-                  <div className="text-2xl sm:text-3xl mb-2">💸</div>
-                  <div className="text-xl sm:text-2xl font-bold">
-                    ${" "}
-                    {(() => {
-                      const totalFichas = relatorio.totais?.fichas || 0;
-                      const valorFicha = toNumber(
-                        relatorio.loja?.valorFichaPadrao ??
-                          obterValorFichaPadraoDaLojaSelecionada(),
-                      );
-                      return (totalFichas * valorFicha).toLocaleString(
-                        "pt-BR",
-                        { minimumFractionDigits: 2 },
-                      );
-                    })()}
-                  </div>
-                  <div className="text-xs sm:text-sm opacity-90">
-                    Valor das Fichas (Dashboard)
+                  <div className="flex gap-3 items-end mt-2">
+                    <div className="flex flex-col items-center">
+                      <div className="text-lg sm:text-xl mb-1">💸</div>
+                      <div className="text-base sm:text-lg font-bold">
+                        R${" "}
+                        {(() => {
+                          const totalFichas = relatorio.totais?.fichas || 0;
+                          const valorFicha = toNumber(
+                            relatorio.loja?.valorFichaPadrao ??
+                              obterValorFichaPadraoDaLojaSelecionada(),
+                          );
+                          return (totalFichas * valorFicha).toLocaleString(
+                            "pt-BR",
+                            { minimumFractionDigits: 2 },
+                          );
+                        })()}
+                      </div>
+                      <div className="text-[10px] sm:text-xs opacity-80">
+                        Valor das Fichas (Dashboard)
+                      </div>
+                    </div>
                   </div>
                 </div>
 
