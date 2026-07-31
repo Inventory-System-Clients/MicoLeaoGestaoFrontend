@@ -171,10 +171,15 @@ export function VisaoLojas() {
               (total, mov) => total + numero(mov.sairam),
               0,
             );
+            const totalFichas = movimentacoes.reduce(
+              (total, mov) => total + numero(mov.fichas),
+              0,
+            );
+            const totalVisitas = movimentacoes.length;
             const mediaPelucias =
-              movimentacoes.length > 0
-                ? totalSairam / movimentacoes.length
-                : 0;
+              totalVisitas > 0 ? totalSairam / totalVisitas : 0;
+            const mediaFichasPorPelucia =
+              totalSairam > 0 ? totalFichas / totalSairam : 0;
             const ultimaSaida = numero(ultimaMovimentacao?.sairam);
             const abaixoDaMedia =
               ultimaMovimentacao &&
@@ -219,6 +224,10 @@ export function VisaoLojas() {
               dataExtintor,
               diasExtintor,
               mediaPelucias,
+              totalSairam,
+              totalFichas,
+              totalVisitas,
+              mediaFichasPorPelucia,
               ultimaSaida,
               abaixoDaMedia,
               pendencias,
@@ -423,7 +432,12 @@ export function VisaoLojas() {
                   <p className="text-2xl font-bold">
                     {item.mediaPelucias.toFixed(1)}
                   </p>
-                  <p className="text-xs text-gray-500">pelúcias por visita</p>
+                  <p className="text-xs text-gray-500">
+                    pelúcias por visita ({item.totalSairam} pelúcia
+                    {item.totalSairam === 1 ? "" : "s"} em{" "}
+                    {item.totalVisitas} visita
+                    {item.totalVisitas === 1 ? "" : "s"})
+                  </p>
                 </div>
               </div>
 
@@ -460,8 +474,23 @@ export function VisaoLojas() {
                       : "Dentro da média registrada"}
                   </p>
                   <p className="mt-1 text-xs text-gray-500">
-                    Última saída: {item.ultimaSaida} · Média:{" "}
-                    {item.mediaPelucias.toFixed(1)}
+                    Última saída: {item.ultimaSaida} pelúcia
+                    {item.ultimaSaida === 1 ? "" : "s"} · Média:{" "}
+                    {item.mediaPelucias.toFixed(1)} por visita
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    🎮 {item.totalFichas} ficha
+                    {item.totalFichas === 1 ? "" : "s"} jogada
+                    {item.totalFichas === 1 ? "" : "s"} nas últimas{" "}
+                    {item.totalVisitas} visita
+                    {item.totalVisitas === 1 ? "" : "s"}
+                    {item.mediaFichasPorPelucia > 0 &&
+                      ` · ${item.mediaFichasPorPelucia.toFixed(1)} fichas por pelúcia`}
+                  </p>
+                  <p className="mt-2 text-[11px] italic text-gray-400">
+                    Cálculo: pelúcias que saíram ÷ número de movimentações
+                    registradas (considerando as últimas 50 coletas desta
+                    loja).
                   </p>
                 </div>
               </div>
