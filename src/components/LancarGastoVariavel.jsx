@@ -90,7 +90,7 @@ export default function LancarGastoVariavel({
   };
 
   return (
-    <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50">
+    <div className="w-full max-w-full md:max-w-2xl rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50">
       <div className="mb-5 rounded-3xl bg-gradient-to-r from-amber-400 to-orange-500 p-4 text-white shadow-inner">
         <div className="flex items-center justify-between gap-4">
           <div>
