@@ -37,6 +37,7 @@ import { Graficos } from "./pages/Graficos";
 import { Relatorios } from "./pages/Relatorios";
 import { Sangrias } from "./pages/Sangrias";
 import { GastosVariaveis } from "./pages/GastosVariaveis";
+import { RegistroDinheiro } from "./pages/RegistroDinheiro";
 import { StyleGuide } from "./pages/StyleGuide";
 import { AnaliseEstoque } from "./pages/AnaliseEstoque";
 import "./App.css";
@@ -356,6 +357,14 @@ function App() {
             element={
               <PrivateRoute>
                 <GastosVariaveis />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/registrar-dinheiro"
+            element={
+              <PrivateRoute roles={["ADMIN", "DESENVOLVEDOR"]}>
+                <RegistroDinheiro />
               </PrivateRoute>
             }
           />

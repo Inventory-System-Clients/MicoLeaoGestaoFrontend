@@ -53,7 +53,38 @@ export function Navbar() {
         { to: "/roteiros", label: "Roteiros", icon: "🗺️" },
         { to: "/manutencao", label: "Manutenção", icon: "🛠️", alert: true },
         { to: "/conferencia-lacre", label: "Conferência de Lacre", icon: "🔏" },
-        { to: "/sangrias", label: "Sangria", icon: "💰" },
+        {
+          to: "/sangrias",
+          label: "Sangria",
+          icon: "💰",
+          roles: ["FUNCIONARIO"],
+        },
+        {
+          to: "/gastos-variaveis",
+          label: "Lançar Gasto Variável",
+          icon: "🧾",
+          roles: ["FUNCIONARIO"],
+        },
+      ],
+    },
+    {
+      id: "financeiro",
+      label: "Financeiro",
+      icon: "💰",
+      itens: [
+        { to: "/sangrias", label: "Sangria", icon: "💰", roles: ADMIN_ROLES },
+        {
+          to: "/registrar-dinheiro",
+          label: "Registrar Dinheiro",
+          icon: "💵",
+          roles: ADMIN_ROLES,
+        },
+        {
+          to: "/gastos-variaveis",
+          label: "Gasto Variável",
+          icon: "🧾",
+          roles: ADMIN_ROLES,
+        },
       ],
     },
     {

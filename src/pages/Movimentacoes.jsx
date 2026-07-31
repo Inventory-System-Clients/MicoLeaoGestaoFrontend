@@ -10,8 +10,6 @@ import {
   Badge,
   AlertBox,
 } from "../components/UIComponents";
-import RegistrarDinheiro from "../components/RegistrarDinheiro";
-import LancarGastoVariavel from "../components/LancarGastoVariavel";
 import { PageLoader, EmptyState } from "../components/Loading";
 import { useAuth } from "../contexts/AuthContext";
 import AvisosMaquinasFaltam from "../components/AvisosMaquinasFaltam";
@@ -34,8 +32,6 @@ const numeroInteiroValido = (valor) => {
 export function Movimentacoes() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [modalRegistrarDinheiro, setModalRegistrarDinheiro] = useState(false);
-  const [modalGastoVariavel, setModalGastoVariavel] = useState(false);
   const { usuario } = useAuth();
 
   // --- ESTADOS ---
@@ -56,8 +52,6 @@ export function Movimentacoes() {
   const [maquinas, setMaquinas] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [lojas, setLojas] = useState([]);
-  const [veiculos, setVeiculos] = useState([]);
-  const [usuarios, setUsuarios] = useState([]);
 
   // UI States
   const [loading, setLoading] = useState(true);
@@ -402,24 +396,17 @@ export function Movimentacoes() {
   const carregarDados = async () => {
     try {
       setLoading(true);
-      const [movRes, maqRes, prodRes, lojasRes, veiculosRes, usuariosRes] =
-        await Promise.all([
-          api.get("/movimentacoes"),
-          api.get("/maquinas"),
-          api.get("/produtos"),
-          api.get("/lojas"),
-          api.get("/veiculos"),
-          // /usuarios é restrito a ADMIN; funcionários não conseguem listar,
-          // então isso não pode derrubar o carregamento do resto da página.
-          api.get("/usuarios").catch(() => ({ data: [] })),
-        ]);
+      const [movRes, maqRes, prodRes, lojasRes] = await Promise.all([
+        api.get("/movimentacoes"),
+        api.get("/maquinas"),
+        api.get("/produtos"),
+        api.get("/lojas"),
+      ]);
 
       setMovimentacoes(movRes.data || []);
       setMaquinas(maqRes.data || []);
       setProdutos(prodRes.data || []);
       setLojas(filtrarLojasOperacionais(lojasRes.data || []));
-      setVeiculos(veiculosRes.data || []);
-      setUsuarios(usuariosRes.data || []);
     } catch (err) {
       console.error("Erro ao carregar dados:", err);
       setError("Erro ao carregar dados iniciais.");
@@ -1249,20 +1236,6 @@ export function Movimentacoes() {
             >
               {showForm ? "Cancelar" : "Nova Movimentação"}
             </button>
-            {usuario?.role !== "FUNCIONARIO" && (
-              <button
-                className="px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 font-bold shadow text-base"
-                onClick={() => setModalRegistrarDinheiro(true)}
-              >
-                Registrar Dinheiro
-              </button>
-            )}
-            <button
-              className="px-6 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 font-bold shadow text-base"
-              onClick={() => setModalGastoVariavel(true)}
-            >
-              Lançar Gasto Variável
-            </button>
             <button
               className="px-6 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 font-bold shadow text-base disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-700"
               onClick={enviarUltimaMensagemSalva}
@@ -1277,81 +1250,6 @@ export function Movimentacoes() {
             </button>
           </div>
         </div>
-
-        {/* Modal Lançar Gasto Variável */}
-        {modalGastoVariavel && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-            <div className="relative w-full max-w-md rounded-lg border border-orange-100 bg-white p-6 shadow-2xl">
-              <button
-                type="button"
-                onClick={() => setModalGastoVariavel(false)}
-                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                aria-label="Fechar"
-              >
-                ×
-              </button>
-              <LancarGastoVariavel
-                lojas={lojas}
-                veiculos={veiculos}
-                onClose={() => setModalGastoVariavel(false)}
-                onSuccess={() => {
-                  setSuccess("Gasto variável lançado com sucesso!");
-                  carregarDados();
-                }}
-              />
-            </div>
-          </div>
-        )}
-        {/* Modal Registrar Dinheiro */}
-        {modalRegistrarDinheiro && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-            <div
-              className="bg-white rounded-lg p-6 shadow-lg relative"
-              style={{ minWidth: 520 }}
-            >
-              <button
-                onClick={() => setModalRegistrarDinheiro(false)}
-                style={{
-                  position: "absolute",
-                  top: 12,
-                  right: 16,
-                  fontSize: 22,
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#888",
-                }}
-                aria-label="Fechar"
-              >
-                ×
-              </button>
-              <RegistrarDinheiro
-                lojas={lojas}
-                maquinas={maquinas}
-                usuarios={usuarios}
-                onSubmit={async (data) => {
-                  try {
-                    setError("");
-                    setSuccess("");
-                    const response = await api.post("/registro-dinheiro", data);
-                    const diferenca = Number(response.data?.diferenca || 0);
-                    setSuccess(
-                      Math.abs(diferenca) >= 0.01
-                        ? `Registro salvo, mas com divergência de R$ ${diferenca.toFixed(2)} em relação ao valor esperado pelo sistema.`
-                        : "Registro de dinheiro salvo com sucesso, sem divergência!",
-                    );
-                    setModalRegistrarDinheiro(false);
-                  } catch (err) {
-                    setError(
-                      err?.response?.data?.error ||
-                        "Erro ao registrar dinheiro.",
-                    );
-                  }
-                }}
-              />
-            </div>
-          </div>
-        )}
 
         {error && (
           <AlertBox type="error" message={error} onClose={() => setError("")} />
