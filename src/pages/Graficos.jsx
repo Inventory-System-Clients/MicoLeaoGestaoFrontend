@@ -16,7 +16,84 @@ import { filtrarLojasOperacionais } from "../utils/lojas";
 const NENHUMA_LOJA_VALUE = "";
 const TODAS_LOJAS_VALUE  = "__TODAS_AS_LOJAS__";
 const MESES_NOMES        = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const DIAS_SEMANA_NOMES  = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 const toN                = (v) => Number(v || 0);
+
+const paraDataISO = (data) => {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+};
+
+// Calcula o período imediatamente anterior, com a mesma quantidade de dias,
+// pra servir de base de comparação ("vs período anterior").
+const calcularPeriodoAnterior = (dataInicioISO, dataFimISO) => {
+  const inicio = new Date(`${dataInicioISO}T00:00:00`);
+  const fim = new Date(`${dataFimISO}T00:00:00`);
+  const dias = Math.round((fim - inicio) / (1000 * 60 * 60 * 24)) + 1;
+  const fimAnterior = new Date(inicio);
+  fimAnterior.setDate(fimAnterior.getDate() - 1);
+  const inicioAnterior = new Date(fimAnterior);
+  inicioAnterior.setDate(inicioAnterior.getDate() - (dias - 1));
+  return {
+    dataInicio: paraDataISO(inicioAnterior),
+    dataFim: paraDataISO(fimAnterior),
+    dias,
+  };
+};
+
+const calcularVariacaoPercentual = (atual, anterior) => {
+  if (!Number.isFinite(anterior) || anterior === 0) return null;
+  return ((atual - anterior) / Math.abs(anterior)) * 100;
+};
+
+const PRESETS_PERIODO = [
+  { id: "hoje", label: "Hoje" },
+  { id: "7dias", label: "7 dias" },
+  { id: "30dias", label: "30 dias" },
+  { id: "mesAtual", label: "Este mês" },
+  { id: "mesPassado", label: "Mês passado" },
+];
+
+const calcularDatasPreset = (presetId) => {
+  const hoje = new Date();
+  let inicio = new Date(hoje);
+  let fim = new Date(hoje);
+
+  switch (presetId) {
+    case "hoje":
+      break;
+    case "7dias":
+      inicio.setDate(inicio.getDate() - 6);
+      break;
+    case "30dias":
+      inicio.setDate(inicio.getDate() - 29);
+      break;
+    case "mesAtual":
+      inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      break;
+    case "mesPassado":
+      inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+      fim = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+      break;
+    default:
+      return null;
+  }
+
+  return { dataInicio: paraDataISO(inicio), dataFim: paraDataISO(fim) };
+};
+
+// ─── Badge de variação percentual vs período anterior ─────────────────────────
+function VariacaoBadge({ valor, inverso = false }) {
+  if (valor === null || valor === undefined || !Number.isFinite(valor)) return null;
+  const positivo = inverso ? valor <= 0 : valor >= 0;
+  return (
+    <span className={`inline-flex items-center gap-1 font-semibold ${positivo ? "text-emerald-600" : "text-red-500"}`}>
+      {valor >= 0 ? "▲" : "▼"} {Math.abs(valor).toFixed(1)}% vs período anterior
+    </span>
+  );
+}
 
 // ─── Tooltip personalizado do gráfico anual ───────────────────────────────────
 function TooltipAnual({ active, payload, label, formatMoney }) {
@@ -81,6 +158,10 @@ export function Graficos() {
   const [rankingLucroBruto, setRankingLucroBruto] = useState([]);
   const [erro, setErro]                       = useState("");
 
+  // ── Estado do período anterior (comparação "vs período anterior") ──
+  const [dadosTodasLojasAnterior, setDadosTodasLojasAnterior] = useState(null);
+  const [dadosDashboardAnterior, setDadosDashboardAnterior]   = useState(null);
+
   // ─── Anos disponíveis (3 anos atrás até atual) ───────────────────────────
   const anosDisponiveis = useMemo(() => {
     const anos = [];
@@ -122,29 +203,46 @@ export function Graficos() {
     setDadosTodasLojas(null);
     setDadosDashboard(null);
     setDadosImpressao(null);
+    setDadosTodasLojasAnterior(null);
+    setDadosDashboardAnterior(null);
     try {
       const params     = { dataInicio, dataFim };
       const isTodas    = lojaSelecionada === TODAS_LOJAS_VALUE;
       const paramsLoja = { ...params, lojaId: lojaSelecionada };
+      const periodoAnterior = calcularPeriodoAnterior(dataInicio, dataFim);
+      const paramsAnterior = {
+        dataInicio: periodoAnterior.dataInicio,
+        dataFim: periodoAnterior.dataFim,
+      };
       const rankingPromise = api
         .get("/graficos/ranking-lucro-bruto-lojas", { params })
         .catch(() => ({ data: { rankingLucroBrutoLojas: [] } }));
       if (isTodas) {
-        const [todasRes, rankingRes] = await Promise.all([
+        const [todasRes, rankingRes, anteriorRes] = await Promise.all([
           api.get("/relatorios/todas-lojas", { params }),
           rankingPromise,
+          api
+            .get("/relatorios/todas-lojas", { params: paramsAnterior })
+            .catch(() => null),
         ]);
         setDadosTodasLojas(todasRes.data || null);
         setRankingLucroBruto(rankingRes.data?.rankingLucroBrutoLojas || []);
+        setDadosTodasLojasAnterior(anteriorRes?.data || null);
       } else {
-        const [dashRes, impressaoRes, rankingRes] = await Promise.all([
+        const [dashRes, impressaoRes, rankingRes, anteriorRes] = await Promise.all([
           api.get("/relatorios/dashboard", { params: paramsLoja }),
           api.get("/relatorios/impressao",  { params: paramsLoja }),
           rankingPromise,
+          api
+            .get("/relatorios/dashboard", {
+              params: { ...paramsAnterior, lojaId: lojaSelecionada },
+            })
+            .catch(() => null),
         ]);
         setDadosDashboard(dashRes.data     || null);
         setDadosImpressao(impressaoRes.data || null);
         setRankingLucroBruto(rankingRes.data?.rankingLucroBrutoLojas || []);
+        setDadosDashboardAnterior(anteriorRes?.data || null);
       }
     } catch (err) {
       console.error("[Graficos] Erro:", err);
@@ -367,7 +465,33 @@ export function Graficos() {
   const kpiMargem       = kpiFaturamento ? (kpiLiquido / kpiFaturamento) * 100 : 0;
   const kpiIndiceCusto  = kpiFaturamento ? (kpiCusto  / kpiFaturamento) * 100 : 0;
   const rankingProdutosAtivo = isTodas ? rankingProdutosTodas : (dadosDashboard?.rankingProdutos || []);
-  const performanceMaquinas  = isTodas ? [] : (dadosDashboard?.performanceMaquinas || []);
+  const performanceMaquinas  = useMemo(
+    () => (isTodas ? [] : (dadosDashboard?.performanceMaquinas || [])),
+    [isTodas, dadosDashboard],
+  );
+
+  // ─── KPIs do período anterior (comparação) ────────────────────────────────
+  const totaisTodasLojasAnterior = dadosTodasLojasAnterior?.totais || {};
+  const totaisDashAnterior       = dadosDashboardAnterior?.totais || {};
+  const kpiFaturamentoAnterior = isTodas
+    ? toN(totaisTodasLojasAnterior.lucroBrutoTotal)
+    : toN(totaisDashAnterior.faturamento);
+  const kpiLiquidoAnterior = isTodas
+    ? toN(totaisTodasLojasAnterior.lucroLiquidoTotal)
+    : toN(totaisDashAnterior.lucro);
+  const kpiCustoAnterior = isTodas
+    ? toN(totaisTodasLojasAnterior.custoTotal)
+    : toN(totaisDashAnterior.custoTotal);
+  const temPeriodoAnterior = Boolean(isTodas ? dadosTodasLojasAnterior : dadosDashboardAnterior);
+  const variacaoFaturamento = temPeriodoAnterior
+    ? calcularVariacaoPercentual(kpiFaturamento, kpiFaturamentoAnterior)
+    : null;
+  const variacaoLucro = temPeriodoAnterior
+    ? calcularVariacaoPercentual(kpiLiquido, kpiLiquidoAnterior)
+    : null;
+  const variacaoCusto = temPeriodoAnterior
+    ? calcularVariacaoPercentual(kpiCusto, kpiCustoAnterior)
+    : null;
 
   const dadosDisponiveis = Boolean(
     lojaSelecionada && lojaSelecionada !== NENHUMA_LOJA_VALUE &&
@@ -394,6 +518,128 @@ export function Graficos() {
   const lojaAnualNome = lojaSelecionada === TODAS_LOJAS_VALUE ? "Todas as Lojas"
     : lojas.find((l) => String(l.id) === String(lojaSelecionada))?.nome || "Loja";
 
+  // ─── Insights automáticos do período ──────────────────────────────────────
+  const insights = useMemo(() => {
+    if (!dadosDisponiveis) return [];
+    const lista = [];
+
+    if (variacaoFaturamento !== null) {
+      lista.push({
+        icon: variacaoFaturamento >= 0 ? "📈" : "📉",
+        tom: variacaoFaturamento >= 0 ? "positivo" : "negativo",
+        texto: `Faturamento ${variacaoFaturamento >= 0 ? "cresceu" : "caiu"} ${Math.abs(variacaoFaturamento).toFixed(1)}% em relação ao período anterior (${formatMoney(kpiFaturamentoAnterior)}).`,
+      });
+    }
+
+    if (kpiFaturamento > 0) {
+      if (kpiMargem < 15) {
+        lista.push({
+          icon: "⚠️",
+          tom: "negativo",
+          texto: `Margem líquida está baixa (${kpiMargem.toFixed(1)}%) — vale revisar custos fixos e variáveis do período.`,
+        });
+      } else if (kpiMargem > 40) {
+        lista.push({
+          icon: "✅",
+          tom: "positivo",
+          texto: `Margem líquida saudável no período: ${kpiMargem.toFixed(1)}%.`,
+        });
+      }
+
+      if (kpiIndiceCusto > 60) {
+        lista.push({
+          icon: "⚠️",
+          tom: "negativo",
+          texto: `Custos consumiram ${kpiIndiceCusto.toFixed(1)}% do faturamento bruto — acima do recomendado (60%).`,
+        });
+      }
+    }
+
+    if (isTodas && rankingLucroLojas.length >= 2) {
+      const melhorLoja = rankingLucroLojas[0];
+      const piorLoja = rankingLucroLojas[rankingLucroLojas.length - 1];
+      lista.push({
+        icon: "🏆",
+        tom: "positivo",
+        texto: `${melhorLoja.lojaNome} teve o maior lucro líquido do período (${formatMoney(melhorLoja.lucroLiquido)}).`,
+      });
+      if (piorLoja.lojaNome !== melhorLoja.lojaNome) {
+        lista.push({
+          icon: "📉",
+          tom: piorLoja.lucroLiquido < 0 ? "negativo" : "neutro",
+          texto: `${piorLoja.lojaNome} teve o menor lucro líquido do período (${formatMoney(piorLoja.lucroLiquido)}) — vale investigar.`,
+        });
+      }
+    }
+
+    if (!isTodas && graficoFinanceiro.length >= 3) {
+      const melhorDia = graficoFinanceiro.reduce((best, d) => (d.faturamento > (best?.faturamento ?? -Infinity) ? d : best), null);
+      const piorDia = graficoFinanceiro.reduce((worst, d) => (d.faturamento < (worst?.faturamento ?? Infinity) ? d : worst), null);
+      if (melhorDia) {
+        lista.push({
+          icon: "🔥",
+          tom: "positivo",
+          texto: `Melhor dia do período: ${formatDia(melhorDia.data)} com ${formatMoney(melhorDia.faturamento)} de faturamento.`,
+        });
+      }
+      if (piorDia && piorDia.data !== melhorDia?.data) {
+        lista.push({
+          icon: "🧊",
+          tom: "neutro",
+          texto: `Dia mais fraco: ${formatDia(piorDia.data)} com ${formatMoney(piorDia.faturamento)} de faturamento.`,
+        });
+      }
+
+      // Insight de sazonalidade: dia da semana com melhor faturamento médio
+      if (graficoFinanceiro.length >= 7) {
+        const somaPorDiaSemana = Array.from({ length: 7 }, () => ({ soma: 0, qtd: 0 }));
+        graficoFinanceiro.forEach((d) => {
+          const diaSemana = new Date(`${d.data}T12:00:00`).getDay();
+          somaPorDiaSemana[diaSemana].soma += d.faturamento;
+          somaPorDiaSemana[diaSemana].qtd += 1;
+        });
+        const medias = somaPorDiaSemana.map((v, i) => ({
+          dia: DIAS_SEMANA_NOMES[i],
+          media: v.qtd > 0 ? v.soma / v.qtd : 0,
+          qtd: v.qtd,
+        })).filter((v) => v.qtd > 0);
+        if (medias.length >= 3) {
+          const melhorDiaSemana = medias.reduce((best, d) => (d.media > best.media ? d : best));
+          lista.push({
+            icon: "📅",
+            tom: "neutro",
+            texto: `${melhorDiaSemana.dia} costuma ser o dia mais forte, com média de ${formatMoney(melhorDiaSemana.media)} de faturamento.`,
+          });
+        }
+      }
+    }
+
+    if (!isTodas && performanceMaquinas.length > 0) {
+      const maquinasEstoqueBaixo = performanceMaquinas.filter((m) => toN(m.ocupacao) < 30);
+      if (maquinasEstoqueBaixo.length > 0) {
+        lista.push({
+          icon: "🧸",
+          tom: "negativo",
+          texto: `${maquinasEstoqueBaixo.length} máquina(s) com estoque abaixo de 30% — risco de ficar vazia (${maquinasEstoqueBaixo.map((m) => m.nome).join(", ")}).`,
+        });
+      }
+    }
+
+    if (kpiSaidas > 0 && kpiFichas > 0) {
+      lista.push({
+        icon: "🎫",
+        tom: "neutro",
+        texto: `Em média, foram usadas ${(kpiFichas / kpiSaidas).toFixed(1)} fichas para sair cada pelúcia no período.`,
+      });
+    }
+
+    return lista;
+  }, [
+    dadosDisponiveis, variacaoFaturamento, kpiFaturamentoAnterior, kpiFaturamento,
+    kpiMargem, kpiIndiceCusto, isTodas, rankingLucroLojas, graficoFinanceiro,
+    performanceMaquinas, kpiSaidas, kpiFichas,
+  ]);
+
   if (loading && !dadosDisponiveis && !temDadosAnuais) return <PageLoader />;
 
   return (
@@ -405,26 +651,53 @@ export function Graficos() {
         {/* ════════════════════════════════════════════════════════════
             BLOCO 1 — Filtros do painel de período
         ════════════════════════════════════════════════════════════ */}
-        <div className="bg-white rounded-xl shadow p-6 mb-8 border border-gray-100">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Filtros do período</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="card mb-8">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Filtros do período</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Loja</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">🏪 Loja</label>
               <select value={lojaSelecionada} onChange={(e) => setLojaSelecionada(e.target.value)}
-                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 border text-sm">
+                className="input-field w-full">
                 {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Data Inicial</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">📅 Data Inicial</label>
               <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)}
-                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 border text-sm" />
+                className="input-field w-full" />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Data Final</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">📅 Data Final</label>
               <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)}
-                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 border text-sm" />
+                className="input-field w-full" />
             </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Atalhos:</span>
+            {PRESETS_PERIODO.map((preset) => {
+              const datasPreset = calcularDatasPreset(preset.id);
+              const ativo = datasPreset && datasPreset.dataInicio === dataInicio && datasPreset.dataFim === dataFim;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => {
+                    const datas = calcularDatasPreset(preset.id);
+                    if (!datas) return;
+                    setDataInicio(datas.dataInicio);
+                    setDataFim(datas.dataFim);
+                  }}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+                    ativo
+                      ? "border-indigo-500 bg-indigo-600 text-white"
+                      : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -745,6 +1018,34 @@ export function Graficos() {
         {dadosDisponiveis && (
           <div className="space-y-8 animate-fade-in">
 
+            {insights.length > 0 && (
+              <div className="bg-white rounded-xl shadow-lg border border-indigo-100 p-6">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-1">
+                  <span className="text-2xl">💡</span> Insights do Período
+                </h2>
+                <p className="text-xs text-gray-500 mb-4">
+                  Leituras automáticas geradas a partir dos dados do período selecionado.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {insights.map((insight, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-start gap-3 rounded-lg border p-3 text-sm ${
+                        insight.tom === "positivo"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                          : insight.tom === "negativo"
+                            ? "border-red-200 bg-red-50 text-red-900"
+                            : "border-gray-200 bg-gray-50 text-gray-700"
+                      }`}
+                    >
+                      <span className="text-lg leading-none">{insight.icon}</span>
+                      <span>{insight.texto}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               <RankingCard titulo="Ranking: Total Vendas das Lojas"   icon="🏆" dados={rankingLucroBruto}  campoNome="lojaNome" campoValor="lucroBruto"            formatValor={formatMoney} />
               <RankingCard titulo="Ranking: Lucro Líquido das Lojas" icon="💰" dados={rankingLucroLojas}  campoNome="lojaNome" campoValor="lucroLiquido"           formatValor={formatMoney} />
@@ -754,13 +1055,20 @@ export function Graficos() {
             </div>
 
             <div className="flex flex-wrap gap-6">
-              <KpiCard titulo="Faturamento Bruto" valor={formatMoney(kpiFaturamento)} icon="💰" cor="green" />
+              <KpiCard titulo="Faturamento Bruto" valor={formatMoney(kpiFaturamento)} icon="💰" cor="green"
+                extra={<VariacaoBadge valor={variacaoFaturamento} />} />
               <KpiCard titulo="Dinheiro"           valor={formatMoney(kpiDinheiro)}   icon="💵" cor="yellow" />
               <KpiCard titulo="Cartão/Pix"         valor={formatMoney(kpiCartao)}     icon="🟢" cor="cyan" />
               <KpiCard titulo="Lucro Líquido"      valor={formatMoney(kpiLiquido)}    icon="📈" cor="blue"
-                extra={<><span className="font-semibold text-green-600">{kpiMargem.toFixed(1)}%</span><span className="text-gray-500 ml-1">Margem</span></>} />
+                extra={<>
+                  <div><span className="font-semibold text-green-600">{kpiMargem.toFixed(1)}%</span><span className="text-gray-500 ml-1">Margem</span></div>
+                  <VariacaoBadge valor={variacaoLucro} />
+                </>} />
               <KpiCard titulo="Custo Total"        valor={formatMoney(kpiCusto)}      icon="🧾" cor="rose"
-                extra={`${kpiIndiceCusto.toFixed(1)}% do faturamento`} />
+                extra={<>
+                  <div>{kpiIndiceCusto.toFixed(1)}% do faturamento</div>
+                  <VariacaoBadge valor={variacaoCusto} inverso />
+                </>} />
               <KpiCard titulo="Prêmios Entregues"  valor={kpiSaidas.toLocaleString("pt-BR")} icon="🧸" cor="orange" />
               <KpiCard titulo="Total Fichas"       valor={kpiFichas.toLocaleString("pt-BR")} icon="🎫" cor="purple"
                 extra={kpiSaidas > 0 ? `Média: ${(kpiFichas / kpiSaidas).toFixed(1)} fichas/prêmio` : null} />
