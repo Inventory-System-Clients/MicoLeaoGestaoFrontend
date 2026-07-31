@@ -177,11 +177,11 @@ export function Navbar() {
     <nav className="bg-linear-to-r from-black via-neutral-900 to-red-950 text-white shadow-2xl border-b-4 border-primary">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between gap-3">
-          <Link to="/" className="flex shrink-0 items-center group">
+          <Link to="/" className="flex shrink-0 items-center">
             <img
               src="/LogoMicoLeao.png"
               alt="Mico Leao"
-              className="h-16 w-16 rounded-xl bg-white/95 object-contain p-1 transition-transform duration-300 group-hover:scale-105 sm:h-20 sm:w-20"
+              className="h-16 w-16 object-contain sm:h-20 sm:w-20"
               onError={(event) => {
                 event.currentTarget.style.display = "none";
               }}
