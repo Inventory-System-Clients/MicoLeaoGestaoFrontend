@@ -108,7 +108,7 @@ export function VisaoMaquinas() {
             const manutencoesAbertas = manutencoes.filter(
               (item) =>
                 String(item.maquinaId) === String(maquina.id) &&
-                item.status !== "RESOLVIDA",
+                item.status !== "CONCLUIDA",
             );
             const estoque = estoqueRes.data || {};
             const ultimaMovimentacao = movimentacoesRes.data?.[0] || null;

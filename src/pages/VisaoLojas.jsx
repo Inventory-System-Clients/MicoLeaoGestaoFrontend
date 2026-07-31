@@ -164,7 +164,7 @@ export function VisaoLojas() {
               (manutencao) => String(manutencao.lojaId) === String(loja.id),
             );
             const manutencoesAbertas = manutencoesDaLoja.filter(
-              (manutencao) => manutencao.status !== "RESOLVIDA",
+              (manutencao) => manutencao.status !== "CONCLUIDA",
             );
 
             const totalSairam = movimentacoes.reduce(
