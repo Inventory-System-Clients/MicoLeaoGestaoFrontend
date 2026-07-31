@@ -26,7 +26,6 @@ export function Relatorios() {
   const [error, setError] = useState("");
   const [gastosFixosLoja, setGastosFixosLoja] = useState([]);
   const [comparativoMensal, setComparativoMensal] = useState(null);
-  const [salvandoFechamento, setSalvandoFechamento] = useState(false);
   const [relatorioAssistentePendente, setRelatorioAssistentePendente] =
     useState(null);
 
@@ -555,125 +554,6 @@ export function Relatorios() {
     return data.toLocaleString("pt-BR");
   };
 
-  const validarPeriodoFechamentoMensal = () => {
-    if (!dataInicio || !dataFim) {
-      return { valido: false, motivo: "Selecione data inicial e final." };
-    }
-
-    const inicio = new Date(`${dataInicio}T00:00:00`);
-    const fim = new Date(`${dataFim}T00:00:00`);
-
-    if (Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime())) {
-      return { valido: false, motivo: "Período inválido." };
-    }
-
-    if (
-      inicio.getFullYear() !== fim.getFullYear() ||
-      inicio.getMonth() !== fim.getMonth()
-    ) {
-      return {
-        valido: false,
-        motivo: "O fechamento precisa estar dentro do mesmo mês.",
-      };
-    }
-
-    const ultimoDiaDoMes = new Date(
-      inicio.getFullYear(),
-      inicio.getMonth() + 1,
-      0,
-    ).getDate();
-
-    if (inicio.getDate() !== 1 || fim.getDate() !== ultimoDiaDoMes) {
-      return {
-        valido: false,
-        motivo:
-          "O fechamento só pode ser feito com período completo: dia 1 até o último dia do mês.",
-      };
-    }
-
-    const fimDoPeriodo = new Date(
-      fim.getFullYear(),
-      fim.getMonth(),
-      fim.getDate(),
-      23,
-      59,
-      59,
-      999,
-    );
-
-    if (new Date().getTime() <= fimDoPeriodo.getTime()) {
-      return {
-        valido: false,
-        motivo:
-          "O fechamento só pode ser feito após o término completo do período.",
-      };
-    }
-
-    return { valido: true, motivo: "" };
-  };
-
-  const salvarFechamentoMensal = async () => {
-    if (!relatorio || lojaSelecionada === TODAS_LOJAS_VALUE) {
-      Swal.fire({
-        icon: "warning",
-        title: "Fechamento indisponível",
-        text: "Selecione uma única loja para fechar o mês.",
-      });
-      return;
-    }
-
-    const validacao = validarPeriodoFechamentoMensal();
-    if (!validacao.valido) {
-      Swal.fire({
-        icon: "warning",
-        title: "Período inválido para fechamento",
-        text: validacao.motivo,
-      });
-      return;
-    }
-
-    const confirmacao = await Swal.fire({
-      icon: "question",
-      title: "Confirmar fechamento mensal?",
-      html: `Loja: <b>${relatorio?.loja?.nome || "-"}</b><br/>Período: <b>${formatarDataExibicao(dataInicio)} até ${formatarDataExibicao(dataFim)}</b>`,
-      showCancelButton: true,
-      confirmButtonText: "Sim, fechar mês",
-      cancelButtonText: "Cancelar",
-      confirmButtonColor: "#16a34a",
-    });
-
-    if (!confirmacao.isConfirmed) return;
-
-    try {
-      setSalvandoFechamento(true);
-
-      await api.post("/fechamentos-mensais-relatorio", {
-        lojaId: lojaSelecionada,
-        dataInicio,
-        dataFim,
-        relatorio,
-        gastosFixosDetalhados: gastosFixosComValor,
-      });
-
-      Swal.fire({
-        icon: "success",
-        title: "Fechamento salvo",
-        text: "Os dados do fechamento mensal foram salvos com sucesso.",
-        confirmButtonColor: "#16a34a",
-      });
-    } catch (erroFechamento) {
-      Swal.fire({
-        icon: "error",
-        title: "Erro ao salvar fechamento",
-        text:
-          erroFechamento?.response?.data?.error ||
-          "Não foi possível salvar o fechamento mensal.",
-      });
-    } finally {
-      setSalvandoFechamento(false);
-    }
-  };
-
   const obterClassesStatusComparacao = (status) => {
     if (status === "melhor") {
       return {
@@ -1195,8 +1075,6 @@ export function Relatorios() {
     return usuariosMap[String(usuarioId)] || `ID ${usuarioId}`;
   };
 
-  const fechamentoValido = validarPeriodoFechamentoMensal();
-
   if (loadingLojas) return <PageLoader />;
 
   return (
@@ -1525,67 +1403,44 @@ export function Relatorios() {
                     Bruto Consolidado (Loja + Máquinas)
                   </div>
                 </div>
-                <div className="card bg-gradient-to-br from-pink-500 to-fuchsia-700 text-white">
-                  <div className="text-2xl sm:text-3xl mb-2">💳</div>
+                <div
+                  className={`card text-white ${
+                    (relatorio.totais?.divergenciasBlinkCount || 0) === 0
+                      ? "bg-gradient-to-br from-emerald-500 to-teal-700"
+                      : "bg-gradient-to-br from-amber-500 to-orange-700"
+                  }`}
+                >
+                  <div className="text-2xl sm:text-3xl mb-2">⚡</div>
                   <div className="text-xl sm:text-2xl font-bold">
+                    R${" "}
                     {Number(
-                      relatorio.totais?.percentualTaxaCartaoMedia || 0,
+                      relatorio.totais?.diferencaBlinkTotal || 0,
                     ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    %
                   </div>
                   <div className="text-xs sm:text-sm opacity-90">
-                    Taxa Média de Cartão
+                    Divergência Blink
                   </div>
                   <div className="text-[10px] sm:text-xs opacity-80 mt-1">
-                    R${" "}
-                    {Number(relatorio.totais?.taxaDeCartao || 0).toLocaleString(
-                      "pt-BR",
-                      { minimumFractionDigits: 2 },
-                    )}{" "}
-                    em taxas de cartão no período
-                  </div>
-                </div>
-                <div className="card bg-gradient-to-br from-cyan-500 to-blue-700 text-white">
-                  <div className="text-2xl sm:text-3xl mb-2">✅</div>
-                  <div className="text-xl sm:text-2xl font-bold">
-                    R${" "}
+                    Blink no período: R${" "}
                     {Number(
-                      relatorio.totais?.valorCartaoPixLiquidoLoja || 0,
+                      relatorio.totais?.valorBlinkTotal || 0,
                     ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </div>
-                  <div className="text-xs sm:text-sm opacity-90">
-                    Cartão / Pix Líquido (Loja)
-                  </div>
-                  <div className="text-xl sm:text-2xl font-bold mt-4">
-                    R${" "}
-                    {(() => {
-                      if (
-                        relatorio.totais?.valorLiquidoMaquinas !== undefined &&
-                        relatorio.totais?.valorLiquidoMaquinas !== null
-                      ) {
-                        return Number(
-                          relatorio.totais?.valorLiquidoMaquinas || 0,
-                        ).toLocaleString("pt-BR", {
-                          minimumFractionDigits: 2,
-                        });
-                      }
-
-                      let valorLiquidoMaquinas = 0;
-                      if (relatorio.maquinas && relatorio.maquinas.length > 0) {
-                        relatorio.maquinas.forEach((m) => {
-                          valorLiquidoMaquinas +=
-                            Number(m.totais?.dinheiro || 0) +
-                            Number(m.totais?.cartaoPixLiquido || 0);
-                        });
-                      }
-                      return valorLiquidoMaquinas.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                      });
-                    })()}
-                  </div>
-                  <div className="text-xs sm:text-sm opacity-90">
-                    Cartão / Pix Líquido (Máquinas)
-                  </div>
+                  {(relatorio.totais?.divergenciasBlinkCount || 0) > 0 && (
+                    <div className="text-[10px] sm:text-xs opacity-80 mt-1">
+                      {relatorio.totais.divergenciasBlinkCount} fechamento(s)
+                      com diferença
+                      {(relatorio.totais?.alertasBlinkPendentesCount || 0) >
+                        0 && (
+                        <>
+                          {" "}
+                          ·{" "}
+                          {relatorio.totais.alertasBlinkPendentesCount}{" "}
+                          alerta(s) pendente(s)
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {/* Produtos que entraram */}
                 <div className="card bg-gradient-to-br from-green-500 to-green-600 text-white">
@@ -1667,7 +1522,7 @@ export function Relatorios() {
                   </div>
                 </div>
                 <div className="card bg-gradient-to-br from-slate-700 to-slate-900 text-white">
-                  <div className="text-2xl sm:text-3xl mb-2">ðŸ›’</div>
+                  <div className="text-2xl sm:text-3xl mb-2">🛒</div>
                   <div className="text-xl sm:text-2xl font-bold">
                     R${" "}
                     {Number(
@@ -1675,10 +1530,10 @@ export function Relatorios() {
                     ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </div>
                   <div className="text-xs sm:text-sm opacity-90">
-                    Compras de pecas/insumos
+                    Compras de peças/insumos
                   </div>
                   <div className="text-[10px] sm:text-xs opacity-80 mt-1">
-                    Pecas: R${" "}
+                    Peças: R${" "}
                     {Number(
                       relatorio.totais?.gastoComprasPecasPeriodo || 0,
                     ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}{" "}
@@ -1727,10 +1582,10 @@ export function Relatorios() {
                     ).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </div>
                   <div className="text-xs sm:text-sm opacity-90">
-                    Gastos do periodo
+                    Gastos do período
                   </div>
                   <div className="text-[10px] sm:text-xs opacity-80 mt-1">
-                    Fixos + variaveis + pelucias vendidas + pecas/insumos
+                    Fixos + variáveis + pelúcias vendidas + peças/insumos
                   </div>
                 </div>
                 <div className="card bg-gradient-to-br from-emerald-600 to-green-800 text-white">
@@ -1813,7 +1668,7 @@ export function Relatorios() {
                           Compras operacionais recebidas
                         </h3>
                         <p className="text-xs text-gray-600">
-                          Pecas e insumos entram como gasto no periodo quando sao recebidos.
+                          Peças e insumos entram como gasto no período quando são recebidos.
                         </p>
                       </div>
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
@@ -1834,7 +1689,9 @@ export function Relatorios() {
                         <tbody>
                           {relatorio.comprasOperacionais.map((compra) => (
                             <tr key={compra.id}>
-                              <td>{compra.tipo}</td>
+                              <td>
+                                {compra.tipo === "PECA" ? "Peça" : "Insumo"}
+                              </td>
                               <td>{compra.nomeItem}</td>
                               <td>{compra.fornecedorNome}</td>
                               <td>
@@ -1854,39 +1711,6 @@ export function Relatorios() {
                     </div>
                   </div>
                 )}
-
-              <div className="mt-5 border-t border-purple-200 pt-4 no-print">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">
-                      Fechamento Mensal do Relatório
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      Salva um snapshot detalhado para integração no outro
-                      backend.
-                    </p>
-                    {!fechamentoValido.valido && (
-                      <p className="text-xs text-amber-700 mt-1">
-                        ⚠️ {fechamentoValido.motivo}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={salvarFechamentoMensal}
-                    disabled={
-                      salvandoFechamento ||
-                      !fechamentoValido.valido ||
-                      lojaSelecionada === TODAS_LOJAS_VALUE
-                    }
-                    className="px-4 py-2 rounded-lg font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  >
-                    {salvandoFechamento
-                      ? "Salvando fechamento..."
-                      : "💾 Fechar mês e salvar snapshot"}
-                  </button>
-                </div>
-              </div>
             </div>
 
             <div className="card bg-linear-to-r from-red-50 to-rose-100 border-2 border-rose-200">
