@@ -4,14 +4,22 @@ import { useAuth } from "../contexts/AuthContext";
 import { useAlertas } from "../contexts/AlertasContext";
 
 export function Navbar() {
-  const { usuario, logout, alertasManutencaoCount } = useAuth();
+  const {
+    usuario,
+    logout,
+    alertasManutencaoCount,
+    minhasManutencoesPendentesCount,
+  } = useAuth();
   const { totalGeral } = useAlertas();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const temAlertaManutencao = alertasManutencaoCount > 0;
   const podeVerAlertas = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
+  const contadorManutencao = podeVerAlertas
+    ? alertasManutencaoCount
+    : minhasManutencoesPendentesCount;
+  const temAlertaManutencao = contadorManutencao > 0;
   const isActive = (path) => location.pathname === path;
   const perfilLabel =
     usuario?.role === "DESENVOLVEDOR"
@@ -320,7 +328,7 @@ export function Navbar() {
                         {grupo.label}
                         {grupoTemAlerta && !aberto && (
                           <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
-                            {alertasManutencaoCount}
+                            {contadorManutencao}
                           </span>
                         )}
                       </span>
@@ -361,7 +369,7 @@ export function Navbar() {
                               </span>
                               {alert && (
                                 <span className="ml-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-red-600 shadow">
-                                  {alertasManutencaoCount}
+                                  {contadorManutencao}
                                 </span>
                               )}
                             </Link>

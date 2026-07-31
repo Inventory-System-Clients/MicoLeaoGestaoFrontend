@@ -68,6 +68,7 @@ export default function ManutencaoPage() {
     usuario,
     loading: authLoading,
     atualizarAlertasManutencaoCount,
+    atualizarMinhasManutencoesPendentesCount,
   } = useAuth();
   const [manutencoes, setManutencoes] = useState([]);
   const [funcionarios, setFuncionarios] = useState([]);
@@ -361,12 +362,15 @@ export default function ManutencaoPage() {
       setError("");
       await api.patch(`/manutencoes/${id}/status`, { status: novoStatus });
       await carregarDados();
+      await atualizarMinhasManutencoesPendentesCount();
     } catch (err) {
       setError(
         err.response?.data?.error || "Erro ao atualizar status da manutenção",
       );
     }
   };
+
+  const handleResolver = (id) => handleAtualizarStatus(id, "CONCLUIDA");
 
   const abrirUsoPeca = (manutencaoId) => {
     setUsoPecaAbertoId((atual) => (atual === manutencaoId ? null : manutencaoId));
@@ -1049,13 +1053,22 @@ export default function ManutencaoPage() {
                   (item.funcionariosPermitidos || []).some(
                     (f) => f.id === usuario?.id,
                   );
-                const podeAtualizar = item.status !== "CONCLUIDA" && podePermitido;
-                const statusInfo = obterStatusInfo(item.status);
+                const resolvida = item.status === "CONCLUIDA";
+                const podeAtualizar = !resolvida && podePermitido;
+                const corCard = resolvida
+                  ? {
+                      borderClass: "border-emerald-300",
+                      bgClass: "bg-emerald-50/50",
+                    }
+                  : {
+                      borderClass: "border-amber-300",
+                      bgClass: "bg-amber-50/60",
+                    };
 
                 return (
                   <div
                     key={item.id}
-                    className={`rounded-xl border-2 p-4 shadow-sm transition-shadow hover:shadow-md ${statusInfo.borderClass} ${statusInfo.bgClass}`}
+                    className={`rounded-xl border-2 p-4 shadow-sm transition-shadow hover:shadow-md ${corCard.borderClass} ${corCard.bgClass}`}
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
@@ -1066,8 +1079,8 @@ export default function ManutencaoPage() {
                           {item.descricao}
                         </p>
                       </div>
-                      <Badge variant={statusInfo.variant} size="sm">
-                        {statusInfo.emoji} {statusInfo.label}
+                      <Badge variant={resolvida ? "success" : "warning"} size="sm">
+                        {resolvida ? "🟢 Resolvida" : "🟠 Pendente"}
                       </Badge>
                     </div>
 
@@ -1138,23 +1151,14 @@ export default function ManutencaoPage() {
                     </div>
 
                     {podeAtualizar && (
-                      <div className="mt-3 flex items-center gap-2">
-                        <label className="text-xs font-bold text-gray-700">
-                          🔄 Atualizar status:
-                        </label>
-                        <select
-                          value={item.status}
-                          onChange={(e) =>
-                            handleAtualizarStatus(item.id, e.target.value)
-                          }
-                          className="select-field w-auto py-1.5 text-sm"
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() => handleResolver(item.id)}
+                          className="btn-primary text-sm"
                         >
-                          {STATUS_OPCOES.map((opcao) => (
-                            <option key={opcao.value} value={opcao.value}>
-                              {opcao.emoji} {opcao.label}
-                            </option>
-                          ))}
-                        </select>
+                          ✅ Marcar como resolvida
+                        </button>
                       </div>
                     )}
 

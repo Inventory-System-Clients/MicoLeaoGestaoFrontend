@@ -13,6 +13,8 @@ export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null);
   const [loading, setLoading] = useState(true);
   const [alertasManutencaoCount, setAlertasManutencaoCount] = useState(0);
+  const [minhasManutencoesPendentesCount, setMinhasManutencoesPendentesCount] =
+    useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -55,6 +57,43 @@ export function AuthProvider({ children }) {
 
     return () => clearInterval(intervalId);
   }, [usuario?.role]);
+
+  // Manutenções pendentes atribuídas ao próprio funcionário (responsável ou
+  // na lista de quem pode visualizar/resolver) — o backend já filtra
+  // /manutencoes assim para quem não é ADMIN/DESENVOLVEDOR.
+  const atualizarMinhasManutencoesPendentesCount = useCallback(async () => {
+    if (!usuario || ["ADMIN", "DESENVOLVEDOR"].includes(usuario.role)) return;
+    try {
+      const response = await api.get("/manutencoes");
+      const dados = response.data;
+      setMinhasManutencoesPendentesCount(
+        Array.isArray(dados) ? dados.length : 0,
+      );
+    } catch {
+      // Silencioso: não bloqueia a navegação por falha ao buscar manutenções.
+    }
+  }, [usuario]);
+
+  useEffect(() => {
+    if (!usuario || ["ADMIN", "DESENVOLVEDOR"].includes(usuario.role)) return;
+
+    const buscar = async () => {
+      try {
+        const response = await api.get("/manutencoes");
+        const dados = response.data;
+        setMinhasManutencoesPendentesCount(
+          Array.isArray(dados) ? dados.length : 0,
+        );
+      } catch {
+        // Silencioso: não bloqueia a navegação por falha ao buscar manutenções.
+      }
+    };
+
+    buscar();
+    const intervalId = setInterval(buscar, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [usuario]);
 
   const login = async (email, senha) => {
     try {
@@ -126,6 +165,11 @@ export function AuthProvider({ children }) {
             ? alertasManutencaoCount
             : 0,
         atualizarAlertasManutencaoCount,
+        minhasManutencoesPendentesCount:
+          !["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)
+            ? minhasManutencoesPendentesCount
+            : 0,
+        atualizarMinhasManutencoesPendentesCount,
       }}
     >
       {children}
