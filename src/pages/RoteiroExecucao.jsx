@@ -6,6 +6,7 @@ import { Footer } from "../components/Footer";
 import { AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { obterEntradaMaquinaConcluida } from "../utils/roteiroMaquinas";
+import { enviarImagemParaCloudinary } from "../utils/cloudinary";
 
 const ordenarRoteiro = (roteiro) => ({
   ...roteiro,
@@ -22,7 +23,9 @@ const montarMensagemWhatsappDaMovimentacao = (mov) => {
   mensagem += `━━━━━━━━━━━━━━━━━━━\n\n`;
   mensagem += `->  *Loja:* ${mov.maquina?.loja?.nome || "Não informada"}\n`;
   mensagem += `->  *Máquina:* ${
-    mov.maquina ? `${mov.maquina.nome || ""} - ${mov.maquina.codigo || ""}`.trim() : "Não informada"
+    mov.maquina
+      ? `${mov.maquina.nome || ""} - ${mov.maquina.codigo || ""}`.trim()
+      : "Não informada"
   }\n`;
   mensagem += `->  *Produto:* ${
     produto ? `${produto.emoji || ""} ${produto.nome}`.trim() : "Não informado"
@@ -167,7 +170,9 @@ export function RoteiroExecucao() {
   const [salvandoMovimentacao, setSalvandoMovimentacao] = useState(false);
   const [avisoCalculoContadores, setAvisoCalculoContadores] = useState("");
   const [error, setError] = useState("");
-  const [enviandoWhatsappMaquinaId, setEnviandoWhatsappMaquinaId] = useState(null);
+  const [enviandoWhatsappMaquinaId, setEnviandoWhatsappMaquinaId] =
+    useState(null);
+  const [fotoContadores, setFotoContadores] = useState(null);
 
   const hojeISO = new Date().toISOString().slice(0, 10);
   const ehDiaAuditoria = Boolean(
@@ -239,7 +244,10 @@ export function RoteiroExecucao() {
         <Navbar />
         <main className="mx-auto max-w-5xl px-4 py-8">
           <AlertBox type="error" message="Roteiro nao encontrado." />
-          <button className="btn-secondary mt-4" onClick={() => navigate("/roteiros")}>
+          <button
+            className="btn-secondary mt-4"
+            onClick={() => navigate("/roteiros")}
+          >
             Voltar
           </button>
         </main>
@@ -255,7 +263,8 @@ export function RoteiroExecucao() {
     itemSelecionado?.tipo === "LOJA" ? itemSelecionado : null;
   const maquinasDaLojaSelecionada = itemLojaSelecionada
     ? maquinas.filter(
-        (maquina) => String(maquina.lojaId) === String(itemLojaSelecionada.lojaId),
+        (maquina) =>
+          String(maquina.lojaId) === String(itemLojaSelecionada.lojaId),
       )
     : [];
   const anotacaoSelecionada =
@@ -271,7 +280,9 @@ export function RoteiroExecucao() {
     try {
       const [ultimaRes, sugestaoRes] = await Promise.all([
         api
-          .get(`/movimentacoes/loja/${item.lojaId}/maquina/${maquina.id}/ultima`)
+          .get(
+            `/movimentacoes/loja/${item.lojaId}/maquina/${maquina.id}/ultima`,
+          )
           .catch(() => ({ data: null })),
         api
           .get(`/maquinas/${maquina.id}/produto-sugerido`)
@@ -280,7 +291,9 @@ export function RoteiroExecucao() {
 
       const ultima = ultimaRes.data || null;
       const ehAuditoriaDestaMaquina = Boolean(
-        maquina?.datasAuditoria?.includes(new Date().toISOString().slice(0, 10)),
+        maquina?.datasAuditoria?.includes(
+          new Date().toISOString().slice(0, 10),
+        ),
       );
       setUltimaMovimentacao(ultima);
       setFormMovimentacao((prev) => ({
@@ -323,12 +336,28 @@ export function RoteiroExecucao() {
     }
   };
 
+  const abrirWhatsappComMovimentacao = (movimentacao, fotoUrl) => {
+    const mensagem = montarMensagemWhatsappDaMovimentacao(movimentacao);
+    const textoCompleto = fotoUrl
+      ? `${mensagem}\n\nFoto: ${fotoUrl}`
+      : mensagem;
+    const url = `https://wa.me/?text=${encodeURIComponent(textoCompleto)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleFotoContadoresChange = (event) => {
+    const arquivo = event.target.files?.[0] || null;
+    setFotoContadores(arquivo);
+  };
+
   const concluirItem = async (item, concluido = true) => {
     try {
       await api.patch(`/roteiros/itens/${item.id}/concluir`, { concluido });
       await carregarDados();
     } catch (err) {
-      setError(err.response?.data?.error || "Erro ao atualizar item do roteiro.");
+      setError(
+        err.response?.data?.error || "Erro ao atualizar item do roteiro.",
+      );
     }
   };
 
@@ -344,7 +373,8 @@ export function RoteiroExecucao() {
     event.preventDefault();
     if (!modalMovimentacao || salvandoMovimentacao) return;
 
-    const totalPre = Number.parseInt(formMovimentacao.quantidadeAtualMaquina, 10) || 0;
+    const totalPre =
+      Number.parseInt(formMovimentacao.quantidadeAtualMaquina, 10) || 0;
     const quantidadeAdicionada =
       Number.parseInt(formMovimentacao.quantidadeAdicionada, 10) || 0;
     const retiradaProduto =
@@ -400,6 +430,11 @@ export function RoteiroExecucao() {
       // Salva o id da movimentação junto da conclusão, mesmo que o envio pro
       // WhatsApp falhe depois — assim o botão "Reenviar leitura" sempre pega
       // a movimentação certa, mesmo se a mesma máquina aparecer de novo no roteiro.
+      let fotoUrl = null;
+      if (fotoContadores) {
+        fotoUrl = await enviarImagemParaCloudinary(fotoContadores);
+      }
+
       await api.patch(
         `/roteiros/itens/${modalMovimentacao.item.id}/maquinas/${modalMovimentacao.maquina.id}/concluir`,
         { movimentacaoId: movimentacaoResponse.data?.id || null },
@@ -408,7 +443,9 @@ export function RoteiroExecucao() {
       setModalMovimentacao(null);
       setFormMovimentacao(formularioMovimentacaoInicial);
       setUltimaMovimentacao(null);
+      setFotoContadores(null);
       await carregarDados();
+      abrirWhatsappComMovimentacao(movimentacaoResponse.data, fotoUrl);
     } catch (err) {
       setError(
         err.response?.data?.error ||
@@ -431,12 +468,17 @@ export function RoteiroExecucao() {
               Selecione a loja, escolha a maquina e lance a movimentacao.
             </p>
           </div>
-          <button className="btn-secondary" onClick={() => navigate("/roteiros")}>
+          <button
+            className="btn-secondary"
+            onClick={() => navigate("/roteiros")}
+          >
             Voltar para roteiros
           </button>
         </div>
 
-        {error && <AlertBox type="error" message={error} onClose={() => setError("")} />}
+        {error && (
+          <AlertBox type="error" message={error} onClose={() => setError("")} />
+        )}
 
         <section className="rounded-lg border border-orange-200 bg-white p-5 shadow-sm">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,380px)_1fr]">
@@ -445,7 +487,8 @@ export function RoteiroExecucao() {
                 const maquinasDaLojaItem =
                   item.tipo === "LOJA"
                     ? maquinas.filter(
-                        (maquina) => String(maquina.lojaId) === String(item.lojaId),
+                        (maquina) =>
+                          String(maquina.lojaId) === String(item.lojaId),
                       )
                     : [];
                 const totalConcluidas = maquinasDaLojaItem.filter(
@@ -539,7 +582,9 @@ export function RoteiroExecucao() {
                 </div>
               ) : itemLojaSelecionada ? (
                 <>
-                  <h2 className="text-lg font-bold text-gray-900">Maquinas da loja</h2>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Maquinas da loja
+                  </h2>
                   <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                     {maquinasDaLojaSelecionada.map((maquina) => {
                       const { concluida: maquinaConcluida, movimentacaoId } =
@@ -562,13 +607,19 @@ export function RoteiroExecucao() {
                           }`}
                           onClick={() =>
                             itemLojaSelecionada &&
-                            abrirMovimentacaoRoteiro(itemLojaSelecionada, maquina)
+                            abrirMovimentacaoRoteiro(
+                              itemLojaSelecionada,
+                              maquina,
+                            )
                           }
                           onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") {
                               event.preventDefault();
                               itemLojaSelecionada &&
-                                abrirMovimentacaoRoteiro(itemLojaSelecionada, maquina);
+                                abrirMovimentacaoRoteiro(
+                                  itemLojaSelecionada,
+                                  maquina,
+                                );
                             }
                           }}
                         >
@@ -661,8 +712,9 @@ export function RoteiroExecucao() {
               )}
 
               <div className="mb-4 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-800 shadow-sm">
-                <strong>💡 Como funciona:</strong> Informe quantos produtos tem AGORA na
-                maquina. Se abastecer, informe quantos foram adicionados.
+                <strong>💡 Como funciona:</strong> Informe quantos produtos tem
+                AGORA na maquina. Se abastecer, informe quantos foram
+                adicionados.
               </div>
 
               <div className="mb-4 grid grid-cols-1 gap-4 rounded-lg border border-orange-100 bg-white/90 p-4 md:grid-cols-2">
@@ -696,7 +748,13 @@ export function RoteiroExecucao() {
                 </label>
                 <label className="inline-flex cursor-pointer items-center rounded bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
                   Tirar foto dos contadores
-                  <input type="file" accept="image/*" capture="environment" className="sr-only" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="sr-only"
+                    onChange={handleFotoContadoresChange}
+                  />
                 </label>
                 <p className="mt-2 text-xs text-gray-500">
                   No celular, o botao abre a camera para fotografar os dois
@@ -706,222 +764,222 @@ export function RoteiroExecucao() {
 
               <div className="rounded-lg border border-orange-100 bg-white/90 p-4 shadow-sm">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="md:col-span-1 md:order-last">
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    🧸 Produto *
-                  </label>
-                  <select
-                    value={formMovimentacao.produtoId}
-                    onChange={(e) =>
-                      setFormMovimentacao({
-                        ...formMovimentacao,
-                        produtoId: e.target.value,
-                      })
-                    }
-                    className="select-field"
-                    required
-                  >
-                    <option value="">Selecione...</option>
-                    {produtos.map((produto) => (
-                      <option key={produto.id} value={produto.id}>
-                        {produto.emoji || ""} {produto.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    📥 Contador IN (Entrada)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formMovimentacao.contadorIn}
-                    disabled={formMovimentacao.ignoreInOut}
-                    onChange={(e) =>
-                      setFormMovimentacao({
-                        ...formMovimentacao,
-                        contadorIn: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Numero do contador IN da maquina
-                  </p>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    📤 Contador OUT (Saida)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formMovimentacao.contadorOut}
-                    disabled={formMovimentacao.ignoreInOut}
-                    onChange={(e) =>
-                      setFormMovimentacao({
-                        ...formMovimentacao,
-                        contadorOut: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Numero do contador OUT da maquina
-                  </p>
-                </div>
+                  <div className="md:col-span-1 md:order-last">
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      🧸 Produto *
+                    </label>
+                    <select
+                      value={formMovimentacao.produtoId}
+                      onChange={(e) =>
+                        setFormMovimentacao({
+                          ...formMovimentacao,
+                          produtoId: e.target.value,
+                        })
+                      }
+                      className="select-field"
+                      required
+                    >
+                      <option value="">Selecione...</option>
+                      {produtos.map((produto) => (
+                        <option key={produto.id} value={produto.id}>
+                          {produto.emoji || ""} {produto.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      📥 Contador IN (Entrada)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formMovimentacao.contadorIn}
+                      disabled={formMovimentacao.ignoreInOut}
+                      onChange={(e) =>
+                        setFormMovimentacao({
+                          ...formMovimentacao,
+                          contadorIn: e.target.value,
+                        })
+                      }
+                      className="input-field"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Numero do contador IN da maquina
+                    </p>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      📤 Contador OUT (Saida)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formMovimentacao.contadorOut}
+                      disabled={formMovimentacao.ignoreInOut}
+                      onChange={(e) =>
+                        setFormMovimentacao({
+                          ...formMovimentacao,
+                          contadorOut: e.target.value,
+                        })
+                      }
+                      className="input-field"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Numero do contador OUT da maquina
+                    </p>
+                  </div>
 
-                <label className="flex items-center gap-2 text-sm text-gray-700 md:col-span-3">
-                  <input
-                    type="checkbox"
-                    checked={formMovimentacao.ignoreInOut}
-                    onChange={(e) =>
-                      setFormMovimentacao({
-                        ...formMovimentacao,
-                        ignoreInOut: e.target.checked,
-                      })
-                    }
-                  />
-                  Nao preciso informar IN/OUT nesta movimentacao
-                </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 md:col-span-3">
+                    <input
+                      type="checkbox"
+                      checked={formMovimentacao.ignoreInOut}
+                      onChange={(e) =>
+                        setFormMovimentacao({
+                          ...formMovimentacao,
+                          ignoreInOut: e.target.checked,
+                        })
+                      }
+                    />
+                    Nao preciso informar IN/OUT nesta movimentacao
+                  </label>
 
-                {avisoCalculoContadores && (
-                  <p className="rounded-lg border border-yellow-300 bg-yellow-50 p-3 text-sm font-semibold text-yellow-800 md:col-span-3">
-                    {avisoCalculoContadores}
-                  </p>
-                )}
+                  {avisoCalculoContadores && (
+                    <p className="rounded-lg border border-yellow-300 bg-yellow-50 p-3 text-sm font-semibold text-yellow-800 md:col-span-3">
+                      {avisoCalculoContadores}
+                    </p>
+                  )}
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    📦 Quantidade Atual na Maquina *
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      📦 Quantidade Atual na Maquina *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formMovimentacao.quantidadeAtualMaquina}
+                      onChange={(e) =>
+                        setFormMovimentacao({
+                          ...formMovimentacao,
+                          quantidadeAtualMaquina: e.target.value,
+                        })
+                      }
+                      className="input-field"
+                      required
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Quantos produtos tem agora
+                    </p>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      🧺 Quantidade Adicionada
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formMovimentacao.quantidadeAdicionada}
+                      onChange={(e) =>
+                        setFormMovimentacao({
+                          ...formMovimentacao,
+                          quantidadeAdicionada: e.target.value,
+                        })
+                      }
+                      className="input-field"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Quantos produtos foram adicionados
+                    </p>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      🎟️ Quantidade de Fichas
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formMovimentacao.fichas}
+                      onChange={(e) =>
+                        setFormMovimentacao({
+                          ...formMovimentacao,
+                          fichas: e.target.value,
+                        })
+                      }
+                      className="input-field"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Fichas coletadas da maquina
+                    </p>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      ❌ Retirada de Produto
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formMovimentacao.retiradaProduto}
+                      onChange={(e) =>
+                        setFormMovimentacao({
+                          ...formMovimentacao,
+                          retiradaProduto: e.target.value,
+                        })
+                      }
+                      className="input-field"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Quantidade retirada sem contar como saida financeira
+                    </p>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      💵 Valor em Notas (R$)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formMovimentacao.quantidadeNotasEntrada}
+                      onChange={(e) =>
+                        setFormMovimentacao({
+                          ...formMovimentacao,
+                          quantidadeNotasEntrada: e.target.value,
+                        })
+                      }
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      💳 Valor Digital (Pix/Maquininha) (R$)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formMovimentacao.valorEntradaPix}
+                      onChange={(e) =>
+                        setFormMovimentacao({
+                          ...formMovimentacao,
+                          valorEntradaPix: e.target.value,
+                        })
+                      }
+                      className="input-field"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 md:col-span-3">
+                    <input
+                      type="checkbox"
+                      checked={formMovimentacao.retiradaProdutoDevolverEstoque}
+                      onChange={(e) =>
+                        setFormMovimentacao({
+                          ...formMovimentacao,
+                          retiradaProdutoDevolverEstoque: e.target.checked,
+                        })
+                      }
+                    />
+                    Devolver retirada para o estoque da loja
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formMovimentacao.quantidadeAtualMaquina}
-                    onChange={(e) =>
-                      setFormMovimentacao({
-                        ...formMovimentacao,
-                        quantidadeAtualMaquina: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                    required
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Quantos produtos tem agora
-                  </p>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    🧺 Quantidade Adicionada
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formMovimentacao.quantidadeAdicionada}
-                    onChange={(e) =>
-                      setFormMovimentacao({
-                        ...formMovimentacao,
-                        quantidadeAdicionada: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Quantos produtos foram adicionados
-                  </p>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    🎟️ Quantidade de Fichas
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formMovimentacao.fichas}
-                    onChange={(e) =>
-                      setFormMovimentacao({
-                        ...formMovimentacao,
-                        fichas: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Fichas coletadas da maquina
-                  </p>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    ❌ Retirada de Produto
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formMovimentacao.retiradaProduto}
-                    onChange={(e) =>
-                      setFormMovimentacao({
-                        ...formMovimentacao,
-                        retiradaProduto: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Quantidade retirada sem contar como saida financeira
-                  </p>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    💵 Valor em Notas (R$)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formMovimentacao.quantidadeNotasEntrada}
-                    onChange={(e) =>
-                      setFormMovimentacao({
-                        ...formMovimentacao,
-                        quantidadeNotasEntrada: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    💳 Valor Digital (Pix/Maquininha) (R$)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formMovimentacao.valorEntradaPix}
-                    onChange={(e) =>
-                      setFormMovimentacao({
-                        ...formMovimentacao,
-                        valorEntradaPix: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                  />
-                </div>
-                <label className="flex items-center gap-2 text-sm text-gray-700 md:col-span-3">
-                  <input
-                    type="checkbox"
-                    checked={formMovimentacao.retiradaProdutoDevolverEstoque}
-                    onChange={(e) =>
-                      setFormMovimentacao({
-                        ...formMovimentacao,
-                        retiradaProdutoDevolverEstoque: e.target.checked,
-                      })
-                    }
-                  />
-                  Devolver retirada para o estoque da loja
-                </label>
                 </div>
               </div>
 
