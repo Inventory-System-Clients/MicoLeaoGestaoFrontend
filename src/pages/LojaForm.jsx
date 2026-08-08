@@ -278,6 +278,40 @@ export function LojaForm() {
     );
   };
 
+  // Valida nomes duplicados e devolve só os gastos preenchidos. Retorna
+  // null (e já seta o erro na tela) se achar nomes repetidos.
+  const validarGastosFixos = () => {
+    const gastosValidos = gastosFixos.filter(
+      (g) => g.nome && g.nome.trim() !== "",
+    );
+
+    const nomesVistos = new Set();
+    for (const g of gastosValidos) {
+      const chave = normalizarNomeGasto(g.nome);
+      if (nomesVistos.has(chave)) {
+        setError(
+          `Há mais de um gasto fixo chamado "${g.nome.trim()}". Dê um nome diferente pra cada um.`,
+        );
+        return null;
+      }
+      nomesVistos.add(chave);
+    }
+
+    return gastosValidos;
+  };
+
+  const salvarGastosFixos = async (lojaId, gastosValidos) => {
+    await api.post(`/gastos-fixos-loja/${lojaId}`, {
+      gastos: gastosValidos.map((g) => ({
+        nome: g.nome.trim(),
+        valor: parseFloat(String(g.valor).replace(",", ".")) || 0,
+        observacao: g.observacao,
+        vigenciaInicio: g.vigenciaInicio ? `${g.vigenciaInicio}-01` : null,
+        vigenciaFim: g.vigenciaFim ? `${g.vigenciaFim}-01` : null,
+      })),
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -288,6 +322,12 @@ export function LojaForm() {
       // Validação
       if (!formData.nome || formData.nome.trim() === "") {
         setError("Por favor, informe o nome da loja");
+        setLoading(false);
+        return;
+      }
+
+      const gastosValidos = validarGastosFixos();
+      if (gastosValidos === null) {
         setLoading(false);
         return;
       }
@@ -315,37 +355,15 @@ export function LojaForm() {
       };
 
       if (isEdit) {
-        const gastosValidos = gastosFixos.filter(
-          (g) => g.nome && g.nome.trim() !== "",
-        );
-
-        const nomesVistos = new Set();
-        for (const g of gastosValidos) {
-          const chave = normalizarNomeGasto(g.nome);
-          if (nomesVistos.has(chave)) {
-            setError(
-              `Há mais de um gasto fixo chamado "${g.nome.trim()}". Dê um nome diferente pra cada um.`,
-            );
-            setLoading(false);
-            return;
-          }
-          nomesVistos.add(chave);
-        }
-
         await api.put(`/lojas/${id}`, data);
+        await salvarGastosFixos(id, gastosValidos);
         setSuccess("Loja atualizada com sucesso!");
-        // Salvar gastos fixos
-        await api.post(`/gastos-fixos-loja/${id}`, {
-          gastos: gastosValidos.map((g) => ({
-            nome: g.nome.trim(),
-            valor: parseFloat(String(g.valor).replace(",", ".")) || 0,
-            observacao: g.observacao,
-            vigenciaInicio: g.vigenciaInicio ? `${g.vigenciaInicio}-01` : null,
-            vigenciaFim: g.vigenciaFim ? `${g.vigenciaFim}-01` : null,
-          })),
-        });
       } else {
-        await api.post("/lojas", data);
+        const response = await api.post("/lojas", data);
+        const novaLojaId = response.data?.id;
+        if (novaLojaId && gastosValidos.length > 0) {
+          await salvarGastosFixos(novaLojaId, gastosValidos);
+        }
         setSuccess("Loja criada com sucesso!");
       }
 
@@ -485,20 +503,19 @@ export function LojaForm() {
 
         <div className="card-gradient">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {isEdit && (
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <svg
-                    className="w-5 h-5 text-primary"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 12H9v-2h2v2zm0-4H9V7h2v3z" />
-                  </svg>
-                  Gastos Fixos
-                </h3>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-primary"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 12H9v-2h2v2zm0-4H9V7h2v3z" />
+                </svg>
+                Gastos Fixos
+              </h3>
 
-                {gastosFixos.length === 0 && (
+              {gastosFixos.length === 0 && (
                   <p className="text-sm text-gray-500 mb-3">
                     Nenhum gasto fixo cadastrado ainda.
                   </p>
@@ -612,7 +629,6 @@ export function LojaForm() {
                   + Adicionar gasto fixo
                 </button>
               </div>
-            )}
             {/* Informações Básicas */}
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
