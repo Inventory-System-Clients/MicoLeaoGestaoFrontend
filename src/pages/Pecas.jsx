@@ -36,7 +36,9 @@ const normalizarTexto = (valor) =>
 
 export default function Pecas() {
   const { usuario, loading: authLoading } = useAuth();
-  const isAdmin = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
+  const isAdmin = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
+    usuario?.role,
+  );
   const isFuncionario = usuario?.role === "FUNCIONARIO";
 
   const [pecas, setPecas] = useState([]);

@@ -115,7 +115,7 @@ export default function ManutencaoPage() {
     usuarioId: "",
   });
 
-  const isAdmin = usuario?.role === "ADMIN";
+  const isAdmin = ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role);
 
   const manutencoesOrdenadas = useMemo(
     () =>
@@ -135,7 +135,7 @@ export default function ManutencaoPage() {
       setError("");
 
       const params = {};
-      if (usuario?.role === "ADMIN") {
+      if (isAdmin) {
         if (filtros.status !== "TODAS") params.status = filtros.status;
         if (filtros.dataInicio) params.dataInicio = filtros.dataInicio;
         if (filtros.dataFim) params.dataFim = filtros.dataFim;
@@ -162,7 +162,7 @@ export default function ManutencaoPage() {
         setMeuEstoquePecas([]);
       }
 
-      if (usuario?.role === "ADMIN") {
+      if (isAdmin) {
         const [
           funcionariosResponse,
           lojasResponse,
@@ -173,7 +173,7 @@ export default function ManutencaoPage() {
           api.get("/manutencoes/funcionarios"),
           api.get("/lojas"),
           api.get("/maquinas"),
-          api.get("/usuarios"),
+          api.get("/usuarios").catch(() => ({ data: [] })),
           api.get("/alertas-movimentacao"),
         ]);
         const funcionariosData = funcionariosResponse.data;

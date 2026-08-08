@@ -82,7 +82,7 @@ export default function Envios() {
           await Promise.all([
             api.get("/envios", { params }),
             api.get("/lojas"),
-            api.get("/usuarios"),
+            api.get("/usuarios").catch(() => ({ data: [] })),
             api.get("/produtos"),
             api.get("/lacres/divergentes"),
           ]);

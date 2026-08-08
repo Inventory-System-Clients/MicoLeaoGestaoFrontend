@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const atualizarAlertasManutencaoCount = useCallback(async () => {
-    if (!["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)) return;
+    if (!["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role)) return;
     try {
       const response = await api.get("/alertas-movimentacao");
       const dados = response.data;
@@ -40,7 +40,7 @@ export function AuthProvider({ children }) {
   }, [usuario?.role]);
 
   useEffect(() => {
-    if (!["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)) return;
+    if (!["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role)) return;
 
     const buscar = async () => {
       try {
@@ -62,7 +62,7 @@ export function AuthProvider({ children }) {
   // na lista de quem pode visualizar/resolver) — o backend já filtra
   // /manutencoes assim para quem não é ADMIN/DESENVOLVEDOR.
   const atualizarMinhasManutencoesPendentesCount = useCallback(async () => {
-    if (!usuario || ["ADMIN", "DESENVOLVEDOR"].includes(usuario.role)) return;
+    if (!usuario || ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario.role)) return;
     try {
       const response = await api.get("/manutencoes");
       const dados = response.data;
@@ -75,7 +75,7 @@ export function AuthProvider({ children }) {
   }, [usuario]);
 
   useEffect(() => {
-    if (!usuario || ["ADMIN", "DESENVOLVEDOR"].includes(usuario.role)) return;
+    if (!usuario || ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario.role)) return;
 
     const buscar = async () => {
       try {
@@ -145,6 +145,10 @@ export function AuthProvider({ children }) {
     setUsuario(null);
   };
 
+  // Estritamente ADMIN/DESENVOLVEDOR: usado nas rotas `adminOnly` que o
+  // Funcionário de Cadastro NÃO deve acessar (usuários, gráficos,
+  // relatórios). Onde o Cadastro deve entrar, as rotas usam `roles={[...]}`
+  // explicitamente em vez de `adminOnly`.
   const isAdmin = () => ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
 
   const hasRole = (...roles) => roles.includes(usuario?.role);
@@ -161,12 +165,12 @@ export function AuthProvider({ children }) {
         hasRole,
         signed: !!usuario,
         alertasManutencaoCount:
-          ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)
+          ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role)
             ? alertasManutencaoCount
             : 0,
         atualizarAlertasManutencaoCount,
         minhasManutencoesPendentesCount:
-          !["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)
+          !["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role)
             ? minhasManutencoesPendentesCount
             : 0,
         atualizarMinhasManutencoesPendentesCount,

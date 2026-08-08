@@ -101,6 +101,21 @@ const obterDataExtintor = (loja) =>
   loja?.dataExtintor ||
   null;
 
+const DIAS_AVISO_CONTRATO_DEFAULT = 60;
+
+const obterDataContrato = (loja) =>
+  loja?.dataFimContrato || loja?.data_fim_contrato || null;
+
+const obterDiasAvisoContratoEfetivo = (loja) => {
+  const adiado = loja?.contratoAvisoAdiadoDias ?? loja?.contrato_aviso_adiado_dias;
+  if (adiado !== null && adiado !== undefined) return numero(adiado);
+
+  const padrao = loja?.diasAvisoContrato ?? loja?.dias_aviso_contrato;
+  return padrao !== null && padrao !== undefined
+    ? numero(padrao)
+    : DIAS_AVISO_CONTRATO_DEFAULT;
+};
+
 const montarStatusLoja = ({ loja, pendencias, manutencoesAbertas, diasSemMov }) => {
   const statusOperacao = loja?.statusOperacao || loja?.status_operacao;
 
@@ -158,6 +173,14 @@ const montarPontosAtencao = (item) => {
       item.diasExtintor < 0
         ? "extintor vencido"
         : `extintor vence em ${item.diasExtintor} dias`,
+    );
+  }
+
+  if (item.contratoAlerta) {
+    pontos.push(
+      item.diasContrato < 0
+        ? "contrato vencido"
+        : `contrato vence em ${item.diasContrato} dias`,
     );
   }
 
@@ -269,6 +292,17 @@ export function VisaoLojas() {
                 )
               : null;
 
+            const dataContrato = obterDataContrato(loja);
+            const diasContrato = dataContrato
+              ? Math.ceil(
+                  (new Date(dataContrato).getTime() - Date.now()) /
+                    (1000 * 60 * 60 * 24),
+                )
+              : null;
+            const diasAvisoContratoEfetivo = obterDiasAvisoContratoEfetivo(loja);
+            const contratoAlerta =
+              diasContrato !== null && diasContrato <= diasAvisoContratoEfetivo;
+
             const pendencias =
               itensAbaixoMinimo.length +
               manutencoesAbertas.length +
@@ -276,7 +310,8 @@ export function VisaoLojas() {
               (diasSemMov !== null && diasSemMov >= DIAS_SEM_MOVIMENTACAO
                 ? 1
                 : 0) +
-              (diasExtintor !== null && diasExtintor <= 30 ? 1 : 0);
+              (diasExtintor !== null && diasExtintor <= 30 ? 1 : 0) +
+              (contratoAlerta ? 1 : 0);
 
             const status = montarStatusLoja({
               loja,
@@ -297,6 +332,9 @@ export function VisaoLojas() {
               diasSemMov,
               dataExtintor,
               diasExtintor,
+              dataContrato,
+              diasContrato,
+              contratoAlerta,
               mediaPelucias,
               totalSairam,
               totalFichas,
@@ -537,6 +575,32 @@ export function VisaoLojas() {
                     {item.dataExtintor
                       ? `${formatarData(item.dataExtintor)}${
                           item.diasExtintor <= 30 ? " · atenção" : ""
+                        }`
+                      : "Sem cadastro"}
+                  </p>
+                </div>
+                <div
+                  className={`rounded-lg border p-3 ${
+                    item.contratoAlerta
+                      ? "border-red-300 animate-blink-alert"
+                      : "border-slate-200"
+                  }`}
+                >
+                  <p
+                    className={`font-bold ${
+                      item.contratoAlerta ? "text-white" : "text-gray-800"
+                    }`}
+                  >
+                    Contrato
+                  </p>
+                  <p
+                    className={`mt-1 ${
+                      item.contratoAlerta ? "text-white" : "text-gray-600"
+                    }`}
+                  >
+                    {item.dataContrato
+                      ? `${formatarData(item.dataContrato)}${
+                          item.contratoAlerta ? " · atenção" : ""
                         }`
                       : "Sem cadastro"}
                   </p>

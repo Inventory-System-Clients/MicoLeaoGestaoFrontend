@@ -68,6 +68,15 @@ const rolarParaSecao = (id) => {
 const obterMaquinaId = (item) => item.maquina?.id || item.maquinaId;
 const obterLojaId = (item) => item.loja?.id || item.lojaId;
 
+const OPCOES_ADIAR_CONTRATO = [
+  { label: "7 dias antes", dias: 7 },
+  { label: "15 dias antes", dias: 15 },
+  { label: "30 dias antes (1 mês)", dias: 30 },
+  { label: "60 dias antes (2 meses)", dias: 60 },
+  { label: "90 dias antes (3 meses)", dias: 90 },
+  { label: "180 dias antes (6 meses)", dias: 180 },
+];
+
 function LinhaInfo({ label, value }) {
   if (value === undefined || value === null || value === "") return null;
   return (
@@ -194,6 +203,24 @@ export default function Alertas() {
   const { tipos, totalGeral, carregando, recarregar } = useAlertas();
   const [resolvendoId, setResolvendoId] = useState(null);
   const [erroResolucao, setErroResolucao] = useState("");
+  const [adiandoId, setAdiandoId] = useState(null);
+  const [diasAdiarPorLoja, setDiasAdiarPorLoja] = useState({});
+
+  const handleAdiarContrato = async (lojaId) => {
+    const dias = Number(diasAdiarPorLoja[lojaId] ?? 90);
+    try {
+      setErroResolucao("");
+      setAdiandoId(lojaId);
+      await api.put(`/lojas/${lojaId}`, { contratoAvisoAdiadoDias: dias });
+      await recarregar();
+    } catch (error) {
+      setErroResolucao(
+        error.response?.data?.error || "Falha ao adiar o alerta de contrato",
+      );
+    } finally {
+      setAdiandoId(null);
+    }
+  };
 
   const handleResolverLacre = async (lacreId) => {
     try {
@@ -392,6 +419,62 @@ export default function Alertas() {
                       </div>
                     </article>
                   ))}
+                </div>
+              ) : tipo.id === "contrato" ? (
+                <div className="space-y-3">
+                  {tipo.itens.map((item, index) => {
+                    const lojaId = obterLojaId(item);
+                    return (
+                      <article
+                        key={lojaId || `${tipo.id}-${index}`}
+                        className="flex flex-col gap-3 rounded-lg border border-red-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {item.loja?.nome || item.lojaNome}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {item.mensagem}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                          {lojaId && (
+                            <Link
+                              to={`/lojas/${lojaId}`}
+                              className="text-sm font-bold text-orange-700 hover:text-orange-900"
+                            >
+                              Ver loja →
+                            </Link>
+                          )}
+                          <select
+                            className="input-field w-auto text-sm"
+                            value={diasAdiarPorLoja[lojaId] ?? 90}
+                            onChange={(e) =>
+                              setDiasAdiarPorLoja((prev) => ({
+                                ...prev,
+                                [lojaId]: e.target.value,
+                              }))
+                            }
+                          >
+                            {OPCOES_ADIAR_CONTRATO.map((opcao) => (
+                              <option key={opcao.dias} value={opcao.dias}>
+                                {opcao.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => handleAdiarContrato(lojaId)}
+                            disabled={adiandoId === lojaId}
+                            className="btn-secondary text-sm disabled:opacity-60"
+                            title="Parar de avisar até faltar o prazo escolhido"
+                          >
+                            {adiandoId === lojaId ? "Adiando..." : "Adiar"}
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="space-y-3">

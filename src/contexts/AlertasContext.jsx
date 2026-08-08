@@ -69,6 +69,7 @@ const DEFINICAO_TIPOS = [
     cor: "orange",
   },
   { id: "extintor", label: "Extintor vencendo", icone: "🧯", cor: "red" },
+  { id: "contrato", label: "Contrato vencendo", icone: "📄", cor: "red" },
   {
     id: "carrinho-transito",
     label: "Carrinho não conferido",
@@ -112,7 +113,7 @@ export function AlertasProvider({ children }) {
   const emAndamentoRef = useRef(false);
 
   const carregar = useCallback(async () => {
-    const podeVerAlertas = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
+    const podeVerAlertas = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role);
     if (!podeVerAlertas || emAndamentoRef.current) return;
 
     emAndamentoRef.current = true;
@@ -132,6 +133,7 @@ export function AlertasProvider({ children }) {
         manutencaoRecorrenteRes,
         maquinaParadaRes,
         extintorRes,
+        contratoRes,
         carrinhoTransitoRes,
         lacresDivergentesRes,
         comprasPendentesRes,
@@ -166,6 +168,9 @@ export function AlertasProvider({ children }) {
           .catch(() => ({ data: { alertas: [] } })),
         api
           .get("/relatorios/alertas-extintor")
+          .catch(() => ({ data: { alertas: [] } })),
+        api
+          .get("/relatorios/alertas-contrato")
           .catch(() => ({ data: { alertas: [] } })),
         api
           .get("/lacres/alertas/em-transito")
@@ -272,6 +277,7 @@ export function AlertasProvider({ children }) {
         },
         { id: "maquina-parada", itens: extrairAlertas(maquinaParadaRes.data) },
         { id: "extintor", itens: extrairAlertas(extintorRes.data) },
+        { id: "contrato", itens: extrairAlertas(contratoRes.data) },
         {
           id: "carrinho-transito",
           itens: extrairAlertas(carrinhoTransitoRes.data),
@@ -304,7 +310,7 @@ export function AlertasProvider({ children }) {
   }, [usuario?.role]);
 
   useEffect(() => {
-    if (!["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)) {
+    if (!["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role)) {
       setTipos(tiposVazios());
       return;
     }

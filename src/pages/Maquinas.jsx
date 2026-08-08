@@ -236,7 +236,9 @@ export function Maquinas() {
           subtitle="Gerencie as máquinas de pelúcia das lojas"
           icon="🎰"
           action={
-            ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role)
+            ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
+              usuario?.role,
+            )
               ? {
                   label: "Nova Máquina",
                   onClick: () => navigate("/maquinas/nova"),

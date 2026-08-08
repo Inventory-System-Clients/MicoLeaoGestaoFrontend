@@ -130,7 +130,9 @@ export function MaquinaDetalhes() {
     });
   }, [movimentacoes, dataInicio, dataFim]);
 
-  const adminOuDev = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
+  const adminOuDev = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
+    usuario?.role,
+  );
   const usuarioPodeEditar = (movimentacao) =>
     adminOuDev || movimentacao.usuarioId === usuario?.id;
 

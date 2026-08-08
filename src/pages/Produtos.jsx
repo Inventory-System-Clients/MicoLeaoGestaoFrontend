@@ -190,7 +190,7 @@ export function Produtos() {
       label: "Ações",
       render: (produto) => (
         <div className="flex gap-2">
-          {usuario?.role === "ADMIN" && (
+          {["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role) && (
             <>
               <button
                 onClick={() => navigate(`/produtos/${produto.id}/editar`)}
@@ -208,7 +208,7 @@ export function Produtos() {
               </button>
             </>
           )}
-          {usuario?.role !== "ADMIN" && (
+          {!["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role) && (
             <span className="text-gray-400 text-sm">Somente visualização</span>
           )}
         </div>
@@ -228,7 +228,7 @@ export function Produtos() {
           subtitle="Gerencie os produtos (pelúcias) disponíveis no sistema"
           icon="🧸"
           action={
-            usuario?.role === "ADMIN"
+            ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role)
               ? {
                   label: "Novo Produto",
                   onClick: () => navigate("/produtos/novo"),

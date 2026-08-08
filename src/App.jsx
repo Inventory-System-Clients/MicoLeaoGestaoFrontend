@@ -69,7 +69,9 @@ function App() {
           <Route
             path="/alertas"
             element={
-              <PrivateRoute adminOnly>
+              <PrivateRoute
+                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"]}
+              >
                 <Alertas />
               </PrivateRoute>
             }
@@ -120,7 +122,9 @@ function App() {
           <Route
             path="/visao-lojas"
             element={
-              <PrivateRoute roles={["ADMIN", "DESENVOLVEDOR"]}>
+              <PrivateRoute
+                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"]}
+              >
                 <VisaoLojas />
               </PrivateRoute>
             }
@@ -128,7 +132,9 @@ function App() {
           <Route
             path="/visao-maquinas"
             element={
-              <PrivateRoute roles={["ADMIN", "DESENVOLVEDOR"]}>
+              <PrivateRoute
+                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"]}
+              >
                 <VisaoMaquinas />
               </PrivateRoute>
             }
@@ -201,7 +207,12 @@ function App() {
             path="/compras"
             element={
               <PrivateRoute
-                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"]}
+                roles={[
+                  "ADMIN",
+                  "DESENVOLVEDOR",
+                  "FUNCIONARIO_ESTOQUE",
+                  "FUNCIONARIO_CADASTRO",
+                ]}
               >
                 <Compras />
               </PrivateRoute>
@@ -211,7 +222,12 @@ function App() {
             path="/estoque"
             element={
               <PrivateRoute
-                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"]}
+                roles={[
+                  "ADMIN",
+                  "DESENVOLVEDOR",
+                  "FUNCIONARIO_ESTOQUE",
+                  "FUNCIONARIO_CADASTRO",
+                ]}
               >
                 <Estoque />
               </PrivateRoute>
@@ -220,7 +236,9 @@ function App() {
           <Route
             path="/fabricacao-pelucia"
             element={
-              <PrivateRoute adminOnly>
+              <PrivateRoute
+                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"]}
+              >
                 <FabricacaoPelucia />
               </PrivateRoute>
             }
@@ -228,7 +246,14 @@ function App() {
           <Route
             path="/pecas"
             element={
-              <PrivateRoute roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO"]}>
+              <PrivateRoute
+                roles={[
+                  "ADMIN",
+                  "DESENVOLVEDOR",
+                  "FUNCIONARIO",
+                  "FUNCIONARIO_CADASTRO",
+                ]}
+              >
                 <Pecas />
               </PrivateRoute>
             }
@@ -242,6 +267,7 @@ function App() {
                   "DESENVOLVEDOR",
                   "FUNCIONARIO_ESTOQUE",
                   "ENTREGADOR",
+                  "FUNCIONARIO_CADASTRO",
                 ]}
               >
                 <Envios />
@@ -275,7 +301,9 @@ function App() {
           <Route
             path="/movimentacoes"
             element={
-              <PrivateRoute adminOnly>
+              <PrivateRoute
+                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"]}
+              >
                 <Movimentacoes />
               </PrivateRoute>
             }
@@ -307,7 +335,9 @@ function App() {
           <Route
             path="/desenvolvimento"
             element={
-              <PrivateRoute roles={["ADMIN", "DESENVOLVEDOR"]}>
+              <PrivateRoute
+                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"]}
+              >
                 <Desenvolvimento />
               </PrivateRoute>
             }
@@ -315,7 +345,9 @@ function App() {
           <Route
             path="/analise-estoque"
             element={
-              <PrivateRoute adminOnly>
+              <PrivateRoute
+                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"]}
+              >
                 <AnaliseEstoque />
               </PrivateRoute>
             }

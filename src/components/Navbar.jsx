@@ -15,7 +15,9 @@ export function Navbar() {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const podeVerAlertas = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
+  const podeVerAlertas = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
+    usuario?.role,
+  );
   const contadorManutencao = podeVerAlertas
     ? alertasManutencaoCount
     : minhasManutencoesPendentesCount;
@@ -30,6 +32,8 @@ export function Navbar() {
           ? "Funcionário de Estoque"
           : usuario?.role === "ENTREGADOR"
             ? "Entregador"
+            : usuario?.role === "FUNCIONARIO_CADASTRO"
+              ? "Funcionário de Cadastro"
           : "Funcionário";
 
   const handleLogout = () => {
@@ -44,12 +48,21 @@ export function Navbar() {
       to: "/",
       label: "Dashboard",
       icon: "📊",
-      roles: ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO", "FUNCIONARIO_ESTOQUE"],
+      roles: [
+        "ADMIN",
+        "DESENVOLVEDOR",
+        "FUNCIONARIO",
+        "FUNCIONARIO_ESTOQUE",
+        "FUNCIONARIO_CADASTRO",
+      ],
     },
   ];
 
   const ADMIN_ROLES = ["ADMIN", "DESENVOLVEDOR"];
-  const ESTOQUE_ROLES = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"];
+  // Áreas de cadastro/operacional que o Funcionário de Cadastro também
+  // acessa (ele não vê é Financeiro, Gráficos, Relatórios e Usuários).
+  const CADASTRO_ROLES = [...ADMIN_ROLES, "FUNCIONARIO_CADASTRO"];
+  const ESTOQUE_ROLES = [...CADASTRO_ROLES, "FUNCIONARIO_ESTOQUE"];
   const ENVIO_ROLES = [...ESTOQUE_ROLES, "ENTREGADOR"];
 
   const grupos = [
@@ -107,9 +120,9 @@ export function Navbar() {
           to: "/fabricacao-pelucia",
           label: "Fabricação de Pelúcia",
           icon: "🧵",
-          roles: ADMIN_ROLES,
+          roles: CADASTRO_ROLES,
         },
-        { to: "/pecas", label: "Peças", icon: "🔧", roles: ADMIN_ROLES },
+        { to: "/pecas", label: "Peças", icon: "🔧", roles: CADASTRO_ROLES },
       ],
     },
     {
@@ -117,9 +130,19 @@ export function Navbar() {
       label: "Cadastros",
       icon: "🗂️",
       itens: [
-        { to: "/lojas", label: "Lojas", icon: "🏪", roles: ADMIN_ROLES },
-        { to: "/maquinas", label: "Máquinas", icon: "🎮", roles: ADMIN_ROLES },
-        { to: "/produtos", label: "Produtos", icon: "🧸", roles: ADMIN_ROLES },
+        { to: "/lojas", label: "Lojas", icon: "🏪", roles: CADASTRO_ROLES },
+        {
+          to: "/maquinas",
+          label: "Máquinas",
+          icon: "🎮",
+          roles: CADASTRO_ROLES,
+        },
+        {
+          to: "/produtos",
+          label: "Produtos",
+          icon: "🧸",
+          roles: CADASTRO_ROLES,
+        },
         { to: "/usuarios", label: "Usuários", icon: "👥", roles: ADMIN_ROLES },
       ],
     },
@@ -132,13 +155,13 @@ export function Navbar() {
           to: "/movimentacoes",
           label: "Histórico de Movimentações",
           icon: "🔄",
-          roles: ADMIN_ROLES,
+          roles: CADASTRO_ROLES,
         },
         {
           to: "/analise-estoque",
           label: "Estoque Detalhado",
           icon: "📦",
-          roles: ADMIN_ROLES,
+          roles: CADASTRO_ROLES,
         },
         { to: "/graficos", label: "Gráficos", icon: "📈", roles: ADMIN_ROLES },
         { to: "/relatorios", label: "Relatórios", icon: "📄", roles: ADMIN_ROLES },
@@ -153,7 +176,7 @@ export function Navbar() {
           to: "/desenvolvimento",
           label: "Desenvolvimento",
           icon: "</>",
-          roles: ADMIN_ROLES,
+          roles: CADASTRO_ROLES,
         },
         { to: "/treinamentos", label: "Treinamentos", icon: "▶" },
       ],

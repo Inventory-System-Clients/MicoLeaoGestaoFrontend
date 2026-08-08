@@ -179,7 +179,7 @@ export function Lojas() {
             </svg>
             Ver
           </Link>
-          {usuario?.role === "ADMIN" && (
+          {["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role) && (
             <>
               <Link
                 to={`/lojas/${loja.id}/editar`}
@@ -238,7 +238,7 @@ export function Lojas() {
           subtitle="Gerencie as lojas do sistema"
           icon="🏪"
           action={
-            usuario?.role === "ADMIN" ? (
+            ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role) ? (
               <Link
                 to="/lojas/nova"
                 className="btn-primary flex items-center gap-2"

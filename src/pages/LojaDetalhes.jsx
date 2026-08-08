@@ -321,6 +321,36 @@ export function LojaDetalhes() {
                 </p>
               </div>
 
+              <div>
+                <label className="text-sm font-semibold text-gray-500">
+                  Fim do contrato
+                </label>
+                <p className="text-gray-900">
+                  {formatarDataLoja(
+                    loja.dataFimContrato || loja.data_fim_contrato,
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-gray-500">
+                  Aviso de vencimento do contrato
+                </label>
+                <p className="text-gray-900">
+                  {loja.diasAvisoContrato ?? loja.dias_aviso_contrato ?? 60}{" "}
+                  dias antes
+                  {(loja.contratoAvisoAdiadoDias ??
+                    loja.contrato_aviso_adiado_dias) != null && (
+                    <span className="ml-2 text-sm font-semibold text-amber-600">
+                      (adiado — só avisa de novo faltando{" "}
+                      {loja.contratoAvisoAdiadoDias ??
+                        loja.contrato_aviso_adiado_dias}{" "}
+                      dias)
+                    </span>
+                  )}
+                </p>
+              </div>
+
               <div className="md:col-span-2">
                 <label className="text-sm font-semibold text-gray-500">
                   Observações

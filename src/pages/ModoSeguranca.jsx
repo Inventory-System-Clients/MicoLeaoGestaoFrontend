@@ -5,7 +5,9 @@ import api from "../services/api";
 
 export function ModoSeguranca() {
   const { usuario, logout } = useAuth();
-  const podeAtivar = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
+  const podeAtivar = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
+    usuario?.role,
+  );
   const [status, setStatus] = useState(null);
   const [senha, setSenha] = useState("");
   const [motivo, setMotivo] = useState("");

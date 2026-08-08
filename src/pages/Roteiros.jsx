@@ -109,7 +109,9 @@ export function Roteiros() {
   const navigate = useNavigate();
   const location = useLocation();
   const { usuario } = useAuth();
-  const isAdmin = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
+  const isAdmin = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
+    usuario?.role,
+  );
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [roteiros, setRoteiros] = useState([]);
@@ -175,7 +177,9 @@ export function Roteiros() {
       setUltimasMovVeiculos(ultimasVeiculosRes.data || {});
 
       if (isAdmin) {
-        const usuariosRes = await api.get("/usuarios");
+        const usuariosRes = await api
+          .get("/usuarios")
+          .catch(() => ({ data: [] }));
         setUsuarios(usuariosRes.data || []);
       }
     } catch (err) {

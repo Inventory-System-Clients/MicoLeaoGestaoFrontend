@@ -23,6 +23,8 @@ export function LojaForm() {
     dataInicio: "",
     observacoes: "",
     dataVencimentoExtintor: "",
+    dataFimContrato: "",
+    diasAvisoContrato: "60",
     valorFichaPadrao: "2,50",
     ativo: true,
   });
@@ -53,51 +55,43 @@ export function LojaForm() {
     return numero.toFixed(2).replace(".", ",");
   };
 
-  // Gastos fixos pré-definidos
   const normalizarNomeGasto = (nomeOriginal) =>
     String(nomeOriginal || "")
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[̀-ͯ]/g, "")
       .toLowerCase()
       .replace(/\s+/g, " ")
       .trim();
 
-  const normalizarNomeParaPersistencia = (nomeOriginal) => {
-    const nome = String(nomeOriginal || "").trim();
-    const chave = normalizarNomeGasto(nome);
-
-    if (
-      chave === "alugel dobrado ultimo mes (12x)" ||
-      chave === "aluguel dobrado ultimo mes (12x)" ||
-      chave === "alugel dobrado ultimo mes" ||
-      chave === "aluguel dobrado ultimo mes"
-    ) {
-      return "Aluguel dobrado último mês";
-    }
-
-    return nome;
+  const mesAtualStr = () => {
+    const agora = new Date();
+    return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
   };
 
-  const GASTOS_FIXOS = [
-    { nome: "Aluguel", label: "Aluguel" },
-    {
-      nome: "Funcionario(Despesa Rateada)",
-      label: "Funcionário(Despesa Rateada)",
-    },
-    {
-      nome: "Operacional (Plano Trocadora)",
-      label: "Operacional (Plano Trocadora)",
-    },
-    { nome: "Starlink(Internet)", label: "Starlink(Internet)" },
-    { nome: "Limpeza", label: "Limpeza" },
-    { nome: "Imposto", label: "Imposto" },
-    { nome: "Luva", label: "Luva" },
-    { nome: "Nota Fiscal", label: "Nota Fiscal" },
-    {
-      nome: "Aluguel dobrado último mês",
-      label: "Aluguel dobrado último mês",
-    },
-  ];
+  let contadorGastoFixo = 0;
+  const criarGastoFixoVazio = () => ({
+    _key: `novo-${Date.now()}-${contadorGastoFixo++}`,
+    nome: "",
+    valor: "",
+    observacao: "",
+    vigenciaInicio: "",
+    vigenciaFim: "",
+  });
+
+  // "sempre" (sem data), "unico" (so um mes) ou "apartir" (a partir de um
+  // mes, sem data de fim).
+  const obterTipoVigencia = (gasto) => {
+    if (!gasto.vigenciaInicio && !gasto.vigenciaFim) return "sempre";
+    if (
+      gasto.vigenciaInicio &&
+      gasto.vigenciaFim &&
+      gasto.vigenciaInicio === gasto.vigenciaFim
+    ) {
+      return "unico";
+    }
+    if (gasto.vigenciaInicio && !gasto.vigenciaFim) return "apartir";
+    return "sempre";
+  };
 
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(isEdit);
@@ -105,9 +99,7 @@ export function LojaForm() {
   const [success, setSuccess] = useState("");
 
   // Gastos fixos da loja
-  const [gastosFixos, setGastosFixos] = useState(
-    GASTOS_FIXOS.map((g) => ({ nome: g.nome, valor: "", observacao: "" })),
-  );
+  const [gastosFixos, setGastosFixos] = useState([]);
 
   // Estados para gerenciar estoque do depósito
   const [produtos, setProdutos] = useState([]);
@@ -141,29 +133,26 @@ export function LojaForm() {
   const carregarGastosFixos = async () => {
     try {
       const response = await api.get(`/gastos-fixos-loja/${id}`);
-      // Espera um array de objetos: [{nome, valor, observacao}]
-      // Preenche os gastos fixos mantendo a ordem e nomes fixos
+      const lista = Array.isArray(response.data) ? response.data : [];
       setGastosFixos(
-        GASTOS_FIXOS.map((g) => {
-          const encontrado = response.data?.find((item) => {
-            const nomeItem = normalizarNomeParaPersistencia(item?.nome);
-            const nomeGasto = normalizarNomeParaPersistencia(g.nome);
-            return (
-              normalizarNomeGasto(nomeItem) === normalizarNomeGasto(nomeGasto)
-            );
-          });
-          return {
-            nome: normalizarNomeParaPersistencia(g.nome),
-            valor: encontrado ? String(encontrado.valor) : "",
-            observacao: encontrado ? encontrado.observacao || "" : "",
-          };
-        }),
+        lista.map((item) => ({
+          _key: `db-${item.id}`,
+          nome: item.nome || "",
+          valor:
+            item.valor !== undefined && item.valor !== null
+              ? String(item.valor)
+              : "",
+          observacao: item.observacao || "",
+          vigenciaInicio: String(
+            item.vigenciaInicio || item.vigencia_inicio || "",
+          ).slice(0, 7),
+          vigenciaFim: String(
+            item.vigenciaFim || item.vigencia_fim || "",
+          ).slice(0, 7),
+        })),
       );
     } catch (error) {
-      // Se não encontrar, mantém vazio
-      setGastosFixos(
-        GASTOS_FIXOS.map((g) => ({ nome: g.nome, valor: "", observacao: "" })),
-      );
+      setGastosFixos([]);
     }
   };
 
@@ -208,6 +197,15 @@ export function LojaForm() {
           response.data?.dataVencimentoExtintor ||
           response.data?.data_vencimento_extintor ||
           "",
+        dataFimContrato:
+          response.data?.dataFimContrato ||
+          response.data?.data_fim_contrato ||
+          "",
+        diasAvisoContrato: String(
+          response.data?.diasAvisoContrato ??
+            response.data?.dias_aviso_contrato ??
+            60,
+        ),
         valorFichaPadrao: formatarValorFichaParaInput(valorFichaApi),
       });
     } catch (error) {
@@ -243,6 +241,43 @@ export function LojaForm() {
     );
   };
 
+  const handleAdicionarGastoFixo = () => {
+    setGastosFixos((prev) => [...prev, criarGastoFixoVazio()]);
+  };
+
+  const handleRemoverGastoFixo = (idx) => {
+    setGastosFixos((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleChangeTipoVigencia = (idx, tipo) => {
+    setGastosFixos((prev) =>
+      prev.map((g, i) => {
+        if (i !== idx) return g;
+        if (tipo === "sempre") {
+          return { ...g, vigenciaInicio: "", vigenciaFim: "" };
+        }
+        if (tipo === "unico") {
+          const mes = g.vigenciaInicio || g.vigenciaFim || mesAtualStr();
+          return { ...g, vigenciaInicio: mes, vigenciaFim: mes };
+        }
+        // apartir
+        return {
+          ...g,
+          vigenciaInicio: g.vigenciaInicio || mesAtualStr(),
+          vigenciaFim: "",
+        };
+      }),
+    );
+  };
+
+  const handleChangeMesUnico = (idx, mes) => {
+    setGastosFixos((prev) =>
+      prev.map((g, i) =>
+        i === idx ? { ...g, vigenciaInicio: mes, vigenciaFim: mes } : g,
+      ),
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -269,6 +304,10 @@ export function LojaForm() {
         dataInicio: formData.dataInicio || null,
         observacoes: formData.observacoes?.trim() || null,
         dataVencimentoExtintor: formData.dataVencimentoExtintor || null,
+        dataFimContrato: formData.dataFimContrato || null,
+        diasAvisoContrato: formData.diasAvisoContrato
+          ? parseInt(formData.diasAvisoContrato, 10)
+          : 60,
         valorFichaPadrao: parseDecimalInput(formData.valorFichaPadrao, 2.5),
         ativo: formData.statusOperacao
           ? formData.statusOperacao !== "INATIVA"
@@ -276,14 +315,33 @@ export function LojaForm() {
       };
 
       if (isEdit) {
+        const gastosValidos = gastosFixos.filter(
+          (g) => g.nome && g.nome.trim() !== "",
+        );
+
+        const nomesVistos = new Set();
+        for (const g of gastosValidos) {
+          const chave = normalizarNomeGasto(g.nome);
+          if (nomesVistos.has(chave)) {
+            setError(
+              `Há mais de um gasto fixo chamado "${g.nome.trim()}". Dê um nome diferente pra cada um.`,
+            );
+            setLoading(false);
+            return;
+          }
+          nomesVistos.add(chave);
+        }
+
         await api.put(`/lojas/${id}`, data);
         setSuccess("Loja atualizada com sucesso!");
         // Salvar gastos fixos
         await api.post(`/gastos-fixos-loja/${id}`, {
-          gastos: gastosFixos.map((g) => ({
-            nome: normalizarNomeParaPersistencia(g.nome),
-            valor: parseFloat(g.valor.replace(",", ".")) || 0,
+          gastos: gastosValidos.map((g) => ({
+            nome: g.nome.trim(),
+            valor: parseFloat(String(g.valor).replace(",", ".")) || 0,
             observacao: g.observacao,
+            vigenciaInicio: g.vigenciaInicio ? `${g.vigenciaInicio}-01` : null,
+            vigenciaFim: g.vigenciaFim ? `${g.vigenciaFim}-01` : null,
           })),
         });
       } else {
@@ -427,57 +485,134 @@ export function LojaForm() {
 
         <div className="card-gradient">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Gastos Fixos */}
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-primary"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 12H9v-2h2v2zm0-4H9V7h2v3z" />
-                </svg>
-                Gastos Fixos
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {gastosFixos.map((gasto, idx) => (
-                  <div
-                    key={gasto.nome}
-                    className="bg-gray-50 rounded-lg p-4 flex flex-col gap-2"
+            {isEdit && (
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <svg
+                    className="w-5 h-5 text-primary"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
                   >
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">
-                      {GASTOS_FIXOS[idx].label}
-                    </label>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        pattern="[0-9.,]*"
-                        className="input-field w-32"
-                        placeholder="Valor (R$)"
-                        value={gasto.valor}
-                        onChange={(e) =>
-                          handleChangeGastoFixo(idx, "valor", e.target.value)
-                        }
-                      />
-                      <input
-                        type="text"
-                        className="input-field flex-1"
-                        placeholder="Observação (opcional)"
-                        value={gasto.observacao}
-                        onChange={(e) =>
-                          handleChangeGastoFixo(
-                            idx,
-                            "observacao",
-                            e.target.value,
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-                ))}
+                    <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 12H9v-2h2v2zm0-4H9V7h2v3z" />
+                  </svg>
+                  Gastos Fixos
+                </h3>
+
+                {gastosFixos.length === 0 && (
+                  <p className="text-sm text-gray-500 mb-3">
+                    Nenhum gasto fixo cadastrado ainda.
+                  </p>
+                )}
+
+                <div className="space-y-3">
+                  {gastosFixos.map((gasto, idx) => {
+                    const tipoVigencia = obterTipoVigencia(gasto);
+                    return (
+                      <div
+                        key={gasto._key || idx}
+                        className="bg-gray-50 rounded-lg p-4 flex flex-col gap-3"
+                      >
+                        <div className="flex flex-col md:flex-row gap-2 md:items-center">
+                          <input
+                            type="text"
+                            className="input-field flex-1"
+                            placeholder="Nome do gasto (ex: Aluguel)"
+                            value={gasto.nome}
+                            onChange={(e) =>
+                              handleChangeGastoFixo(idx, "nome", e.target.value)
+                            }
+                          />
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            pattern="[0-9.,]*"
+                            className="input-field md:w-32"
+                            placeholder="Valor (R$)"
+                            value={gasto.valor}
+                            onChange={(e) =>
+                              handleChangeGastoFixo(idx, "valor", e.target.value)
+                            }
+                          />
+                          <input
+                            type="text"
+                            className="input-field flex-1"
+                            placeholder="Observação (opcional)"
+                            value={gasto.observacao}
+                            onChange={(e) =>
+                              handleChangeGastoFixo(
+                                idx,
+                                "observacao",
+                                e.target.value,
+                              )
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoverGastoFixo(idx)}
+                            className="text-red-600 hover:text-red-800 font-semibold text-sm px-2 whitespace-nowrap"
+                            title="Remover este gasto fixo"
+                          >
+                            Remover
+                          </button>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                          <select
+                            className="input-field sm:w-56"
+                            value={tipoVigencia}
+                            onChange={(e) =>
+                              handleChangeTipoVigencia(idx, e.target.value)
+                            }
+                          >
+                            <option value="sempre">Sempre (todo mês)</option>
+                            <option value="unico">
+                              Só em um mês específico
+                            </option>
+                            <option value="apartir">
+                              A partir de um mês (contínuo)
+                            </option>
+                          </select>
+
+                          {tipoVigencia === "unico" && (
+                            <input
+                              type="month"
+                              className="input-field sm:w-44"
+                              value={gasto.vigenciaInicio}
+                              onChange={(e) =>
+                                handleChangeMesUnico(idx, e.target.value)
+                              }
+                            />
+                          )}
+
+                          {tipoVigencia === "apartir" && (
+                            <input
+                              type="month"
+                              className="input-field sm:w-44"
+                              value={gasto.vigenciaInicio}
+                              onChange={(e) =>
+                                handleChangeGastoFixo(
+                                  idx,
+                                  "vigenciaInicio",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAdicionarGastoFixo}
+                  className="btn-secondary mt-3 text-sm"
+                >
+                  + Adicionar gasto fixo
+                </button>
               </div>
-            </div>
+            )}
             {/* Informações Básicas */}
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -598,6 +733,38 @@ export function LojaForm() {
                     onChange={handleChange}
                     className="input-field"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Fim do contrato
+                  </label>
+                  <input
+                    type="date"
+                    name="dataFimContrato"
+                    value={formData.dataFimContrato || ""}
+                    onChange={handleChange}
+                    className="input-field"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Avisar com quantos dias de antecedência
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    name="diasAvisoContrato"
+                    value={formData.diasAvisoContrato}
+                    onChange={handleChange}
+                    className="input-field"
+                    placeholder="60"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Quantos dias antes do vencimento do contrato o sistema
+                    deve mostrar o alerta. Padrão: 60 dias.
+                  </p>
                 </div>
 
                 <div className="md:col-span-2">

@@ -139,6 +139,9 @@ export function Usuarios() {
                 <option value="FUNCIONARIO_ESTOQUE">
                   Funcionário de Estoque
                 </option>
+                <option value="FUNCIONARIO_CADASTRO">
+                  Funcionário de Cadastro
+                </option>
                 <option value="ENTREGADOR">Entregador</option>
               </select>
             </div>
@@ -211,7 +214,9 @@ export function Usuarios() {
                               ? "bg-purple-100 text-purple-800"
                             : usuario.role === "FUNCIONARIO_ESTOQUE"
                               ? "bg-orange-100 text-orange-800"
-                              : usuario.role === "ENTREGADOR"
+                              : usuario.role === "FUNCIONARIO_CADASTRO"
+                                ? "bg-teal-100 text-teal-800"
+                                : usuario.role === "ENTREGADOR"
                                 ? "bg-emerald-100 text-emerald-800"
                                 : "bg-blue-100 text-blue-800"
                         }`}
@@ -222,7 +227,9 @@ export function Usuarios() {
                             ? "Dev"
                             : usuario.role === "FUNCIONARIO_ESTOQUE"
                               ? "Func. Estoque"
-                              : usuario.role === "ENTREGADOR"
+                              : usuario.role === "FUNCIONARIO_CADASTRO"
+                                ? "Func. Cadastro"
+                                : usuario.role === "ENTREGADOR"
                                 ? "Entregador"
                               : "Funcionário"}
                       </span>
@@ -235,6 +242,7 @@ export function Usuarios() {
                         "ADMIN",
                         "DESENVOLVEDOR",
                         "FUNCIONARIO_ESTOQUE",
+                        "FUNCIONARIO_CADASTRO",
                       ].includes(usuario.role) ? (
                         <span className="text-gray-400 italic">Todas</span>
                       ) : usuario.permissoesLojas?.length > 0 ? (
