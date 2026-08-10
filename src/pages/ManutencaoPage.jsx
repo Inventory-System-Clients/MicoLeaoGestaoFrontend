@@ -94,7 +94,14 @@ export default function ManutencaoPage() {
     observacao: "",
   });
 
-  const [form, setForm] = useState({
+  const [pecaQuebradaAbertoId, setPecaQuebradaAbertoId] = useState(null);
+  const [formPecaQuebrada, setFormPecaQuebrada] = useState({
+    pecaId: "",
+    quantidade: "",
+    observacao: "",
+  });
+
+  const FORM_VAZIO = {
     titulo: "",
     descricao: "",
     funcionariosIds: [],
@@ -104,7 +111,20 @@ export default function ManutencaoPage() {
     responsavelId: "",
     tipoProblema: "",
     prazo: "",
-  });
+    pecaId: "",
+    pecaFuncionarioId: "",
+    pecaQuantidade: "",
+    pecaObservacao: "",
+  };
+
+  const [form, setForm] = useState(FORM_VAZIO);
+
+  // Estoque (carrinho) de cada funcionário adicionado, pra peça selecionada.
+  // Mapa funcionarioId -> quantidade.
+  const [estoquePecaPorFuncionario, setEstoquePecaPorFuncionario] = useState(
+    {},
+  );
+  const [carregandoEstoquePeca, setCarregandoEstoquePeca] = useState(false);
 
   const [filtros, setFiltros] = useState({
     status: "TODAS",
@@ -239,6 +259,43 @@ export default function ManutencaoPage() {
     };
   }, [form.maquinaId]);
 
+  // Busca quanto cada funcionário adicionado tem no carrinho da peça
+  // selecionada, pra mostrar antes de confirmar a manutenção.
+  useEffect(() => {
+    if (!form.pecaId || form.funcionariosIds.length === 0) {
+      setEstoquePecaPorFuncionario({});
+      return undefined;
+    }
+
+    let cancelado = false;
+    setCarregandoEstoquePeca(true);
+
+    Promise.all(
+      form.funcionariosIds.map((funcionarioId) =>
+        api
+          .get("/pecas/estoque-funcionario", { params: { funcionarioId } })
+          .then((response) => ({
+            funcionarioId,
+            itens: Array.isArray(response.data) ? response.data : [],
+          }))
+          .catch(() => ({ funcionarioId, itens: [] })),
+      ),
+    ).then((resultados) => {
+      if (cancelado) return;
+      const mapa = {};
+      for (const { funcionarioId, itens } of resultados) {
+        const item = itens.find((estoque) => estoque.pecaId === form.pecaId);
+        mapa[funcionarioId] = item?.quantidade || 0;
+      }
+      setEstoquePecaPorFuncionario(mapa);
+      setCarregandoEstoquePeca(false);
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [form.pecaId, form.funcionariosIds]);
+
   const handleAdicionarFuncionario = () => {
     if (!funcionarioParaAdicionar) return;
     setForm((prev) =>
@@ -260,6 +317,8 @@ export default function ManutencaoPage() {
       ...prev,
       funcionariosIds: prev.funcionariosIds.filter((fid) => fid !== id),
       responsavelId: prev.responsavelId === id ? "" : prev.responsavelId,
+      pecaFuncionarioId:
+        prev.pecaFuncionarioId === id ? "" : prev.pecaFuncionarioId,
     }));
   };
 
@@ -316,6 +375,22 @@ export default function ManutencaoPage() {
       return;
     }
 
+    const pecaInformada = form.pecaId !== "";
+    const pecaQuantidadeNumerica = pecaInformada
+      ? Number(form.pecaQuantidade)
+      : null;
+
+    if (pecaInformada) {
+      if (!form.pecaFuncionarioId) {
+        setError("Selecione qual funcionário vai usar a peça.");
+        return;
+      }
+      if (!Number.isInteger(pecaQuantidadeNumerica) || pecaQuantidadeNumerica <= 0) {
+        setError("Informe uma quantidade válida de peça (inteiro maior que zero).");
+        return;
+      }
+    }
+
     try {
       setSubmitting(true);
       setError("");
@@ -331,24 +406,23 @@ export default function ManutencaoPage() {
         responsavelId: form.responsavelId || null,
         tipoProblema: form.tipoProblema || null,
         prazo: form.prazo || null,
+        pecaPlanejada: pecaInformada
+          ? {
+              pecaId: form.pecaId,
+              funcionarioId: form.pecaFuncionarioId,
+              quantidade: pecaQuantidadeNumerica,
+              observacao: form.pecaObservacao?.trim() || null,
+            }
+          : null,
       });
 
       if (response.data?.recorrente) {
         setAlertaRecorrencia(response.data.recorrenciaMotivos || []);
       }
 
-      setForm({
-        titulo: "",
-        descricao: "",
-        funcionariosIds: [],
-        custo: "",
-        lojaId: "",
-        maquinaId: "",
-        responsavelId: "",
-        tipoProblema: "",
-        prazo: "",
-      });
+      setForm(FORM_VAZIO);
       setFuncionarioParaAdicionar("");
+      setEstoquePecaPorFuncionario({});
       await carregarDados();
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao criar manutenção");
@@ -402,6 +476,45 @@ export default function ManutencaoPage() {
       await carregarDados();
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao registrar uso de peça");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const abrirPecaQuebrada = (manutencaoId) => {
+    setPecaQuebradaAbertoId((atual) =>
+      atual === manutencaoId ? null : manutencaoId,
+    );
+    setFormPecaQuebrada({ pecaId: "", quantidade: "", observacao: "" });
+  };
+
+  const handleRegistrarPecaQuebrada = async (event, manutencaoId) => {
+    event.preventDefault();
+
+    const quantidadeNumerica = Number(formPecaQuebrada.quantidade);
+    if (!formPecaQuebrada.pecaId) {
+      setError("Selecione a peça quebrada.");
+      return;
+    }
+    if (!Number.isInteger(quantidadeNumerica) || quantidadeNumerica <= 0) {
+      setError("Informe uma quantidade válida (inteiro maior que zero).");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+      await api.post(`/manutencoes/${manutencaoId}/pecas-quebradas`, {
+        pecaId: formPecaQuebrada.pecaId,
+        quantidade: quantidadeNumerica,
+        observacao: formPecaQuebrada.observacao || null,
+      });
+      setPecaQuebradaAbertoId(null);
+      await carregarDados();
+    } catch (err) {
+      setError(
+        err.response?.data?.error || "Erro ao registrar peça quebrada",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -837,6 +950,169 @@ export default function ManutencaoPage() {
               </div>
             </div>
 
+            {/* Peça planejada */}
+            <div className="rounded-lg border border-sky-100 bg-sky-50/70 p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-sky-800">
+                <span className="text-lg">🔩</span> Peça{" "}
+                <span className="text-xs font-normal normal-case text-gray-500">
+                  (opcional)
+                </span>
+              </h3>
+              <p className="mb-3 text-xs text-gray-600">
+                A peça só é descontada do carrinho do funcionário quando essa
+                manutenção for marcada como <strong>Concluída</strong> — até lá
+                fica só reservada/planejada aqui.
+              </p>
+
+              <div>
+                <label className="mb-1 block text-sm font-bold text-gray-700">
+                  Peça
+                </label>
+                <select
+                  value={form.pecaId}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      pecaId: e.target.value,
+                      pecaFuncionarioId: "",
+                      pecaQuantidade: "",
+                    }))
+                  }
+                  className="select-field"
+                  disabled={form.funcionariosIds.length === 0}
+                >
+                  <option value="">Nenhuma peça</option>
+                  {pecas.map((peca) => (
+                    <option key={peca.id} value={peca.id}>
+                      {peca.nome}
+                    </option>
+                  ))}
+                </select>
+                {form.funcionariosIds.length === 0 && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Adicione um funcionário responsável primeiro.
+                  </p>
+                )}
+              </div>
+
+              {form.pecaId && (
+                <>
+                  <div className="mt-3 rounded-lg bg-white/80 p-3 text-xs text-gray-700">
+                    <p className="font-bold text-gray-800">
+                      Disponibilidade de{" "}
+                      {pecas.find((item) => item.id === form.pecaId)?.nome}:
+                    </p>
+                    {carregandoEstoquePeca ? (
+                      <p className="mt-1 text-gray-500">
+                        Verificando estoque...
+                      </p>
+                    ) : (
+                      <ul className="mt-1 space-y-0.5">
+                        {form.funcionariosIds.map((id) => {
+                          const funcionario = funcionarios.find(
+                            (item) => item.id === id,
+                          );
+                          return (
+                            <li key={id}>
+                              👷 {funcionario?.nome || "Funcionário"}:{" "}
+                              {estoquePecaPorFuncionario[id] ?? 0}{" "}
+                              {pecas.find((item) => item.id === form.pecaId)
+                                ?.unidade || "un"}{" "}
+                              no carrinho
+                            </li>
+                          );
+                        })}
+                        <li>
+                          🏭 Estoque central da empresa:{" "}
+                          {pecas.find((item) => item.id === form.pecaId)
+                            ?.quantidadeEstoque ?? 0}{" "}
+                          {pecas.find((item) => item.id === form.pecaId)
+                            ?.unidade || "un"}
+                        </li>
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-sm font-bold text-gray-700">
+                        Funcionário que vai usar{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={form.pecaFuncionarioId}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            pecaFuncionarioId: e.target.value,
+                          }))
+                        }
+                        className="select-field"
+                      >
+                        <option value="">Selecione...</option>
+                        {form.funcionariosIds.map((id) => {
+                          const funcionario = funcionarios.find(
+                            (item) => item.id === id,
+                          );
+                          return (
+                            <option key={id} value={id}>
+                              {funcionario?.nome || "Funcionário"} (
+                              {estoquePecaPorFuncionario[id] ?? 0} no carrinho)
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-bold text-gray-700">
+                        Quantidade <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={form.pecaQuantidade}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            pecaQuantidade: e.target.value,
+                          }))
+                        }
+                        className="input-field"
+                        placeholder="Ex: 1"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <label className="mb-1 block text-sm font-bold text-gray-700">
+                      Observação (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={form.pecaObservacao}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          pecaObservacao: e.target.value,
+                        }))
+                      }
+                      className="input-field"
+                      placeholder="Ex: peça trocada por desgaste"
+                    />
+                  </div>
+
+                  <p className="mt-2 text-xs text-gray-500">
+                    Quando a manutenção for concluída, o sistema desconta essa
+                    quantidade do carrinho do funcionário selecionado. Se ele
+                    não tiver estoque suficiente naquele momento, a conclusão
+                    é bloqueada até você enviar mais peça pra ele na tela de
+                    Peças.
+                  </p>
+                </>
+              )}
+            </div>
+
             {/* Custo */}
             <div className="rounded-lg border border-amber-100 bg-amber-50/70 p-4">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-amber-800">
@@ -1162,6 +1438,20 @@ export default function ManutencaoPage() {
                       </div>
                     )}
 
+                    {item.pecaPlanejadaId && !item.pecaPlanejadaConsumida && (
+                      <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-2.5">
+                        <p className="text-xs font-bold text-sky-800">
+                          🔧 Peça planejada (será descontada ao concluir)
+                        </p>
+                        <p className="mt-0.5 text-xs text-sky-700">
+                          {item.pecaPlanejadaQuantidade}{" "}
+                          {item.pecaPlanejada?.unidade || ""}{" "}
+                          {item.pecaPlanejada?.nome} — reservada pra{" "}
+                          {item.pecaPlanejadaFuncionario?.nome || "-"}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="mt-3 border-t border-gray-200/70 pt-3">
                       <p className="text-xs font-bold text-gray-700">
                         🔩 Peças usadas
@@ -1264,6 +1554,121 @@ export default function ManutencaoPage() {
                               className="btn-primary text-sm disabled:opacity-60"
                             >
                               {submitting ? "Salvando..." : "Confirmar uso"}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+
+                    <div className="mt-3 border-t border-gray-200/70 pt-3">
+                      <p className="text-xs font-bold text-gray-700">
+                        🛠️ Peças quebradas devolvidas
+                      </p>
+                      {(item.pecasQuebradas || []).length === 0 ? (
+                        <p className="text-xs text-gray-500">
+                          Nenhuma peça quebrada registrada.
+                        </p>
+                      ) : (
+                        <ul className="mt-1 space-y-1 text-xs text-gray-600">
+                          {item.pecasQuebradas.map((devolucao) => (
+                            <li key={devolucao.id}>
+                              {devolucao.quantidade}{" "}
+                              {devolucao.peca?.unidade || ""}{" "}
+                              {devolucao.peca?.nome} — devolvida por{" "}
+                              {devolucao.funcionario?.nome || "-"} em{" "}
+                              {formatarDataHora(devolucao.dataDevolucao)}
+                              {devolucao.observacao
+                                ? ` (${devolucao.observacao})`
+                                : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {podePermitido && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => abrirPecaQuebrada(item.id)}
+                            className="btn-secondary text-xs"
+                          >
+                            {pecaQuebradaAbertoId === item.id
+                              ? "Cancelar"
+                              : "🛠️ Devolver peça quebrada"}
+                          </button>
+                        </div>
+                      )}
+
+                      {pecaQuebradaAbertoId === item.id && (
+                        <form
+                          onSubmit={(e) =>
+                            handleRegistrarPecaQuebrada(e, item.id)
+                          }
+                          className="mt-2 grid grid-cols-1 gap-2 rounded-lg bg-white/80 p-3 md:grid-cols-3"
+                        >
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-gray-700">
+                              Peça
+                            </label>
+                            <select
+                              value={formPecaQuebrada.pecaId}
+                              onChange={(e) =>
+                                setFormPecaQuebrada((prev) => ({
+                                  ...prev,
+                                  pecaId: e.target.value,
+                                }))
+                              }
+                              className="select-field py-1.5 text-sm"
+                            >
+                              <option value="">Selecione...</option>
+                              {pecas.map((peca) => (
+                                <option key={peca.id} value={peca.id}>
+                                  {peca.nome}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-gray-700">
+                              Quantidade
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={formPecaQuebrada.quantidade}
+                              onChange={(e) =>
+                                setFormPecaQuebrada((prev) => ({
+                                  ...prev,
+                                  quantidade: e.target.value,
+                                }))
+                              }
+                              className="input-field py-1.5 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-gray-700">
+                              Observação
+                            </label>
+                            <input
+                              value={formPecaQuebrada.observacao}
+                              onChange={(e) =>
+                                setFormPecaQuebrada((prev) => ({
+                                  ...prev,
+                                  observacao: e.target.value,
+                                }))
+                              }
+                              className="input-field py-1.5 text-sm"
+                              placeholder="Ex: quebrou ao instalar"
+                            />
+                          </div>
+                          <div className="md:col-span-3 flex justify-end">
+                            <button
+                              type="submit"
+                              disabled={submitting}
+                              className="btn-primary text-sm disabled:opacity-60"
+                            >
+                              {submitting ? "Salvando..." : "Confirmar devolução"}
                             </button>
                           </div>
                         </form>

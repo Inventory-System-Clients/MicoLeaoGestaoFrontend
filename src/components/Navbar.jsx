@@ -34,6 +34,8 @@ export function Navbar() {
             ? "Entregador"
             : usuario?.role === "FUNCIONARIO_CADASTRO"
               ? "Funcionário de Cadastro"
+              : usuario?.role === "FUNCIONARIO_FABRICA"
+                ? "Funcionário de Fábrica"
           : "Funcionário";
 
   const handleLogout = () => {
@@ -64,6 +66,9 @@ export function Navbar() {
   const CADASTRO_ROLES = [...ADMIN_ROLES, "FUNCIONARIO_CADASTRO"];
   const ESTOQUE_ROLES = [...CADASTRO_ROLES, "FUNCIONARIO_ESTOQUE"];
   const ENVIO_ROLES = [...ESTOQUE_ROLES, "ENTREGADOR"];
+  // Funcionário de Fábrica só acessa Compras e Fabricação de Pelúcia.
+  const COMPRAS_ROLES = [...ESTOQUE_ROLES, "FUNCIONARIO_FABRICA"];
+  const FABRICA_ROLES = [...CADASTRO_ROLES, "FUNCIONARIO_FABRICA"];
 
   const grupos = [
     {
@@ -115,12 +120,12 @@ export function Navbar() {
       itens: [
         { to: "/estoque", label: "Estoque", icon: "📦", roles: ESTOQUE_ROLES },
         { to: "/envios", label: "Envios", icon: "📦", roles: ENVIO_ROLES },
-        { to: "/compras", label: "Compras", icon: "🛒", roles: ESTOQUE_ROLES },
+        { to: "/compras", label: "Compras", icon: "🛒", roles: COMPRAS_ROLES },
         {
           to: "/fabricacao-pelucia",
           label: "Fabricação de Pelúcia",
           icon: "🧵",
-          roles: CADASTRO_ROLES,
+          roles: FABRICA_ROLES,
         },
         { to: "/pecas", label: "Peças", icon: "🔧", roles: CADASTRO_ROLES },
       ],

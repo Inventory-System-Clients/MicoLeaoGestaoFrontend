@@ -193,7 +193,16 @@ export function Maquinas() {
       label: "Status",
       render: (maquina) => {
         const status = obterStatusMaquina(maquina);
-        return <Badge variant={status.variant}>{status.label}</Badge>;
+        return (
+          <div>
+            <Badge variant={status.variant}>{status.label}</Badge>
+            {status.label === "Parada" && maquina.motivoParada && (
+              <p className="text-xs text-gray-500 mt-1 max-w-50">
+                {maquina.motivoParada}
+              </p>
+            )}
+          </div>
+        );
       },
     },
     {

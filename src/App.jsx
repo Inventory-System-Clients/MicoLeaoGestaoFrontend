@@ -47,6 +47,9 @@ function HomeRoute() {
   if (usuario?.role === "ENTREGADOR") {
     return <Navigate to="/envios" replace />;
   }
+  if (usuario?.role === "FUNCIONARIO_FABRICA") {
+    return <Navigate to="/fabricacao-pelucia" replace />;
+  }
   return <Dashboard />;
 }
 
@@ -212,6 +215,7 @@ function App() {
                   "DESENVOLVEDOR",
                   "FUNCIONARIO_ESTOQUE",
                   "FUNCIONARIO_CADASTRO",
+                  "FUNCIONARIO_FABRICA",
                 ]}
               >
                 <Compras />
@@ -237,7 +241,12 @@ function App() {
             path="/fabricacao-pelucia"
             element={
               <PrivateRoute
-                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"]}
+                roles={[
+                  "ADMIN",
+                  "DESENVOLVEDOR",
+                  "FUNCIONARIO_CADASTRO",
+                  "FUNCIONARIO_FABRICA",
+                ]}
               >
                 <FabricacaoPelucia />
               </PrivateRoute>

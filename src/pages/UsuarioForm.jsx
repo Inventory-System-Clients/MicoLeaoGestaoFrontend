@@ -296,6 +296,9 @@ export function UsuarioForm() {
                   <option value="FUNCIONARIO_CADASTRO">
                     Funcionário de Cadastro
                   </option>
+                  <option value="FUNCIONARIO_FABRICA">
+                    Funcionário de Fábrica
+                  </option>
                   <option value="ENTREGADOR">Entregador</option>
                   <option value="ADMIN">Administrador</option>
                   <option value="DESENVOLVEDOR">Desenvolvedor</option>
@@ -309,8 +312,10 @@ export function UsuarioForm() {
                         ? "Além do acesso de funcionário, também vê estoque, monta envios/carrinhos, vê a lista de compras e acessa todas as lojas — sem acesso a financeiro ou edição de usuários/lojas"
                         : formData.role === "FUNCIONARIO_CADASTRO"
                           ? "Acesso quase total ao sistema (lojas, máquinas, produtos, estoque, roteiros, manutenção etc) — sem acesso a financeiro, gráficos, relatórios ou gestão de usuários"
-                          : formData.role === "ENTREGADOR"
-                            ? "Entregadores acessam apenas os envios atribuídos a eles para registrar a retirada e levar os lacres até a loja"
+                          : formData.role === "FUNCIONARIO_FABRICA"
+                            ? "Acesso restrito só a Fabricação de Pelúcia e Compras (insumos, receitas, pedidos de pelúcia, fornecedores) — sem acesso ao resto do sistema"
+                            : formData.role === "ENTREGADOR"
+                              ? "Entregadores acessam apenas os envios atribuídos a eles para registrar a retirada e levar os lacres até a loja"
                         : "Funcionários têm acesso limitado às lojas autorizadas"}
                 </p>
               </div>

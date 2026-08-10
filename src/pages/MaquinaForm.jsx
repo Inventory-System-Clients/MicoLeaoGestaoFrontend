@@ -19,6 +19,7 @@ export function MaquinaForm() {
     loja_id: "",
     tipo: "",
     statusOperacao: "EM_OPERACAO",
+    motivoParada: "",
     capacidadePadrao: "",
     valorFicha: "",
     fichasNecessarias: "",
@@ -37,6 +38,7 @@ export function MaquinaForm() {
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [gerandoCodigo, setGerandoCodigo] = useState(false);
 
   useEffect(() => {
     carregarLojas();
@@ -76,6 +78,7 @@ export function MaquinaForm() {
         tipo: response.data.tipo || "",
         statusOperacao:
           !lojaIdAtual && statusAtual === "EM_OPERACAO" ? "PARADA" : statusAtual,
+        motivoParada: response.data.motivoParada || "",
         capacidadePadrao: response.data.capacidadePadrao || "",
         valorFicha: response.data.valorFicha || "",
         fichasNecessarias: response.data.fichasNecessarias || "",
@@ -107,9 +110,37 @@ export function MaquinaForm() {
     if (name === "loja_id" && !value && novosDados.statusOperacao === "EM_OPERACAO") {
       novosDados.statusOperacao = "PARADA";
     }
+    if (name === "statusOperacao" && value !== "PARADA") {
+      novosDados.motivoParada = "";
+    }
     setFormData({
       ...novosDados,
     });
+  };
+
+  const gerarCodigoMaquina = async () => {
+    setGerandoCodigo(true);
+    setError("");
+    try {
+      const response = await api.get("/maquinas?incluirInativas=true");
+      const codigosExistentes = new Set(
+        response.data.map((m) => (m.codigo || "").trim().toUpperCase())
+      );
+      let numero = 1;
+      let novoCodigo;
+      do {
+        novoCodigo = String(numero).padStart(3, "0");
+        numero += 1;
+      } while (codigosExistentes.has(novoCodigo));
+      setFormData((prev) => ({ ...prev, codigo: novoCodigo }));
+    } catch (error) {
+      setError(
+        "Erro ao gerar código: " +
+          (error.response?.data?.error || error.message)
+      );
+    } finally {
+      setGerandoCodigo(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -140,12 +171,25 @@ export function MaquinaForm() {
         return;
       }
 
+      if (
+        formData.statusOperacao === "PARADA" &&
+        (!formData.motivoParada || formData.motivoParada.trim() === "")
+      ) {
+        setError("Por favor, informe o motivo da máquina estar parada.");
+        setLoading(false);
+        return;
+      }
+
       const data = {
         codigo: formData.codigo.trim(),
         nome: formData.nome.trim(),
         lojaId: formData.loja_id || null,
         tipo: formData.tipo?.trim() || null,
         statusOperacao: formData.statusOperacao || "EM_OPERACAO",
+        motivoParada:
+          formData.statusOperacao === "PARADA"
+            ? formData.motivoParada?.trim() || null
+            : null,
         capacidadePadrao: parseInt(formData.capacidadePadrao, 10) || 0,
         valorFicha: parseFloat(formData.valorFicha) || 0,
         fichasNecessarias: parseInt(formData.fichasNecessarias, 10) || null,
@@ -227,15 +271,26 @@ export function MaquinaForm() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Código da Máquina *
                   </label>
-                  <input
-                    type="text"
-                    name="codigo"
-                    value={formData.codigo}
-                    onChange={handleChange}
-                    className="input-field"
-                    placeholder="Ex: MAQ-001"
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      name="codigo"
+                      value={formData.codigo}
+                      onChange={handleChange}
+                      className="input-field"
+                      placeholder="Ex: MAQ-001"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={gerarCodigoMaquina}
+                      className="btn-secondary whitespace-nowrap"
+                      disabled={gerandoCodigo}
+                      title="Gera automaticamente um código numérico (mínimo 3 dígitos) que ainda não está em uso"
+                    >
+                      {gerandoCodigo ? "Gerando..." : "Gerar código"}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -291,6 +346,26 @@ export function MaquinaForm() {
                     <option value="PARADA">Parada</option>
                   </select>
                 </div>
+
+                {formData.statusOperacao === "PARADA" && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Motivo da máquina estar parada *
+                    </label>
+                    <textarea
+                      name="motivoParada"
+                      value={formData.motivoParada}
+                      onChange={handleChange}
+                      className="input-field"
+                      rows="2"
+                      placeholder="Ex: Aguardando peça de reposição, garra quebrada, sem local para instalar..."
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Esse motivo aparece junto com o status "Parada" nas telas de máquinas, para deixar claro o porquê.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

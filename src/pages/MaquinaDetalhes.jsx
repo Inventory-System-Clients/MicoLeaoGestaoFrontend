@@ -388,6 +388,15 @@ export function MaquinaDetalhes() {
             </div>
           </div>
 
+          {status.label === "Parada" && maquina.motivoParada && (
+            <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4">
+              <p className="text-sm font-semibold text-red-700">
+                ⚠️ Motivo da máquina estar parada
+              </p>
+              <p className="mt-1 text-red-900">{maquina.motivoParada}</p>
+            </div>
+          )}
+
           {maquina.localizacao && (
             <div className="mt-5 rounded-lg bg-slate-50 p-4">
               <p className="text-sm font-semibold text-gray-600">Localização</p>

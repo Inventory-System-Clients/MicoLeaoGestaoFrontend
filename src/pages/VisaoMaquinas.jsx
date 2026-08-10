@@ -336,6 +336,12 @@ export function VisaoMaquinas() {
                 )}
               </div>
 
+              {item.statusCodigo === "PARADA" && item.maquina.motivoParada && (
+                <p className="mt-2 rounded-lg border border-red-200 bg-red-100 px-3 py-2 text-xs font-semibold text-red-800">
+                  ⚠️ {item.maquina.motivoParada}
+                </p>
+              )}
+
               <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-lg bg-white/80 p-3">
                   <p className="text-xs font-bold uppercase text-gray-500">Estoque</p>

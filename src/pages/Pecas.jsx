@@ -668,6 +668,7 @@ export default function Pecas() {
                         <th>Peca</th>
                         <th>Estoque</th>
                         <th>Minimo</th>
+                        <th>Quebradas</th>
                         <th>Custo</th>
                         <th className="text-right">Acoes</th>
                       </tr>
@@ -724,6 +725,21 @@ export default function Pecas() {
                               </span>
                             </td>
                             <td>{peca.estoqueMinimo ?? 0}</td>
+                            <td>
+                              {Number(peca.quantidadeQuebrada || 0) > 0 ? (
+                                <span
+                                  className="font-bold text-red-600"
+                                  title="Devolvidas quebradas em manutencoes, aguardando descarte/conserto/reposicao"
+                                >
+                                  {peca.quantidadeQuebrada}{" "}
+                                  <span className="text-xs text-gray-500">
+                                    {peca.unidade || "un"}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="text-xs text-gray-400">-</span>
+                              )}
+                            </td>
                             <td>
                               {peca.custoUnitario
                                 ? moeda.format(Number(peca.custoUnitario))
