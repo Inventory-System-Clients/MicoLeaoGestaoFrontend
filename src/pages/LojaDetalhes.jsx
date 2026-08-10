@@ -442,10 +442,14 @@ export function LojaDetalhes() {
                           onClick={() => handleSelecionarMaquina(maquina)}
                         >
                           <h4 className="font-bold text-gray-900">
-                            {maquina.nome}
+                            {maquina.tipo || (
+                              <span className="italic text-gray-400">
+                                Tipo não definido
+                              </span>
+                            )}
                           </h4>
                           <p className="text-sm text-gray-500">
-                            {maquina.codigo}
+                            {maquina.nome}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">

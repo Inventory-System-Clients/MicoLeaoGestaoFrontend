@@ -295,7 +295,7 @@ export function MaquinaForm() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Nome *
+                    Produto *
                   </label>
                   <input
                     type="text"
@@ -303,7 +303,7 @@ export function MaquinaForm() {
                     value={formData.nome}
                     onChange={handleChange}
                     className="input-field"
-                    placeholder="Ex: Máquina Principal"
+                    placeholder="Ex: Casinha Nichos p/ prêmios"
                     required
                   />
                 </div>
