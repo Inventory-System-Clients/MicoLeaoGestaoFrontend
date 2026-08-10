@@ -126,10 +126,10 @@ export function MaquinaForm() {
       const codigosExistentes = new Set(
         response.data.map((m) => (m.codigo || "").trim().toUpperCase())
       );
-      let numero = 1;
+      let numero = 1010;
       let novoCodigo;
       do {
-        novoCodigo = String(numero).padStart(3, "0");
+        novoCodigo = String(numero).padStart(4, "0");
         numero += 1;
       } while (codigosExistentes.has(novoCodigo));
       setFormData((prev) => ({ ...prev, codigo: novoCodigo }));
@@ -286,7 +286,7 @@ export function MaquinaForm() {
                       onClick={gerarCodigoMaquina}
                       className="btn-secondary whitespace-nowrap"
                       disabled={gerandoCodigo}
-                      title="Gera automaticamente um código numérico (mínimo 3 dígitos) que ainda não está em uso"
+                      title="Gera automaticamente um código numérico de 4 dígitos (a partir de 1010) que ainda não está em uso"
                     >
                       {gerandoCodigo ? "Gerando..." : "Gerar código"}
                     </button>
