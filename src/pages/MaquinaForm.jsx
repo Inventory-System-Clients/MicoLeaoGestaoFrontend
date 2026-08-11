@@ -30,6 +30,7 @@ export function MaquinaForm() {
   });
 
   const [lojas, setLojas] = useState([]);
+  const [produtos, setProdutos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState("");
@@ -38,6 +39,7 @@ export function MaquinaForm() {
 
   useEffect(() => {
     carregarLojas();
+    carregarProdutos();
     if (isEdit) {
       carregarMaquina();
     } else {
@@ -53,6 +55,18 @@ export function MaquinaForm() {
     } catch (error) {
       setError(
         "Erro ao carregar lojas: " +
+          (error.response?.data?.error || error.message)
+      );
+    }
+  };
+
+  const carregarProdutos = async () => {
+    try {
+      const response = await api.get("/produtos");
+      setProdutos(response.data || []);
+    } catch (error) {
+      setError(
+        "Erro ao carregar produtos: " +
           (error.response?.data?.error || error.message)
       );
     }
@@ -285,15 +299,24 @@ export function MaquinaForm() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Produto *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="nome"
                     value={formData.nome}
                     onChange={handleChange}
-                    className="input-field"
-                    placeholder="Ex: Casinha Nichos p/ prêmios"
+                    className="select-field"
                     required
-                  />
+                  >
+                    <option value="">Selecione o produto</option>
+                    {formData.nome &&
+                      !produtos.some((produto) => produto.nome === formData.nome) && (
+                        <option value={formData.nome}>{formData.nome}</option>
+                      )}
+                    {produtos.map((produto) => (
+                      <option key={produto.id} value={produto.nome}>
+                        {produto.nome}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

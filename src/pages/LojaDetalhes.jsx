@@ -451,6 +451,9 @@ export function LojaDetalhes() {
                           <p className="text-sm text-gray-500">
                             {maquina.nome}
                           </p>
+                          <p className="text-xs text-gray-400 font-mono">
+                            Cód: {maquina.codigo || "-"}
+                          </p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant={maquina.ativo ? "success" : "danger"}>
