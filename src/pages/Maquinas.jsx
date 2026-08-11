@@ -11,9 +11,14 @@ import {
   Badge,
   ConfirmDialog,
   AlertBox,
+  Modal,
 } from "../components/UIComponents";
 import { PageLoader, EmptyState } from "../components/Loading";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+
+const GALPAO_VALUE = "GALPAO";
+
+const hojeISO = () => new Date().toISOString().slice(0, 10);
 
 const obterStatusMaquina = (maquina) => {
   const status = maquina.statusOperacao || maquina.status_operacao;
@@ -42,6 +47,14 @@ export function Maquinas() {
   const [filtroLoja, setFiltroLoja] = useState("");
   const [filtroNome, setFiltroNome] = useState("");
   const [mostrarInativas, setMostrarInativas] = useState(false);
+  const [maquinaTransferindo, setMaquinaTransferindo] = useState(null);
+  const [formTransferencia, setFormTransferencia] = useState({
+    lojaDestinoId: "",
+    dataTransferencia: hojeISO(),
+    observacao: "",
+  });
+  const [salvandoTransferencia, setSalvandoTransferencia] = useState(false);
+  const [erroTransferencia, setErroTransferencia] = useState("");
 
   useEffect(() => {
     carregarDados();
@@ -101,6 +114,56 @@ export function Maquinas() {
   const handleAbrirDialogDeletar = (maquina) => {
     setDeleteId(maquina.id);
     setMaquinaParaDeletar(maquina);
+  };
+
+  const handleAbrirTransferencia = (maquina) => {
+    setMaquinaTransferindo(maquina);
+    setFormTransferencia({
+      lojaDestinoId: "",
+      dataTransferencia: hojeISO(),
+      observacao: "",
+    });
+    setErroTransferencia("");
+  };
+
+  const handleChangeTransferencia = (e) => {
+    const { name, value } = e.target;
+    setFormTransferencia((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmitTransferencia = async (e) => {
+    e.preventDefault();
+    setErroTransferencia("");
+
+    if (!formTransferencia.lojaDestinoId) {
+      setErroTransferencia("Selecione a loja de destino ou o galpão.");
+      return;
+    }
+    if (!formTransferencia.dataTransferencia) {
+      setErroTransferencia("Informe a data da transferência.");
+      return;
+    }
+
+    setSalvandoTransferencia(true);
+    try {
+      await api.post(`/maquinas/${maquinaTransferindo.id}/transferir`, {
+        lojaDestinoId:
+          formTransferencia.lojaDestinoId === GALPAO_VALUE
+            ? null
+            : formTransferencia.lojaDestinoId,
+        dataTransferencia: formTransferencia.dataTransferencia,
+        observacao: formTransferencia.observacao?.trim() || null,
+      });
+      setSuccess("✅ Máquina transferida com sucesso!");
+      setMaquinaTransferindo(null);
+      carregarDados();
+    } catch (error) {
+      setErroTransferencia(
+        error.response?.data?.error || "Erro ao transferir máquina",
+      );
+    } finally {
+      setSalvandoTransferencia(false);
+    }
   };
 
   // Filtro por loja (backend já filtra por ativo/inativo)
@@ -216,6 +279,13 @@ export function Maquinas() {
             title="Editar"
           >
             ✏️
+          </button>
+          <button
+            onClick={() => handleAbrirTransferencia(maquina)}
+            className="text-purple-600 hover:text-purple-800 font-semibold"
+            title="Transferir máquina"
+          >
+            🔁
           </button>
           <button
             onClick={() => handleAbrirDialogDeletar(maquina)}
@@ -362,6 +432,112 @@ export function Maquinas() {
             : "⚠️ ATENÇÃO: Esta ação é PERMANENTE e IRREVERSÍVEL! A máquina e todo seu histórico serão deletados do banco de dados. Tem certeza absoluta?"
         }
       />
+
+      <Modal
+        isOpen={maquinaTransferindo !== null}
+        onClose={() => setMaquinaTransferindo(null)}
+        title="🔁 Transferir Máquina"
+        size="sm"
+      >
+        {maquinaTransferindo && (
+          <form onSubmit={handleSubmitTransferencia} className="space-y-4">
+            <div className="rounded-lg bg-gray-50 p-3 text-sm">
+              <p className="font-bold text-gray-900">
+                {maquinaTransferindo.codigo} — {maquinaTransferindo.nome}
+              </p>
+              <p className="text-gray-600">
+                Localização atual:{" "}
+                {maquinaTransferindo.lojaId
+                  ? lojas.find((l) => l.id === maquinaTransferindo.lojaId)
+                      ?.nome || "Loja não encontrada"
+                  : "Galpão (sem loja)"}
+              </p>
+            </div>
+
+            {erroTransferencia && (
+              <AlertBox type="error" message={erroTransferencia} />
+            )}
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Transferir para *
+              </label>
+              <select
+                name="lojaDestinoId"
+                value={formTransferencia.lojaDestinoId}
+                onChange={handleChangeTransferencia}
+                className="select-field"
+                required
+              >
+                <option value="">Selecione o destino...</option>
+                {maquinaTransferindo.lojaId && (
+                  <option value={GALPAO_VALUE}>🏭 Galpão (sem loja)</option>
+                )}
+                {lojas
+                  .filter(
+                    (l) => l.ativo && l.id !== maquinaTransferindo.lojaId,
+                  )
+                  .map((loja) => (
+                    <option key={loja.id} value={loja.id}>
+                      🏪 {loja.nome}
+                    </option>
+                  ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                A máquina muda de local imediatamente, mantendo todo o
+                cadastro (código, capacidade, valor da ficha, etc). Não é
+                necessário cadastrar uma máquina nova.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Data da transferência *
+              </label>
+              <input
+                type="date"
+                name="dataTransferencia"
+                value={formTransferencia.dataTransferencia}
+                onChange={handleChangeTransferencia}
+                className="input-field"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Observação
+              </label>
+              <textarea
+                name="observacao"
+                value={formTransferencia.observacao}
+                onChange={handleChangeTransferencia}
+                className="input-field"
+                rows="2"
+                placeholder="Opcional: motivo da transferência, quem transportou, etc."
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => setMaquinaTransferindo(null)}
+                className="btn-secondary"
+                disabled={salvandoTransferencia}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={salvandoTransferencia}
+              >
+                {salvandoTransferencia ? "Transferindo..." : "Transferir"}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 }

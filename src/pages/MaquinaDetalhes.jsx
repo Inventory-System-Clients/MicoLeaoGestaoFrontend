@@ -33,7 +33,18 @@ const tipoProblemaMapa = {
   OUTRO: "Outro",
 };
 
+const GALPAO_VALUE = "GALPAO";
+
+const hojeISO = () => new Date().toISOString().slice(0, 10);
+
 const numero = (valor) => Number(valor || 0);
+
+const formatarDataOnly = (valor) => {
+  if (!valor) return "-";
+  const [ano, mes, dia] = String(valor).split("-");
+  if (!ano || !mes || !dia) return valor;
+  return `${dia}/${mes}/${ano}`;
+};
 
 const formatarDataHora = (valor) => {
   if (!valor) return "-";
@@ -91,23 +102,44 @@ export function MaquinaDetalhes() {
   const [formMovimentacao, setFormMovimentacao] = useState(null);
   const [salvandoMovimentacao, setSalvandoMovimentacao] = useState(false);
   const [deletandoMovimentacaoId, setDeletandoMovimentacaoId] = useState(null);
+  const [lojas, setLojas] = useState([]);
+  const [historicoTransferencias, setHistoricoTransferencias] = useState([]);
+  const [mostrarModalTransferencia, setMostrarModalTransferencia] =
+    useState(false);
+  const [formTransferencia, setFormTransferencia] = useState({
+    lojaDestinoId: "",
+    dataTransferencia: hojeISO(),
+    observacao: "",
+  });
+  const [salvandoTransferencia, setSalvandoTransferencia] = useState(false);
+  const [erroTransferencia, setErroTransferencia] = useState("");
 
   const carregarDados = useCallback(async () => {
     try {
       setLoading(true);
       setFatalError("");
-      const [maquinaRes, movimentacoesRes, estoqueRes, manutencaoRes] =
-        await Promise.all([
-          api.get(`/maquinas/${id}`),
-          api.get(`/movimentacoes?maquinaId=${id}&limite=200`),
-          api.get(`/maquinas/${id}/estoque`).catch(() => ({ data: null })),
-          api.get(`/manutencoes/maquina/${id}`).catch(() => ({ data: null })),
-        ]);
+      const [
+        maquinaRes,
+        movimentacoesRes,
+        estoqueRes,
+        manutencaoRes,
+        lojasRes,
+        transferenciasRes,
+      ] = await Promise.all([
+        api.get(`/maquinas/${id}`),
+        api.get(`/movimentacoes?maquinaId=${id}&limite=200`),
+        api.get(`/maquinas/${id}/estoque`).catch(() => ({ data: null })),
+        api.get(`/manutencoes/maquina/${id}`).catch(() => ({ data: null })),
+        api.get("/lojas").catch(() => ({ data: [] })),
+        api.get(`/maquinas/${id}/transferencias`).catch(() => ({ data: [] })),
+      ]);
 
       setMaquina(maquinaRes.data);
       setMovimentacoes(movimentacoesRes.data || []);
       setEstoque(estoqueRes.data);
       setHistoricoManutencao(manutencaoRes.data);
+      setLojas(lojasRes.data || []);
+      setHistoricoTransferencias(transferenciasRes.data || []);
     } catch (err) {
       setFatalError(err.response?.data?.error || "Erro ao carregar máquina.");
     } finally {
@@ -160,6 +192,56 @@ export function MaquinaDetalhes() {
   const fecharEdicao = () => {
     setMovimentacaoEditando(null);
     setFormMovimentacao(null);
+  };
+
+  const abrirTransferencia = () => {
+    setFormTransferencia({
+      lojaDestinoId: "",
+      dataTransferencia: hojeISO(),
+      observacao: "",
+    });
+    setErroTransferencia("");
+    setMostrarModalTransferencia(true);
+  };
+
+  const handleChangeTransferencia = (e) => {
+    const { name, value } = e.target;
+    setFormTransferencia((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmitTransferencia = async (e) => {
+    e.preventDefault();
+    setErroTransferencia("");
+
+    if (!formTransferencia.lojaDestinoId) {
+      setErroTransferencia("Selecione a loja de destino ou o galpão.");
+      return;
+    }
+    if (!formTransferencia.dataTransferencia) {
+      setErroTransferencia("Informe a data da transferência.");
+      return;
+    }
+
+    setSalvandoTransferencia(true);
+    try {
+      await api.post(`/maquinas/${id}/transferir`, {
+        lojaDestinoId:
+          formTransferencia.lojaDestinoId === GALPAO_VALUE
+            ? null
+            : formTransferencia.lojaDestinoId,
+        dataTransferencia: formTransferencia.dataTransferencia,
+        observacao: formTransferencia.observacao?.trim() || null,
+      });
+      setSuccess("✅ Máquina transferida com sucesso!");
+      setMostrarModalTransferencia(false);
+      carregarDados();
+    } catch (error) {
+      setErroTransferencia(
+        error.response?.data?.error || "Erro ao transferir máquina",
+      );
+    } finally {
+      setSalvandoTransferencia(false);
+    }
   };
 
   const atualizarCampoMovimentacao = (campo, valor) => {
@@ -327,13 +409,24 @@ export function MaquinaDetalhes() {
                 Dados operacionais e configuração atual.
               </p>
             </div>
-            <button
-              type="button"
-              className="btn-primary text-sm"
-              onClick={() => navigate(`/maquinas/${maquina.id}/editar`)}
-            >
-              Editar máquina
-            </button>
+            <div className="flex gap-2">
+              {adminOuDev && (
+                <button
+                  type="button"
+                  className="btn-secondary text-sm"
+                  onClick={abrirTransferencia}
+                >
+                  🔁 Transferir
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn-primary text-sm"
+                onClick={() => navigate(`/maquinas/${maquina.id}/editar`)}
+              >
+                Editar máquina
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -464,6 +557,37 @@ export function MaquinaDetalhes() {
           )}
         </section>
 
+        <section className="mb-6 rounded-lg border border-orange-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-5 text-xl font-bold text-gray-900">
+            🔁 Histórico de Transferências
+          </h2>
+
+          {!historicoTransferencias.length ? (
+            <p className="text-sm text-gray-600">
+              Nenhuma transferência registrada para esta máquina.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {historicoTransferencias.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-gray-200 p-4 text-sm"
+                >
+                  <p className="font-semibold text-gray-900">
+                    {item.lojaOrigem?.nome || "Galpão (sem loja)"} →{" "}
+                    {item.lojaDestino?.nome || "Galpão (sem loja)"}
+                  </p>
+                  <div className="mt-1 space-y-1 text-xs text-gray-600">
+                    <p>Data: {formatarDataOnly(item.dataTransferencia)}</p>
+                    <p>Registrado por: {item.usuario?.nome || "-"}</p>
+                    {item.observacao && <p>Observação: {item.observacao}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section className="rounded-lg border border-orange-100 bg-white p-6 shadow-sm">
           <h2 className="mb-5 text-xl font-bold text-gray-900">
             🔄 Histórico de Movimentações
@@ -589,6 +713,108 @@ export function MaquinaDetalhes() {
             )}
           </div>
         </section>
+
+        <Modal
+          isOpen={mostrarModalTransferencia}
+          onClose={() => setMostrarModalTransferencia(false)}
+          title="🔁 Transferir Máquina"
+          size="sm"
+        >
+          <form onSubmit={handleSubmitTransferencia} className="space-y-4">
+            <div className="rounded-lg bg-gray-50 p-3 text-sm">
+              <p className="font-bold text-gray-900">
+                {maquina.codigo} — {maquina.nome}
+              </p>
+              <p className="text-gray-600">
+                Localização atual:{" "}
+                {maquina.lojaId
+                  ? lojas.find((l) => l.id === maquina.lojaId)?.nome ||
+                    "Loja não encontrada"
+                  : "Galpão (sem loja)"}
+              </p>
+            </div>
+
+            {erroTransferencia && (
+              <AlertBox type="error" message={erroTransferencia} />
+            )}
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Transferir para *
+              </label>
+              <select
+                name="lojaDestinoId"
+                value={formTransferencia.lojaDestinoId}
+                onChange={handleChangeTransferencia}
+                className="select-field"
+                required
+              >
+                <option value="">Selecione o destino...</option>
+                {maquina.lojaId && (
+                  <option value={GALPAO_VALUE}>🏭 Galpão (sem loja)</option>
+                )}
+                {lojas
+                  .filter((l) => l.ativo && l.id !== maquina.lojaId)
+                  .map((loja) => (
+                    <option key={loja.id} value={loja.id}>
+                      🏪 {loja.nome}
+                    </option>
+                  ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                A máquina muda de local imediatamente, mantendo todo o
+                cadastro (código, capacidade, valor da ficha, etc). Não é
+                necessário cadastrar uma máquina nova.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Data da transferência *
+              </label>
+              <input
+                type="date"
+                name="dataTransferencia"
+                value={formTransferencia.dataTransferencia}
+                onChange={handleChangeTransferencia}
+                className="input-field"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Observação
+              </label>
+              <textarea
+                name="observacao"
+                value={formTransferencia.observacao}
+                onChange={handleChangeTransferencia}
+                className="input-field"
+                rows="2"
+                placeholder="Opcional: motivo da transferência, quem transportou, etc."
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => setMostrarModalTransferencia(false)}
+                className="btn-secondary"
+                disabled={salvandoTransferencia}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={salvandoTransferencia}
+              >
+                {salvandoTransferencia ? "Transferindo..." : "Transferir"}
+              </button>
+            </div>
+          </form>
+        </Modal>
 
         <Modal
           isOpen={!!movimentacaoEditando}
