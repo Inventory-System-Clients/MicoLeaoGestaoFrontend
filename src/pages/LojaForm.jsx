@@ -101,26 +101,12 @@ export function LojaForm() {
   // Gastos fixos da loja
   const [gastosFixos, setGastosFixos] = useState([]);
 
-  // Estados para gerenciar estoque do depósito
-  const [produtos, setProdutos] = useState([]);
-  const [estoque, setEstoque] = useState([]);
-  const [loadingEstoque, setLoadingEstoque] = useState(false);
-  const [salvandoEstoque, setSalvandoEstoque] = useState(false);
-
   useEffect(() => {
     if (isEdit) {
       carregarLoja();
     }
-    carregarProdutos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
-
-  useEffect(() => {
-    if (isEdit && produtos.length > 0) {
-      carregarEstoque();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEdit, produtos]);
 
   // Carregar gastos fixos da loja ao editar
   useEffect(() => {
@@ -153,28 +139,6 @@ export function LojaForm() {
       );
     } catch (error) {
       setGastosFixos([]);
-    }
-  };
-
-  const carregarProdutos = async () => {
-    try {
-      const response = await api.get("/produtos");
-      setProdutos(response.data || []);
-    } catch (error) {
-      console.error("Erro ao carregar produtos:", error);
-    }
-  };
-
-  const carregarEstoque = async () => {
-    try {
-      setLoadingEstoque(true);
-      const response = await api.get(`/estoque-lojas/${id}`);
-      setEstoque(response.data || []);
-    } catch (error) {
-      console.error("Erro ao carregar estoque:", error);
-      setEstoque([]);
-    } finally {
-      setLoadingEstoque(false);
     }
   };
 
@@ -373,110 +337,6 @@ export function LojaForm() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const atualizarQuantidadeEstoque = (produtoId, quantidade) => {
-    setEstoque((prev) => {
-      const itemExiste = prev.find((item) => item.produtoId === produtoId);
-      if (itemExiste) {
-        return prev.map((item) =>
-          item.produtoId === produtoId
-            ? { ...item, quantidade: parseInt(quantidade) || 0 }
-            : item,
-        );
-      } else {
-        return [
-          ...prev,
-          {
-            produtoId,
-            quantidade: parseInt(quantidade) || 0,
-            estoqueMinimo: 0,
-          },
-        ];
-      }
-    });
-  };
-
-  const atualizarEstoqueMinimoEstoque = (produtoId, estoqueMinimo) => {
-    setEstoque((prev) => {
-      const itemExiste = prev.find((item) => item.produtoId === produtoId);
-      if (itemExiste) {
-        return prev.map((item) =>
-          item.produtoId === produtoId
-            ? { ...item, estoqueMinimo: parseInt(estoqueMinimo) || 0 }
-            : item,
-        );
-      } else {
-        return [
-          ...prev,
-          {
-            produtoId,
-            quantidade: 0,
-            estoqueMinimo: parseInt(estoqueMinimo) || 0,
-          },
-        ];
-      }
-    });
-  };
-
-  const salvarEstoque = async () => {
-    try {
-      setSalvandoEstoque(true);
-      setError("");
-
-      // Validar se os produtos existem antes de salvar
-      const produtosValidos = estoque.filter((item) => {
-        const produtoExiste = produtos.some((p) => p.id === item.produtoId);
-        if (!produtoExiste) {
-          console.warn(
-            `⚠️ Produto ${item.produtoId} não existe mais, ignorando...`,
-          );
-        }
-        return produtoExiste;
-      });
-
-      console.log(
-        `📊 Salvando ${produtosValidos.length} produtos válidos (incluindo quantidades zeradas)`,
-      );
-
-      // Sempre usar POST que faz findOrCreate automaticamente
-      for (const item of produtosValidos) {
-        try {
-          // POST /estoque-lojas/:lojaId cria ou atualiza usando findOrCreate
-          await api.post(`/estoque-lojas/${id}`, {
-            produtoId: item.produtoId,
-            quantidade: item.quantidade || 0,
-            estoqueMinimo: item.estoqueMinimo || 0,
-          });
-        } catch (itemError) {
-          console.error(
-            `❌ Erro ao salvar produto ${item.produtoId}:`,
-            itemError.response?.data || itemError.message,
-          );
-          // Continuar com os próximos itens mesmo se um falhar
-        }
-      }
-
-      setSuccess("Estoque atualizado com sucesso!");
-      await carregarEstoque();
-    } catch (error) {
-      setError(
-        "Erro ao salvar estoque: " +
-          (error.response?.data?.error || error.message),
-      );
-    } finally {
-      setSalvandoEstoque(false);
-    }
-  };
-
-  const getQuantidadeProduto = (produtoId) => {
-    const item = estoque.find((e) => e.produtoId === produtoId);
-    return item?.quantidade || 0;
-  };
-
-  const getEstoqueMinimoProduto = (produtoId) => {
-    const item = estoque.find((e) => e.produtoId === produtoId);
-    return item?.estoqueMinimo || 0;
   };
 
   if (loadingData) return <PageLoader />;
@@ -904,164 +764,6 @@ export function LojaForm() {
                 </div>
               </div>
             </div>
-
-            {/* Estoque do Depósito - Apenas para edição */}
-            {isEdit && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <svg
-                      className="w-5 h-5 text-primary"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
-                      <path
-                        fillRule="evenodd"
-                        d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    Estoque do Depósito
-                  </h3>
-                  {loadingEstoque && (
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                  )}
-                </div>
-
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-gray-600">
-                    💡 Configure aqui o estoque de produtos disponíveis no
-                    depósito desta loja. Estes produtos podem ser transferidos
-                    para as máquinas.
-                  </p>
-                </div>
-
-                {produtos.length > 0 ? (
-                  <div className="space-y-3">
-                    {produtos.map((produto) => (
-                      <div
-                        key={produto.id}
-                        className="border-2 border-gray-200 rounded-lg p-4 hover:border-primary/30 transition-colors bg-white"
-                      >
-                        <div className="flex items-center gap-4">
-                          <span className="text-3xl">
-                            {produto.emoji || "📦"}
-                          </span>
-                          <div className="flex-1">
-                            <h4 className="font-bold text-gray-900">
-                              {produto.nome}
-                            </h4>
-                            {produto.codigo && (
-                              <p className="text-xs text-gray-500">
-                                Cód: {produto.codigo}
-                              </p>
-                            )}
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-600 mb-1">
-                                Quantidade
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={getQuantidadeProduto(produto.id)}
-                                onChange={(e) =>
-                                  atualizarQuantidadeEstoque(
-                                    produto.id,
-                                    e.target.value,
-                                  )
-                                }
-                                className="input-field text-center w-24"
-                                disabled={loadingEstoque}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-600 mb-1">
-                                Estoque Mín.
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={getEstoqueMinimoProduto(produto.id)}
-                                onChange={(e) =>
-                                  atualizarEstoqueMinimoEstoque(
-                                    produto.id,
-                                    e.target.value,
-                                  )
-                                }
-                                className="input-field text-center w-24"
-                                disabled={loadingEstoque}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    <div className="flex justify-end pt-4">
-                      <button
-                        type="button"
-                        onClick={salvarEstoque}
-                        className="btn-primary"
-                        disabled={salvandoEstoque || loadingEstoque}
-                      >
-                        {salvandoEstoque ? (
-                          <span className="flex items-center gap-2">
-                            <svg
-                              className="animate-spin h-5 w-5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              />
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                              />
-                            </svg>
-                            Salvando Estoque...
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-2">
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                            Salvar Estoque
-                          </span>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p className="text-4xl mb-2">📦</p>
-                    <p>Nenhum produto cadastrado no sistema</p>
-                    <p className="text-sm mt-1">
-                      Cadastre produtos primeiro em Produtos
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Botões */}
             <div className="flex gap-4 justify-end pt-6 border-t border-gray-200">
