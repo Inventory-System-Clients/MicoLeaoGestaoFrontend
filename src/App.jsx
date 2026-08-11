@@ -35,6 +35,7 @@ import ConferenciaLacre from "./pages/ConferenciaLacre";
 import Compras from "./pages/Compras";
 import { Graficos } from "./pages/Graficos";
 import { Relatorios } from "./pages/Relatorios";
+import { RelatorioTransferenciasMaquinas } from "./pages/RelatorioTransferenciasMaquinas";
 import { Sangrias } from "./pages/Sangrias";
 import { GastosVariaveis } from "./pages/GastosVariaveis";
 import { RegistroDinheiro } from "./pages/RegistroDinheiro";
@@ -382,6 +383,16 @@ function App() {
             element={
               <PrivateRoute adminOnly>
                 <Relatorios />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/relatorios/transferencias-maquinas"
+            element={
+              <PrivateRoute
+                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"]}
+              >
+                <RelatorioTransferenciasMaquinas />
               </PrivateRoute>
             }
           />

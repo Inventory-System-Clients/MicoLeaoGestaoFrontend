@@ -170,6 +170,12 @@ export function Navbar() {
         },
         { to: "/graficos", label: "Gráficos", icon: "📈", roles: ADMIN_ROLES },
         { to: "/relatorios", label: "Relatórios", icon: "📄", roles: ADMIN_ROLES },
+        {
+          to: "/relatorios/transferencias-maquinas",
+          label: "Transferências de Máquinas",
+          icon: "🔁",
+          roles: CADASTRO_ROLES,
+        },
       ],
     },
     {

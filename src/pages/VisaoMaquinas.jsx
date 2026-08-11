@@ -190,13 +190,22 @@ export function VisaoMaquinas() {
               Situação operacional, estoque, loja atual e pontos de atenção.
             </p>
           </div>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => navigate("/maquinas/nova")}
-          >
-            Nova máquina
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => navigate("/relatorios/transferencias-maquinas")}
+            >
+              🔁 Transferências
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => navigate("/maquinas/nova")}
+            >
+              Nova máquina
+            </button>
+          </div>
         </div>
 
         {error && <AlertBox type="error" message={error} onClose={() => setError("")} />}
