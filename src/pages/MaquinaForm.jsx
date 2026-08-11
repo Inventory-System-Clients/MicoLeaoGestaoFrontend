@@ -22,6 +22,7 @@ export function MaquinaForm() {
     motivoParada: "",
     capacidadePadrao: "",
     valorFicha: "",
+    modoFichas: "indefinido",
     fichasNecessarias: "",
     jogadasBoasPorPelucia: "",
     percentualAlertaEstoque: "",
@@ -92,6 +93,7 @@ export function MaquinaForm() {
         motivoParada: response.data.motivoParada || "",
         capacidadePadrao: response.data.capacidadePadrao || "",
         valorFicha: response.data.valorFicha || "",
+        modoFichas: response.data.fichasNecessarias ? "fixada" : "indefinido",
         fichasNecessarias: response.data.fichasNecessarias || "",
         jogadasBoasPorPelucia: response.data.jogadasBoasPorPelucia || "",
         percentualAlertaEstoque: response.data.percentualAlertaEstoque || 20,
@@ -120,6 +122,9 @@ export function MaquinaForm() {
     }
     if (name === "statusOperacao" && value !== "PARADA") {
       novosDados.motivoParada = "";
+    }
+    if (name === "modoFichas" && value === "indefinido") {
+      novosDados.fichasNecessarias = "";
     }
     setFormData({
       ...novosDados,
@@ -188,6 +193,15 @@ export function MaquinaForm() {
         return;
       }
 
+      if (
+        formData.modoFichas === "fixada" &&
+        (!formData.fichasNecessarias || parseInt(formData.fichasNecessarias, 10) < 1)
+      ) {
+        setError("Informe a quantidade de fichas fixada.");
+        setLoading(false);
+        return;
+      }
+
       const data = {
         codigo: formData.codigo.trim(),
         nome: formData.nome.trim(),
@@ -200,7 +214,10 @@ export function MaquinaForm() {
             : null,
         capacidadePadrao: parseInt(formData.capacidadePadrao, 10) || 0,
         valorFicha: parseFloat(formData.valorFicha) || 0,
-        fichasNecessarias: parseInt(formData.fichasNecessarias, 10) || null,
+        fichasNecessarias:
+          formData.modoFichas === "fixada"
+            ? parseInt(formData.fichasNecessarias, 10) || null
+            : null,
         jogadasBoasPorPelucia:
           formData.jogadasBoasPorPelucia !== ""
             ? parseFloat(formData.jogadasBoasPorPelucia)
@@ -454,21 +471,42 @@ export function MaquinaForm() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    🎫 Fichas para Jogar
+                    🎫 Quantidade de Fichas
                   </label>
-                  <input
-                    type="number"
-                    name="fichasNecessarias"
-                    value={formData.fichasNecessarias}
+                  <select
+                    name="modoFichas"
+                    value={formData.modoFichas}
                     onChange={handleChange}
-                    className="input-field"
-                    placeholder="Ex: 1"
-                    min="1"
-                  />
+                    className="select-field"
+                  >
+                    <option value="indefinido">Indefinido</option>
+                    <option value="fixada">Fixada</option>
+                  </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    Quantas fichas são necessárias para liberar uma jogada
+                    Se a quantidade de fichas para liberar uma jogada é fixa ou ainda não definida
                   </p>
                 </div>
+
+                {formData.modoFichas === "fixada" && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Fichas para Jogar *
+                    </label>
+                    <input
+                      type="number"
+                      name="fichasNecessarias"
+                      value={formData.fichasNecessarias}
+                      onChange={handleChange}
+                      className="input-field"
+                      placeholder="Ex: 1"
+                      min="1"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Quantas fichas são necessárias para liberar uma jogada
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
