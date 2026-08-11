@@ -21,7 +21,7 @@ export function MaquinaForm() {
     statusOperacao: "EM_OPERACAO",
     motivoParada: "",
     capacidadePadrao: "",
-    geradoraReceita: "sim",
+    geradoraReceita: "nao",
     categoriaGeradora: "maquina",
     telemetria: "",
     valorFicha: "",
