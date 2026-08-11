@@ -87,7 +87,7 @@ const fornecedorFormVazio = {
   cidade: "",
   observacoes: "",
   ativo: true,
-  produtos: [{ ...produtoFornecedorVazio }],
+  produtos: [],
   anexos: [],
 };
 
@@ -115,13 +115,15 @@ const normalizarTexto = (texto) =>
 
 const limparPayloadFornecedor = (form) => ({
   ...form,
-  produtos: form.produtos.map((produto) => ({
-    produtoNome: produto.produtoNome,
-    quantidade: Number(produto.quantidade),
-    unidade: produto.tipo === "insumo" ? produto.unidade : "un",
-    preco: Number(produto.preco),
-    observacoes: produto.observacoes,
-  })),
+  produtos: form.produtos
+    .filter((produto) => String(produto.produtoNome || "").trim() !== "")
+    .map((produto) => ({
+      produtoNome: produto.produtoNome,
+      quantidade: Number(produto.quantidade),
+      unidade: produto.tipo === "insumo" ? produto.unidade : "un",
+      preco: Number(produto.preco),
+      observacoes: produto.observacoes,
+    })),
   anexos: form.anexos.filter((anexo) => anexo.url.trim()),
 });
 
@@ -801,7 +803,7 @@ export default function Compras() {
     setEditandoFornecedor(null);
     setFormFornecedor({
       ...fornecedorFormVazio,
-      produtos: [{ ...produtoFornecedorVazio }],
+      produtos: [],
       anexos: [],
     });
     setMostrarModalFornecedor(true);
@@ -817,17 +819,15 @@ export default function Compras() {
       observacoes: fornecedor.observacoes || "",
       ativo: fornecedor.ativo !== false,
       produtos:
-        fornecedor.produtos?.length > 0
-          ? fornecedor.produtos.map((produto) => ({
-              tipo: "produto",
-              itemNovo: true,
-              produtoNome: produto.produtoNome || "",
-              quantidade: produto.quantidade || "",
-              unidade: produto.unidade || "un",
-              preco: produto.preco || "",
-              observacoes: produto.observacoes || "",
-            }))
-          : [{ ...produtoFornecedorVazio }],
+        fornecedor.produtos?.map((produto) => ({
+          tipo: "produto",
+          itemNovo: true,
+          produtoNome: produto.produtoNome || "",
+          quantidade: produto.quantidade || "",
+          unidade: produto.unidade || "un",
+          preco: produto.preco || "",
+          observacoes: produto.observacoes || "",
+        })) || [],
       anexos:
         fornecedor.anexos?.map((anexo) => ({
           titulo: anexo.titulo || "",
@@ -2479,7 +2479,6 @@ export default function Compras() {
                             atualizarProdutoFornecedor(index, "produtoNome", e.target.value)
                           }
                           placeholder={`Nome do ${rotuloTipoItem(produto.tipo)} novo`}
-                          required
                         />
                       ) : (
                         <select
@@ -2488,7 +2487,6 @@ export default function Compras() {
                           onChange={(e) =>
                             atualizarProdutoFornecedor(index, "produtoNome", e.target.value)
                           }
-                          required
                         >
                           <option value="">Selecione...</option>
                           {(produto.tipo === "insumo"
@@ -2515,7 +2513,6 @@ export default function Compras() {
                           atualizarProdutoFornecedor(index, "quantidade", e.target.value)
                         }
                         placeholder="Qtd"
-                        required
                       />
                       {produto.tipo === "insumo" ? (
                         <input
@@ -2543,7 +2540,6 @@ export default function Compras() {
                           atualizarProdutoFornecedor(index, "preco", e.target.value)
                         }
                         placeholder="Custo total"
-                        required
                       />
                       <div className="flex h-[38px] min-w-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-bold text-gray-900 md:col-span-3 lg:col-span-2">
                         {moeda.format(calcularUnitarioFornecedor(produto))}
@@ -2551,7 +2547,6 @@ export default function Compras() {
                       <button
                         type="button"
                         className="btn-danger min-h-[38px] px-3 text-xs md:col-span-3 lg:col-span-1"
-                        disabled={formFornecedor.produtos.length === 1}
                         onClick={() =>
                           setFormFornecedor({
                             ...formFornecedor,
@@ -2566,6 +2561,12 @@ export default function Compras() {
                       </div>
                     </div>
                   ))}
+                  {formFornecedor.produtos.length === 0 && (
+                    <p className="text-xs text-gray-500">
+                      Nenhum produto vinculado. Isso é opcional — adicione apenas se
+                      quiser comparar custos deste fornecedor.
+                    </p>
+                  )}
                 </div>
               </div>
 
