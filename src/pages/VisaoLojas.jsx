@@ -22,11 +22,17 @@ const calcularAlertasJogadas = (maquinasDaLoja, movimentacoes) => {
 
   for (const maquina of maquinasDaLoja) {
     const jogadasEsperadas = numero(maquina.jogadasBoasPorPelucia);
+    // Máquina (categoria MAQUINA) não tem ficha própria: usa o valor da
+    // jogada (R$) direto com o contador IN, em vez de valorFicha*fichas.
+    const semFichaPropria = maquina.categoriaGeradora === "MAQUINA";
     const valorFicha = numero(maquina.valorFicha);
     const fichasParaJogar = numero(maquina.fichasNecessarias) || 1;
-    const valorPorJogada = Number((valorFicha * fichasParaJogar).toFixed(2));
+    const valorJogada = numero(maquina.valorJogada);
+    const valorPorJogada = semFichaPropria
+      ? valorJogada
+      : Number((valorFicha * fichasParaJogar).toFixed(2));
 
-    if (jogadasEsperadas <= 0 || valorFicha <= 0 || valorPorJogada <= 0) {
+    if (jogadasEsperadas <= 0 || valorPorJogada <= 0) {
       continue;
     }
 

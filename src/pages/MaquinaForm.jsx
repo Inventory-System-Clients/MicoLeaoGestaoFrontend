@@ -21,7 +21,11 @@ export function MaquinaForm() {
     statusOperacao: "EM_OPERACAO",
     motivoParada: "",
     capacidadePadrao: "",
+    geradoraReceita: "sim",
+    categoriaGeradora: "maquina",
+    telemetria: "",
     valorFicha: "",
+    valorJogada: "",
     modoFichas: "indefinido",
     fichasNecessarias: "",
     jogadasBoasPorPelucia: "",
@@ -33,6 +37,7 @@ export function MaquinaForm() {
 
   const [lojas, setLojas] = useState([]);
   const [produtos, setProdutos] = useState([]);
+  const [telemetrias, setTelemetrias] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState("");
@@ -42,6 +47,7 @@ export function MaquinaForm() {
   useEffect(() => {
     carregarLojas();
     carregarProdutos();
+    carregarTelemetrias();
     if (isEdit) {
       carregarMaquina();
     } else {
@@ -74,6 +80,18 @@ export function MaquinaForm() {
     }
   };
 
+  const carregarTelemetrias = async () => {
+    try {
+      const response = await api.get("/maquinas?incluirInativas=true");
+      const valores = (response.data || [])
+        .map((m) => (m.telemetria || "").trim())
+        .filter(Boolean);
+      setTelemetrias([...new Set(valores)].sort());
+    } catch (error) {
+      // Não bloqueia o formulário se a lista de telemetrias não carregar
+    }
+  };
+
   const carregarMaquina = async () => {
     try {
       setLoadingData(true);
@@ -92,7 +110,14 @@ export function MaquinaForm() {
           !lojaIdAtual && statusAtual === "EM_OPERACAO" ? "PARADA" : statusAtual,
         motivoParada: response.data.motivoParada || "",
         capacidadePadrao: response.data.capacidadePadrao || "",
+        geradoraReceita:
+          response.data.geradoraReceita === undefined || response.data.geradoraReceita
+            ? "sim"
+            : "nao",
+        categoriaGeradora: (response.data.categoriaGeradora || "MAQUINA").toLowerCase(),
+        telemetria: response.data.telemetria || "",
         valorFicha: response.data.valorFicha || "",
+        valorJogada: response.data.valorJogada || "",
         modoFichas: response.data.fichasNecessarias ? "fixada" : "indefinido",
         fichasNecessarias: response.data.fichasNecessarias || "",
         jogadasBoasPorPelucia: response.data.jogadasBoasPorPelucia || "",
@@ -124,6 +149,23 @@ export function MaquinaForm() {
       novosDados.motivoParada = "";
     }
     if (name === "modoFichas" && value === "indefinido") {
+      novosDados.fichasNecessarias = "";
+    }
+    if (name === "geradoraReceita" && value === "nao") {
+      novosDados.categoriaGeradora = "maquina";
+      novosDados.telemetria = "";
+      novosDados.valorJogada = "";
+      if (novosDados.nome === "Ficha") novosDados.nome = "";
+    }
+    if (name === "categoriaGeradora" && value === "trocadora") {
+      novosDados.nome = "Ficha";
+      novosDados.jogadasBoasPorPelucia = "";
+      novosDados.valorJogada = "";
+    }
+    if (name === "categoriaGeradora" && value === "maquina") {
+      if (novosDados.nome === "Ficha") novosDados.nome = "";
+      novosDados.valorFicha = "";
+      novosDados.modoFichas = "indefinido";
       novosDados.fichasNecessarias = "";
     }
     setFormData({
@@ -202,6 +244,23 @@ export function MaquinaForm() {
         return;
       }
 
+      const ehTrocadora =
+        formData.geradoraReceita === "sim" && formData.categoriaGeradora === "trocadora";
+      const ehMaquina =
+        formData.geradoraReceita === "sim" && formData.categoriaGeradora === "maquina";
+
+      if (ehTrocadora && (!formData.valorFicha || parseFloat(formData.valorFicha) <= 0)) {
+        setError("Informe o valor da ficha para a trocadora.");
+        setLoading(false);
+        return;
+      }
+
+      if (ehMaquina && (!formData.valorJogada || parseFloat(formData.valorJogada) <= 0)) {
+        setError("Informe o valor da jogada para a máquina.");
+        setLoading(false);
+        return;
+      }
+
       const data = {
         codigo: formData.codigo.trim(),
         nome: formData.nome.trim(),
@@ -213,7 +272,17 @@ export function MaquinaForm() {
             ? formData.motivoParada?.trim() || null
             : null,
         capacidadePadrao: parseInt(formData.capacidadePadrao, 10) || 0,
+        geradoraReceita: formData.geradoraReceita === "sim",
+        categoriaGeradora:
+          formData.geradoraReceita === "sim"
+            ? formData.categoriaGeradora.toUpperCase()
+            : null,
+        telemetria:
+          formData.geradoraReceita === "sim" && formData.categoriaGeradora === "maquina"
+            ? formData.telemetria?.trim() || null
+            : null,
         valorFicha: parseFloat(formData.valorFicha) || 0,
+        valorJogada: ehMaquina ? parseFloat(formData.valorJogada) || null : null,
         fichasNecessarias:
           formData.modoFichas === "fixada"
             ? parseInt(formData.fichasNecessarias, 10) || null
@@ -315,29 +384,75 @@ export function MaquinaForm() {
                   </div>
                 </div>
 
+                {!(
+                  formData.geradoraReceita === "sim" &&
+                  formData.categoriaGeradora === "trocadora"
+                ) && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Produto *
+                    </label>
+                    <select
+                      name="nome"
+                      value={formData.nome}
+                      onChange={handleChange}
+                      className="select-field"
+                      required
+                    >
+                      <option value="">Selecione o produto</option>
+                      {formData.nome &&
+                        !produtos.some((produto) => produto.nome === formData.nome) && (
+                          <option value={formData.nome}>{formData.nome}</option>
+                        )}
+                      {produtos.map((produto) => (
+                        <option key={produto.id} value={produto.nome}>
+                          {produto.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Produto *
+                    Geradora de Receita
                   </label>
                   <select
-                    name="nome"
-                    value={formData.nome}
+                    name="geradoraReceita"
+                    value={formData.geradoraReceita}
                     onChange={handleChange}
                     className="select-field"
-                    required
                   >
-                    <option value="">Selecione o produto</option>
-                    {formData.nome &&
-                      !produtos.some((produto) => produto.nome === formData.nome) && (
-                        <option value={formData.nome}>{formData.nome}</option>
-                      )}
-                    {produtos.map((produto) => (
-                      <option key={produto.id} value={produto.nome}>
-                        {produto.nome}
-                      </option>
-                    ))}
+                    <option value="sim">Sim</option>
+                    <option value="nao">Não</option>
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Se a máquina gera receita diretamente (ficha/venda)
+                  </p>
                 </div>
+
+                {formData.geradoraReceita === "sim" && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Trocadora ou Máquina *
+                    </label>
+                    <select
+                      name="categoriaGeradora"
+                      value={formData.categoriaGeradora}
+                      onChange={handleChange}
+                      className="select-field"
+                      required
+                    >
+                      <option value="maquina">Máquina</option>
+                      <option value="trocadora">Trocadora</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Trocadora só troca dinheiro por fichas; Máquina é a de
+                      jogo/prêmio (não tem ficha própria, o sistema usa o
+                      contador IN registrado nas coletas)
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -431,6 +546,33 @@ export function MaquinaForm() {
                   </p>
                 </div>
 
+                {formData.geradoraReceita === "sim" &&
+                  formData.categoriaGeradora === "maquina" && (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Telemetria
+                      </label>
+                      <input
+                        type="text"
+                        name="telemetria"
+                        value={formData.telemetria}
+                        onChange={handleChange}
+                        className="input-field"
+                        placeholder="Digite ou selecione uma telemetria existente"
+                        list="telemetrias-existentes"
+                      />
+                      <datalist id="telemetrias-existentes">
+                        {telemetrias.map((valor) => (
+                          <option key={valor} value={valor} />
+                        ))}
+                      </datalist>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Identificador de telemetria da máquina. Digite um novo ou
+                        clique para selecionar um já usado em outra máquina.
+                      </p>
+                    </div>
+                  )}
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Capacidade Padrão *
@@ -450,44 +592,89 @@ export function MaquinaForm() {
                   </p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Valor da Ficha (R$)
-                  </label>
-                  <input
-                    type="number"
-                    name="valorFicha"
-                    value={formData.valorFicha}
-                    onChange={handleChange}
-                    className="input-field"
-                    placeholder="Ex: 2.00"
-                    min="0"
-                    step="0.01"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Valor cobrado por ficha
-                  </p>
-                </div>
+                {!(
+                  formData.geradoraReceita === "sim" &&
+                  formData.categoriaGeradora === "maquina"
+                ) && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Valor da Ficha (R$){" "}
+                      {formData.geradoraReceita === "sim" &&
+                        formData.categoriaGeradora === "trocadora" &&
+                        "*"}
+                    </label>
+                    <input
+                      type="number"
+                      name="valorFicha"
+                      value={formData.valorFicha}
+                      onChange={handleChange}
+                      className="input-field"
+                      placeholder="Ex: 2.00"
+                      min="0"
+                      step="0.01"
+                      required={
+                        formData.geradoraReceita === "sim" &&
+                        formData.categoriaGeradora === "trocadora"
+                      }
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Valor cobrado por ficha
+                    </p>
+                  </div>
+                )}
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    🎫 Quantidade de Fichas
-                  </label>
-                  <select
-                    name="modoFichas"
-                    value={formData.modoFichas}
-                    onChange={handleChange}
-                    className="select-field"
-                  >
-                    <option value="indefinido">Indefinido</option>
-                    <option value="fixada">Fixada</option>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Se a quantidade de fichas para liberar uma jogada é fixa ou ainda não definida
-                  </p>
-                </div>
+                {formData.geradoraReceita === "sim" &&
+                  formData.categoriaGeradora === "maquina" && (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Valor da Jogada (R$) *
+                      </label>
+                      <input
+                        type="number"
+                        name="valorJogada"
+                        value={formData.valorJogada}
+                        onChange={handleChange}
+                        className="input-field"
+                        placeholder="Ex: 2.00"
+                        min="0"
+                        step="0.01"
+                        required
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Valor em R$ de cada jogada, usado junto com o contador
+                        IN pra calcular quantas jogadas saíram no período
+                      </p>
+                    </div>
+                  )}
 
-                {formData.modoFichas === "fixada" && (
+                {!(
+                  formData.geradoraReceita === "sim" &&
+                  formData.categoriaGeradora === "maquina"
+                ) && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      🎫 Quantidade de Fichas
+                    </label>
+                    <select
+                      name="modoFichas"
+                      value={formData.modoFichas}
+                      onChange={handleChange}
+                      className="select-field"
+                    >
+                      <option value="indefinido">Indefinido</option>
+                      <option value="fixada">Fixada</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Se a quantidade de fichas para liberar uma jogada é fixa ou ainda não definida
+                    </p>
+                  </div>
+                )}
+
+                {formData.modoFichas === "fixada" &&
+                  !(
+                    formData.geradoraReceita === "sim" &&
+                    formData.categoriaGeradora === "maquina"
+                  ) && (
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Fichas para Jogar *
@@ -508,24 +695,29 @@ export function MaquinaForm() {
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Jogadas por pelúcia
-                  </label>
-                  <input
-                    type="number"
-                    name="jogadasBoasPorPelucia"
-                    value={formData.jogadasBoasPorPelucia}
-                    onChange={handleChange}
-                    className="input-field"
-                    placeholder="Ex: 10"
-                    min="0"
-                    step="0.01"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Regulagem técnica: quantas jogadas, em média, geram 1 pelúcia
-                  </p>
-                </div>
+                {!(
+                  formData.geradoraReceita === "sim" &&
+                  formData.categoriaGeradora === "trocadora"
+                ) && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Jogadas por pelúcia
+                    </label>
+                    <input
+                      type="number"
+                      name="jogadasBoasPorPelucia"
+                      value={formData.jogadasBoasPorPelucia}
+                      onChange={handleChange}
+                      className="input-field"
+                      placeholder="Ex: 10"
+                      min="0"
+                      step="0.01"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Regulagem técnica: quantas jogadas, em média, geram 1 pelúcia
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
