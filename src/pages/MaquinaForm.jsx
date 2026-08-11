@@ -26,6 +26,7 @@ export function MaquinaForm() {
     jogadasBoasPorPelucia: "",
     percentualAlertaEstoque: "",
     localizacao: "",
+    auditoria: "nao",
     ativo: true,
   });
 
@@ -95,6 +96,7 @@ export function MaquinaForm() {
         jogadasBoasPorPelucia: response.data.jogadasBoasPorPelucia || "",
         percentualAlertaEstoque: response.data.percentualAlertaEstoque || 20,
         localizacao: response.data.localizacao || "",
+        auditoria: response.data.auditoria ? "sim" : "nao",
         ativo: response.data.ativo !== undefined ? response.data.ativo : true,
       });
     } catch (error) {
@@ -206,6 +208,7 @@ export function MaquinaForm() {
         percentualAlertaEstoque:
           parseInt(formData.percentualAlertaEstoque, 10) || 20,
         localizacao: formData.localizacao?.trim() || null,
+        auditoria: formData.auditoria === "sim",
         ativo: formData.ativo,
       };
 
@@ -503,6 +506,21 @@ export function MaquinaForm() {
                   <p className="text-xs text-gray-500 mt-1">
                     Percentual mínimo para alerta (padrão: 20%)
                   </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Auditoria
+                  </label>
+                  <select
+                    name="auditoria"
+                    value={formData.auditoria}
+                    onChange={handleChange}
+                    className="select-field"
+                  >
+                    <option value="nao">Não</option>
+                    <option value="sim">Sim</option>
+                  </select>
                 </div>
               </div>
             </div>
