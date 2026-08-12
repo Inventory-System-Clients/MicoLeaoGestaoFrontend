@@ -33,6 +33,7 @@ import Pecas from "./pages/Pecas";
 import Envios from "./pages/Envios";
 import ConferenciaLacre from "./pages/ConferenciaLacre";
 import Compras from "./pages/Compras";
+import ContasPagar from "./pages/ContasPagar";
 import { Graficos } from "./pages/Graficos";
 import { Relatorios } from "./pages/Relatorios";
 import { RelatorioTransferenciasMaquinas } from "./pages/RelatorioTransferenciasMaquinas";
@@ -220,6 +221,14 @@ function App() {
                 ]}
               >
                 <Compras />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/contas-a-pagar"
+            element={
+              <PrivateRoute roles={["ADMIN", "DESENVOLVEDOR"]}>
+                <ContasPagar />
               </PrivateRoute>
             }
           />

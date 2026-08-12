@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
-import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
+import { AlertBox, Badge, Modal, PageHeader } from "../components/UIComponents";
 import { enviarImagemParaCloudinary } from "../utils/cloudinary";
 import { confirmar } from "../utils/alerts";
 import { filtrarLojasOperacionais } from "../utils/lojas";
@@ -40,25 +40,59 @@ const moeda = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 
+const moedaUsd = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
+
+const formatarPorMoeda = (valor, moedaCodigo) =>
+  moedaCodigo === "USD" ? moedaUsd.format(Number(valor || 0)) : moeda.format(Number(valor || 0));
+
 const numeroFormatado = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 2,
 });
 
+const TIPOS_PAGAMENTO = [
+  ["A_VISTA", "À vista"],
+  ["ANTECIPADO", "Antecipado"],
+  ["PARCELADO", "Parcelado"],
+];
+
+const FORMAS_PAGAMENTO = [
+  ["PIX", "Pix"],
+  ["DINHEIRO", "Dinheiro"],
+  ["BOLETO", "Boleto"],
+];
+
 const formInicial = {
+  fornecedorId: "",
+  moeda: "BRL",
+  tipoPagamento: "A_VISTA",
+  quantidadeParcelas: "",
+  formaPagamento: "PIX",
+  observacao: "",
+  fotoUrl: "",
+};
+
+const itemPedidoVazio = {
   tipoItem: "produto",
   itemNovo: false,
   nomeItem: "",
   produtoId: "",
   insumoId: "",
   pecaId: "",
-  fornecedorId: "",
-  lojaId: "",
-  descricaoUso: "",
+  sku: "",
   quantidade: "",
   unidade: "",
   valorUnitario: "",
-  observacao: "",
-  fotoUrl: "",
+  lojaId: "",
+  descricaoUso: "",
+};
+
+const custoAdicionalVazio = {
+  descricao: "",
+  valor: "",
+  formaPagamento: "PIX",
 };
 
 const rotuloTipoItem = (tipo) =>
@@ -155,7 +189,13 @@ export default function Compras() {
 
   const [form, setForm] = useState(formInicial);
   const [itensCompra, setItensCompra] = useState([]);
+  const [itemEmEdicao, setItemEmEdicao] = useState(itemPedidoVazio);
+  const [custosAdicionais, setCustosAdicionais] = useState([]);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const [mostrarModalParcelas, setMostrarModalParcelas] = useState(false);
+  const [compraParaGerarParcelas, setCompraParaGerarParcelas] = useState(null);
+  const [parcelasForm, setParcelasForm] = useState([]);
+  const [salvandoParcelas, setSalvandoParcelas] = useState(false);
   const [filtrosSugestao, setFiltrosSugestao] = useState({
     busca: "",
     tipo: "todos",
@@ -271,10 +311,19 @@ export default function Compras() {
   }, [authLoading, carregarDados]);
 
   const valorTotalPreview =
-    form.quantidade && form.valorUnitario
-      ? Number(form.quantidade) * Number(form.valorUnitario)
+    itemEmEdicao.quantidade && itemEmEdicao.valorUnitario
+      ? Number(itemEmEdicao.quantidade) * Number(itemEmEdicao.valorUnitario)
       : null;
-  const formTemProduto = Boolean(form.produtoId);
+  const itemEmEdicaoTemProduto = Boolean(itemEmEdicao.produtoId);
+  const valorTotalItens = itensCompra.reduce(
+    (acc, item) => acc + Number(item.quantidade || 0) * Number(item.valorUnitario || 0),
+    0,
+  );
+  const valorTotalCustos = custosAdicionais.reduce(
+    (acc, custo) => acc + Number(custo.valor || 0),
+    0,
+  );
+  const valorTotalPedidoPreview = valorTotalItens + valorTotalCustos;
 
   const obterNomeItemPorTipo = useCallback(
     (dados) => {
@@ -314,20 +363,20 @@ export default function Compras() {
     [fornecedores, obterNomeItemPorTipo],
   );
 
-  const atualizarFormComPrecoFornecedor = useCallback(
+  const atualizarItemEmEdicaoComPreco = useCallback(
     (atualizacao) => {
-      setForm((prev) => {
+      setItemEmEdicao((prev) => {
         const proximo = { ...prev, ...atualizacao };
-        const precoFornecedor = obterPrecoFornecedor(proximo.fornecedorId, proximo);
+        const precoFornecedor = obterPrecoFornecedor(form.fornecedorId, proximo);
         return precoFornecedor
           ? { ...proximo, valorUnitario: precoFornecedor }
           : proximo;
       });
     },
-    [obterPrecoFornecedor],
+    [form.fornecedorId, obterPrecoFornecedor],
   );
 
-  const precoFornecedorSelecionado = obterPrecoFornecedor(form.fornecedorId, form);
+  const precoFornecedorSelecionado = obterPrecoFornecedor(form.fornecedorId, itemEmEdicao);
 
   const comprasPorStatus = useMemo(
     () =>
@@ -504,7 +553,7 @@ export default function Compras() {
       .sort((a, b) => Number(b.comprar || 0) - Number(a.comprar || 0));
   }, [estoquesLojas, estoquesMaquinas, filtrosSugestao, insumos, lojas, maquinas, pecas]);
 
-  const montarItemCompra = (dados = form) => {
+  const montarItemPedido = (dados = itemEmEdicao) => {
     const quantidadeNumerica = Number(dados.quantidade);
     if (!dados.nomeItem?.trim()) {
       throw new Error("Informe o nome do item.");
@@ -514,27 +563,26 @@ export default function Compras() {
     }
 
     return {
+      tipoItem: dados.tipoItem === "insumo" ? "INSUMO" : dados.tipoItem === "peca" ? "PECA" : "PRODUTO",
       nomeItem: dados.nomeItem.trim(),
       produtoId: dados.produtoId || null,
       insumoId: dados.insumoId || null,
       pecaId: dados.pecaId || null,
-      fornecedorId: dados.fornecedorId || null,
+      sku: dados.sku?.trim() || null,
       lojaId: dados.lojaId || null,
       descricaoUso: dados.descricaoUso || null,
       quantidade: quantidadeNumerica,
       unidade: dados.tipoItem === "insumo" ? dados.unidade || null : "un",
       valorUnitario: dados.valorUnitario || null,
-      fotoUrl: dados.fotoUrl || null,
-      observacao: dados.observacao || null,
     };
   };
 
   const adicionarItemCompra = () => {
     try {
-      const item = montarItemCompra();
+      const item = montarItemPedido();
       setItensCompra((prev) => [...prev, { ...item, tempId: crypto.randomUUID() }]);
-      setForm(formInicial);
-      setSuccess("Item adicionado na lista da compra.");
+      setItemEmEdicao(itemPedidoVazio);
+      setSuccess("Item adicionado na lista do pedido.");
     } catch (err) {
       setError(err.message);
     }
@@ -545,6 +593,7 @@ export default function Compras() {
       ...prev,
       {
         tempId: crypto.randomUUID(),
+        tipoItem: sugestao.tipo === "peca" ? "PECA" : sugestao.tipo === "insumo" ? "INSUMO" : "PRODUTO",
         nomeItem:
           sugestao.tipo === "peca"
             ? `Peca: ${sugestao.titulo}`
@@ -554,7 +603,7 @@ export default function Compras() {
         produtoId: sugestao.produtoId || null,
         pecaId: sugestao.pecaId || null,
         insumoId: sugestao.insumoId || null,
-        fornecedorId: null,
+        sku: null,
         lojaId: sugestao.lojaId || null,
         descricaoUso:
           sugestao.tipo === "maquina"
@@ -563,8 +612,6 @@ export default function Compras() {
         quantidade: Number(sugestao.comprar || 0),
         unidade: sugestao.unidade || "un",
         valorUnitario: null,
-        fotoUrl: null,
-        observacao: `Sugestao de compra: ${sugestao.detalhe}`,
       },
     ]);
     setSecaoAtiva("novaCompra");
@@ -578,17 +625,25 @@ export default function Compras() {
     );
   };
 
-  const atualizarFornecedorItemCompra = (tempId, fornecedorId) => {
-    setItensCompra((prev) =>
-      prev.map((item) => {
-        if (item.tempId !== tempId) return item;
-        const proximo = { ...item, fornecedorId: fornecedorId || null };
-        const precoFornecedor = obterPrecoFornecedor(fornecedorId, proximo);
-        return precoFornecedor
-          ? { ...proximo, valorUnitario: precoFornecedor }
-          : proximo;
-      }),
+  const removerItemCompra = (tempId) => {
+    setItensCompra((prev) => prev.filter((item) => item.tempId !== tempId));
+  };
+
+  const adicionarCustoAdicional = () => {
+    setCustosAdicionais((prev) => [
+      ...prev,
+      { ...custoAdicionalVazio, tempId: crypto.randomUUID() },
+    ]);
+  };
+
+  const atualizarCustoAdicional = (tempId, campo, valor) => {
+    setCustosAdicionais((prev) =>
+      prev.map((custo) => (custo.tempId === tempId ? { ...custo, [campo]: valor } : custo)),
     );
+  };
+
+  const removerCustoAdicional = (tempId) => {
+    setCustosAdicionais((prev) => prev.filter((custo) => custo.tempId !== tempId));
   };
 
   const handleSelecionarFoto = async (event) => {
@@ -610,37 +665,17 @@ export default function Compras() {
   const handleCriarCompra = async (event) => {
     event.preventDefault();
 
-    if (itensCompra.length > 0) {
-      try {
-        setSubmitting(true);
-        setError("");
-        await Promise.all(
-          itensCompra.map((item) => {
-            const { tempId: _tempId, ...payload } = item;
-            return api.post("/compras", payload);
-          }),
-        );
-        setItensCompra([]);
-        setForm(formInicial);
-        setSuccess(`${itensCompra.length} itens lancados em compras.`);
-        await carregarDados();
-      } catch (err) {
-        setError(err.response?.data?.error || "Erro ao criar compras");
-      } finally {
-        setSubmitting(false);
+    if (itensCompra.length === 0) {
+      setError("Adicione ao menos um item ao pedido.");
+      return;
+    }
+
+    if (form.tipoPagamento === "PARCELADO") {
+      const quantidadeParcelasNumerica = Number(form.quantidadeParcelas);
+      if (!Number.isInteger(quantidadeParcelasNumerica) || quantidadeParcelasNumerica < 2) {
+        setError("Informe a quantidade de parcelas (mínimo 2) para pagamento parcelado.");
+        return;
       }
-      return;
-    }
-
-    if (!form.nomeItem.trim()) {
-      setError("Informe o nome do item.");
-      return;
-    }
-
-    const quantidadeNumerica = Number(form.quantidade);
-    if (!Number.isFinite(quantidadeNumerica) || quantidadeNumerica <= 0) {
-      setError("Informe uma quantidade válida (maior que zero).");
-      return;
     }
 
     if (enviandoFoto) {
@@ -652,34 +687,41 @@ export default function Compras() {
       setSubmitting(true);
       setError("");
       await api.post("/compras", {
-        nomeItem: form.nomeItem.trim(),
-        produtoId: form.produtoId || null,
-        insumoId: form.insumoId || null,
-        pecaId: form.pecaId || null,
         fornecedorId: form.fornecedorId || null,
-        lojaId: form.lojaId || null,
-        descricaoUso: form.descricaoUso || null,
-        quantidade: quantidadeNumerica,
-        unidade: form.tipoItem === "insumo" ? form.unidade || null : "un",
-        valorUnitario: form.valorUnitario || null,
+        moeda: form.moeda,
+        tipoPagamento: form.tipoPagamento || null,
+        quantidadeParcelas: form.tipoPagamento === "PARCELADO" ? Number(form.quantidadeParcelas) : null,
+        formaPagamento: form.formaPagamento || null,
         fotoUrl: form.fotoUrl || null,
         observacao: form.observacao || null,
+        itens: itensCompra.map((item) => {
+          const { tempId: _tempId, ...resto } = item;
+          return resto;
+        }),
+        custosAdicionais: custosAdicionais.map((custo) => {
+          const { tempId: _tempId, ...resto } = custo;
+          return resto;
+        }),
       });
       setForm(formInicial);
+      setItensCompra([]);
+      setItemEmEdicao(itemPedidoVazio);
+      setCustosAdicionais([]);
+      setSuccess("Pedido de compra lançado.");
       await carregarDados();
     } catch (err) {
-      setError(err.response?.data?.error || "Erro ao criar compra");
+      setError(err.response?.data?.error || "Erro ao criar pedido de compra");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleCriarEnvioDaCompra = (compra) => {
+  const handleCriarEnvioDoItem = (compra, item) => {
     navigate("/envios", {
       state: {
-        lojaDestinoId: compra.lojaId,
-        produtoId: compra.produtoId,
-        quantidade: compra.quantidade,
+        lojaDestinoId: item.lojaId,
+        produtoId: item.produtoId,
+        quantidade: item.quantidade,
       },
     });
   };
@@ -700,6 +742,73 @@ export default function Compras() {
       setSuccess(`Compra marcada como ${statusInfo.label.toLowerCase()}.`);
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao atualizar status da compra");
+    }
+  };
+
+  const abrirModalParcelas = (compra) => {
+    const quantidadeParcelas =
+      compra.tipoPagamento === "PARCELADO" ? Number(compra.quantidadeParcelas) || 1 : 1;
+    const valorBase = Number((compra.valorTotalPedido / quantidadeParcelas).toFixed(2));
+    const parcelas = Array.from({ length: quantidadeParcelas }, (_, index) => {
+      const ultima = index === quantidadeParcelas - 1;
+      const valorAcumulado = Number((valorBase * (quantidadeParcelas - 1)).toFixed(2));
+      return {
+        numeroParcela: index + 1,
+        vencimento: "",
+        valor: ultima
+          ? Number((compra.valorTotalPedido - valorAcumulado).toFixed(2))
+          : valorBase,
+        cotacaoDolar: "",
+        formaPagamento: compra.formaPagamento || "PIX",
+      };
+    });
+    setCompraParaGerarParcelas(compra);
+    setParcelasForm(parcelas);
+    setMostrarModalParcelas(true);
+  };
+
+  const atualizarParcelaForm = (index, campo, valor) => {
+    setParcelasForm((prev) =>
+      prev.map((parcela, parcelaIndex) =>
+        parcelaIndex === index ? { ...parcela, [campo]: valor } : parcela,
+      ),
+    );
+  };
+
+  const salvarParcelas = async () => {
+    if (!compraParaGerarParcelas) return;
+
+    for (const parcela of parcelasForm) {
+      if (!parcela.vencimento) {
+        setError(`Informe o vencimento da parcela ${parcela.numeroParcela}.`);
+        return;
+      }
+      if (!Number(parcela.valor) || Number(parcela.valor) <= 0) {
+        setError(`Informe um valor válido para a parcela ${parcela.numeroParcela}.`);
+        return;
+      }
+    }
+
+    try {
+      setSalvandoParcelas(true);
+      setError("");
+      await api.post(`/compras/${compraParaGerarParcelas.id}/contas-pagar`, {
+        parcelas: parcelasForm.map((parcela) => ({
+          numeroParcela: parcela.numeroParcela,
+          vencimento: parcela.vencimento,
+          valor: Number(parcela.valor),
+          cotacaoDolar: parcela.cotacaoDolar ? Number(parcela.cotacaoDolar) : null,
+          formaPagamento: parcela.formaPagamento,
+        })),
+      });
+      setMostrarModalParcelas(false);
+      setCompraParaGerarParcelas(null);
+      setSuccess("Contas a pagar geradas.");
+      await carregarDados();
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao gerar contas a pagar");
+    } finally {
+      setSalvandoParcelas(false);
     }
   };
 
@@ -727,7 +836,7 @@ export default function Compras() {
 
       const agrupado = new Map();
       registros.forEach((registro) => {
-        const chave = registro.fornecedor?.nome || "Sem fornecedor";
+        const chave = registro.compra?.fornecedor?.nome || "Sem fornecedor";
         if (!agrupado.has(chave)) agrupado.set(chave, []);
         agrupado.get(chave).push(registro);
       });
@@ -1206,138 +1315,10 @@ export default function Compras() {
         {secaoAtiva === "novaCompra" && (
           <>
         <form onSubmit={handleCriarCompra} className="card">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">Nova compra</h2>
+          <h2 className="mb-3 text-lg font-semibold text-gray-900">Novo pedido de compra</h2>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="md:col-span-3">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Tipo de item
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  ["produto", "Produto"],
-                  ["insumo", "Insumo"],
-                  ["peca", "Peça"],
-                ].map(([value, label]) => {
-                  const ativo = form.tipoItem === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() =>
-                        setForm((prev) => ({
-                          ...prev,
-                          tipoItem: value,
-                          produtoId: "",
-                          insumoId: "",
-                          pecaId: "",
-                          nomeItem: "",
-                          lojaId: value === "produto" ? prev.lojaId : "",
-                          descricaoUso: value === "produto" ? prev.descricaoUso : "",
-                        }))
-                      }
-                      className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
-                        ativo
-                          ? "border-primary bg-primary text-white shadow-sm"
-                          : "border-orange-200 bg-white text-gray-700 hover:bg-orange-100"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="md:col-span-3">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={form.itemNovo}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      itemNovo: e.target.checked,
-                      produtoId: "",
-                      insumoId: "",
-                      pecaId: "",
-                      nomeItem: "",
-                    }))
-                  }
-                />
-                Este {rotuloTipoItem(form.tipoItem)} ainda não existe no catálogo (cadastrar novo)
-              </label>
-            </div>
-
-            {form.itemNovo ? (
-              <div className="md:col-span-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Nome do {rotuloTipoItem(form.tipoItem)} novo
-                </label>
-                <input
-                  value={form.nomeItem}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, nomeItem: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                  placeholder="Ex: Pelúcia urso 30cm"
-                />
-              </div>
-            ) : (
-              <div className="md:col-span-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {form.tipoItem === "produto"
-                    ? "Produto"
-                    : form.tipoItem === "insumo"
-                      ? "Insumo"
-                      : "Peça"}{" "}
-                  do catálogo
-                </label>
-                <select
-                  value={
-                    form.tipoItem === "produto"
-                      ? form.produtoId
-                      : form.tipoItem === "insumo"
-                        ? form.insumoId
-                        : form.pecaId
-                  }
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    const lista =
-                      form.tipoItem === "produto"
-                        ? produtos
-                        : form.tipoItem === "insumo"
-                          ? insumos
-                          : pecas;
-                    const selecionado = lista.find((item) => item.id === id);
-                    atualizarFormComPrecoFornecedor({
-                      produtoId: form.tipoItem === "produto" ? id : "",
-                      insumoId: form.tipoItem === "insumo" ? id : "",
-                      pecaId: form.tipoItem === "peca" ? id : "",
-                      nomeItem: selecionado?.nome || "",
-                      lojaId: form.tipoItem === "produto" ? form.lojaId : "",
-                      descricaoUso:
-                        form.tipoItem === "produto" ? form.descricaoUso : "",
-                    });
-                  }}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  <option value="">Selecione...</option>
-                  {(form.tipoItem === "produto"
-                    ? produtos
-                    : form.tipoItem === "insumo"
-                      ? insumos
-                      : pecas
-                  ).map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div>
+            <div className="md:col-span-2">
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Fornecedor
               </label>
@@ -1346,7 +1327,7 @@ export default function Compras() {
                   <select
                     value={form.fornecedorId}
                     onChange={(e) =>
-                      atualizarFormComPrecoFornecedor({ fornecedorId: e.target.value })
+                      setForm((prev) => ({ ...prev, fornecedorId: e.target.value }))
                     }
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
                   >
@@ -1443,112 +1424,112 @@ export default function Compras() {
               )}
             </div>
 
-            <div className={formTemProduto ? "" : "hidden"}>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Loja onde será usado (opcional)
-              </label>
-              <select
-                value={form.lojaId}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, lojaId: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              >
-                <option value="">Nenhuma</option>
-                {lojas.map((loja) => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </option>
-                ))}
-              </select>
-              {form.lojaId && (
-                <p className="mt-1 text-xs text-gray-500">
-                  Ao marcar como "Recebido" o produto entra no Depósito
-                  Principal; a ida até a loja é feita depois por um envio com
-                  lacre.
-                </p>
-              )}
-            </div>
-
-            <div className={formTemProduto ? "" : "hidden"}>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Onde será usado (detalhe)
-              </label>
-              <input
-                value={form.descricaoUso}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, descricaoUso: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                placeholder="Ex: Máquina 5, Fabricação de pelúcia..."
-              />
-            </div>
-
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                Quantidade
+                Moeda
               </label>
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={form.quantidade}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, quantidade: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              />
+              <div className="flex gap-2">
+                {[
+                  ["BRL", "R$ (BRL)"],
+                  ["USD", "US$ (USD)"],
+                ].map(([value, label]) => {
+                  const ativo = form.moeda === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, moeda: value }))}
+                      className={`flex-1 rounded-lg border px-3 py-2 text-sm font-bold transition ${
+                        ativo
+                          ? "border-primary bg-primary text-white shadow-sm"
+                          : "border-orange-200 bg-white text-gray-700 hover:bg-orange-100"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="md:col-span-3">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Previsão de pagamento
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {TIPOS_PAGAMENTO.map(([value, label]) => {
+                  const ativo = form.tipoPagamento === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          tipoPagamento: value,
+                          quantidadeParcelas: value === "PARCELADO" ? prev.quantidadeParcelas : "",
+                        }))
+                      }
+                      className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+                        ativo
+                          ? "border-primary bg-primary text-white shadow-sm"
+                          : "border-orange-200 bg-white text-gray-700 hover:bg-orange-100"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Unidade
-              </label>
-              {form.tipoItem === "insumo" ? (
+            {form.tipoPagamento === "PARCELADO" && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Quantidade de parcelas
+                </label>
                 <input
-                  value={form.unidade}
+                  type="number"
+                  min="2"
+                  step="1"
+                  value={form.quantidadeParcelas}
                   onChange={(e) =>
-                    setForm((prev) => ({ ...prev, unidade: e.target.value }))
+                    setForm((prev) => ({ ...prev, quantidadeParcelas: e.target.value }))
                   }
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                  placeholder="Ex: kg, m, litro"
                 />
-              ) : (
-                <input
-                  value="un"
-                  disabled
-                  className="w-full cursor-not-allowed rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-gray-500 outline-none"
-                />
-              )}
-            </div>
+              </div>
+            )}
 
-            <div>
+            <div className={form.tipoPagamento === "PARCELADO" ? "md:col-span-2" : "md:col-span-3"}>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                Valor unitário (R$)
+                Forma de pagamento
               </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.valorUnitario}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, valorUnitario: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              />
-              {valorTotalPreview !== null && (
-                <p className="mt-1 text-xs text-gray-500">
-                  Valor total: {formatarMoeda(valorTotalPreview)}
-                </p>
-              )}
-              {precoFornecedorSelecionado && (
-                <p className="mt-1 text-xs font-semibold text-green-700">
-                  Preco do fornecedor aplicado:{" "}
-                  {formatarMoeda(precoFornecedorSelecionado)}
-                </p>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {FORMAS_PAGAMENTO.map(([value, label]) => {
+                  const ativo = form.formaPagamento === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, formaPagamento: value }))}
+                      className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+                        ativo
+                          ? "border-primary bg-primary text-white shadow-sm"
+                          : "border-orange-200 bg-white text-gray-700 hover:bg-orange-100"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+          </div>
 
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="md:col-span-2">
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Foto (nota/orçamento/produto)
@@ -1592,167 +1573,429 @@ export default function Compras() {
           </div>
 
           <div className="mt-4 rounded-lg border border-orange-100 bg-orange-50 p-3">
+            <h3 className="text-sm font-bold text-gray-900">Itens do pedido</h3>
+            <p className="mb-3 text-xs text-gray-600">
+              Adicione produtos, insumos ou peças. Cada item pode vir do catálogo ou ser novo.
+            </p>
+
+            <div className="grid grid-cols-1 gap-3 rounded-lg border border-orange-200 bg-white p-3 md:grid-cols-3">
+              <div className="md:col-span-3">
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Tipo de item
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    ["produto", "Produto"],
+                    ["insumo", "Insumo"],
+                    ["peca", "Peça"],
+                  ].map(([value, label]) => {
+                    const ativo = itemEmEdicao.tipoItem === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() =>
+                          setItemEmEdicao((prev) => ({
+                            ...itemPedidoVazio,
+                            tipoItem: value,
+                            itemNovo: prev.itemNovo,
+                          }))
+                        }
+                        className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+                          ativo
+                            ? "border-primary bg-primary text-white shadow-sm"
+                            : "border-orange-200 bg-white text-gray-700 hover:bg-orange-100"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="md:col-span-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={itemEmEdicao.itemNovo}
+                    onChange={(e) =>
+                      setItemEmEdicao((prev) => ({
+                        ...prev,
+                        itemNovo: e.target.checked,
+                        produtoId: "",
+                        insumoId: "",
+                        pecaId: "",
+                        nomeItem: "",
+                      }))
+                    }
+                  />
+                  Este {rotuloTipoItem(itemEmEdicao.tipoItem)} ainda não existe no catálogo (cadastrar novo)
+                </label>
+              </div>
+
+              {itemEmEdicao.itemNovo ? (
+                <div className="md:col-span-3">
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Nome do {rotuloTipoItem(itemEmEdicao.tipoItem)} novo
+                  </label>
+                  <input
+                    value={itemEmEdicao.nomeItem}
+                    onChange={(e) =>
+                      setItemEmEdicao((prev) => ({ ...prev, nomeItem: e.target.value }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                    placeholder="Ex: Pelúcia urso 30cm"
+                  />
+                </div>
+              ) : (
+                <div className="md:col-span-3">
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    {itemEmEdicao.tipoItem === "produto"
+                      ? "Produto"
+                      : itemEmEdicao.tipoItem === "insumo"
+                        ? "Insumo"
+                        : "Peça"}{" "}
+                    do catálogo
+                  </label>
+                  <select
+                    value={
+                      itemEmEdicao.tipoItem === "produto"
+                        ? itemEmEdicao.produtoId
+                        : itemEmEdicao.tipoItem === "insumo"
+                          ? itemEmEdicao.insumoId
+                          : itemEmEdicao.pecaId
+                    }
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      const lista =
+                        itemEmEdicao.tipoItem === "produto"
+                          ? produtos
+                          : itemEmEdicao.tipoItem === "insumo"
+                            ? insumos
+                            : pecas;
+                      const selecionado = lista.find((item) => item.id === id);
+                      atualizarItemEmEdicaoComPreco({
+                        produtoId: itemEmEdicao.tipoItem === "produto" ? id : "",
+                        insumoId: itemEmEdicao.tipoItem === "insumo" ? id : "",
+                        pecaId: itemEmEdicao.tipoItem === "peca" ? id : "",
+                        nomeItem: selecionado?.nome || "",
+                      });
+                    }}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                  >
+                    <option value="">Selecione...</option>
+                    {(itemEmEdicao.tipoItem === "produto"
+                      ? produtos
+                      : itemEmEdicao.tipoItem === "insumo"
+                        ? insumos
+                        : pecas
+                    ).map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  SKU (opcional)
+                </label>
+                <input
+                  value={itemEmEdicao.sku}
+                  onChange={(e) =>
+                    setItemEmEdicao((prev) => ({ ...prev, sku: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Quantidade
+                </label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={itemEmEdicao.quantidade}
+                  onChange={(e) =>
+                    setItemEmEdicao((prev) => ({ ...prev, quantidade: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Unidade
+                </label>
+                {itemEmEdicao.tipoItem === "insumo" ? (
+                  <input
+                    value={itemEmEdicao.unidade}
+                    onChange={(e) =>
+                      setItemEmEdicao((prev) => ({ ...prev, unidade: e.target.value }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                    placeholder="Ex: kg, m, litro"
+                  />
+                ) : (
+                  <input
+                    value="un"
+                    disabled
+                    className="w-full cursor-not-allowed rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-gray-500 outline-none"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Valor unitário
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={itemEmEdicao.valorUnitario}
+                  onChange={(e) =>
+                    setItemEmEdicao((prev) => ({ ...prev, valorUnitario: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                />
+                {valorTotalPreview !== null && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Valor do item: {formatarPorMoeda(valorTotalPreview, form.moeda)}
+                  </p>
+                )}
+                {precoFornecedorSelecionado && (
+                  <p className="mt-1 text-xs font-semibold text-green-700">
+                    Preco do fornecedor aplicado:{" "}
+                    {formatarPorMoeda(precoFornecedorSelecionado, form.moeda)}
+                  </p>
+                )}
+              </div>
+
+              {itemEmEdicaoTemProduto && (
+                <>
+                  <div>
+                    <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                      Loja onde será usado (opcional)
+                    </label>
+                    <select
+                      value={itemEmEdicao.lojaId}
+                      onChange={(e) =>
+                        setItemEmEdicao((prev) => ({ ...prev, lojaId: e.target.value }))
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                    >
+                      <option value="">Nenhuma</option>
+                      {lojas.map((loja) => (
+                        <option key={loja.id} value={loja.id}>
+                          {loja.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                      Onde será usado (detalhe)
+                    </label>
+                    <input
+                      value={itemEmEdicao.descricaoUso}
+                      onChange={(e) =>
+                        setItemEmEdicao((prev) => ({ ...prev, descricaoUso: e.target.value }))
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                      placeholder="Ex: Máquina 5, Fabricação de pelúcia..."
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="md:col-span-3 flex justify-end">
+                <button
+                  type="button"
+                  className="btn-secondary px-4 py-2 text-sm"
+                  onClick={adicionarItemCompra}
+                >
+                  + Adicionar item na lista
+                </button>
+              </div>
+            </div>
+
+            {itensCompra.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {itensCompra.map((item) => (
+                  <div
+                    key={item.tempId}
+                    className="rounded-lg border border-orange-200 bg-white p-3 text-sm"
+                  >
+                    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-bold text-gray-900">
+                          {item.nomeItem}
+                          {item.sku ? ` (${item.sku})` : ""}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {item.tipoItem} — {[item.loja?.nome, item.descricaoUso]
+                            .filter(Boolean)
+                            .join(" — ") || "Sem destino definido"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-danger px-3 py-2 text-xs"
+                        onClick={() => removerItemCompra(item.tempId)}
+                      >
+                        Remover
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                          Quantidade
+                        </label>
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={item.quantidade || ""}
+                          onChange={(e) =>
+                            atualizarItemCompra(item.tempId, "quantidade", e.target.value)
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                          Unidade
+                        </label>
+                        <input
+                          value={item.unidade || ""}
+                          onChange={(e) =>
+                            atualizarItemCompra(item.tempId, "unidade", e.target.value)
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                          Valor unitário
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.valorUnitario || ""}
+                          onChange={(e) =>
+                            atualizarItemCompra(item.tempId, "valorUnitario", e.target.value)
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-right text-sm font-bold text-gray-700">
+                  Total dos itens: {formatarPorMoeda(valorTotalItens, form.moeda)}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 rounded-lg border border-orange-100 bg-orange-50 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-sm font-bold text-gray-900">
-                  Lista desta compra
-                </h3>
+                <h3 className="text-sm font-bold text-gray-900">Custos adicionais</h3>
                 <p className="text-xs text-gray-600">
-                  Adicione varios itens. Cada item pode ter seu proprio fornecedor.
+                  Frete, impostos, taxas... cada um com sua forma de pagamento.
                 </p>
               </div>
               <button
                 type="button"
                 className="btn-secondary px-4 py-2 text-sm"
-                onClick={adicionarItemCompra}
+                onClick={adicionarCustoAdicional}
               >
-                + Adicionar item
+                + Adicionar custo
               </button>
             </div>
 
-            {itensCompra.length > 0 && (
+            {custosAdicionais.length > 0 && (
               <div className="mt-3 space-y-2">
-                {itensCompra.map((item) => {
-                  const fornecedor = fornecedores.find(
-                    (fornecedorItem) => fornecedorItem.id === item.fornecedorId,
-                  );
-                  return (
-                    <div
-                      key={item.tempId}
-                      className="rounded-lg border border-orange-200 bg-white p-3 text-sm"
-                    >
-                      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="font-bold text-gray-900">{item.nomeItem}</p>
-                          <p className="text-xs text-gray-600">
-                            {fornecedor?.nome || "Sem fornecedor definido"}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn-danger px-3 py-2 text-xs"
-                          onClick={() =>
-                            setItensCompra((prev) =>
-                              prev.filter((itemLista) => itemLista.tempId !== item.tempId),
-                            )
-                          }
-                        >
-                          Remover
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-                        <div className="md:col-span-2">
-                          <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                            Fornecedor
-                          </label>
-                          <select
-                            value={item.fornecedorId || ""}
-                            onChange={(e) =>
-                              atualizarFornecedorItemCompra(item.tempId, e.target.value)
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                          >
-                            <option value="">Selecione...</option>
-                            {fornecedores.map((fornecedorItem) => (
-                              <option key={fornecedorItem.id} value={fornecedorItem.id}>
-                                {fornecedorItem.nome}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                            Quantidade
-                          </label>
-                          <input
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            value={item.quantidade || ""}
-                            onChange={(e) =>
-                              atualizarItemCompra(item.tempId, "quantidade", e.target.value)
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                            Unidade
-                          </label>
-                          <input
-                            value={item.unidade || ""}
-                            onChange={(e) =>
-                              atualizarItemCompra(item.tempId, "unidade", e.target.value)
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                            Valor un.
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.valorUnitario || ""}
-                            onChange={(e) =>
-                              atualizarItemCompra(
-                                item.tempId,
-                                "valorUnitario",
-                                e.target.value,
-                              )
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                          />
-                        </div>
-                        <div className={item.produtoId ? "md:col-span-2" : "hidden"}>
-                          <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                            Loja destino
-                          </label>
-                          <select
-                            value={item.lojaId || ""}
-                            onChange={(e) =>
-                              atualizarItemCompra(item.tempId, "lojaId", e.target.value)
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                          >
-                            <option value="">Nenhuma</option>
-                            {lojas.map((loja) => (
-                              <option key={loja.id} value={loja.id}>
-                                {loja.nome}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="md:col-span-3">
-                          <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                            Observacao
-                          </label>
-                          <input
-                            value={item.observacao || ""}
-                            onChange={(e) =>
-                              atualizarItemCompra(item.tempId, "observacao", e.target.value)
-                            }
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                          />
-                        </div>
-                      </div>
+                {custosAdicionais.map((custo) => (
+                  <div
+                    key={custo.tempId}
+                    className="grid grid-cols-1 gap-3 rounded-lg border border-orange-200 bg-white p-3 md:grid-cols-4"
+                  >
+                    <div className="md:col-span-2">
+                      <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                        Descrição
+                      </label>
+                      <input
+                        value={custo.descricao}
+                        onChange={(e) =>
+                          atualizarCustoAdicional(custo.tempId, "descricao", e.target.value)
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                        placeholder="Ex: Frete"
+                      />
                     </div>
-                  );
-                })}
+                    <div>
+                      <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                        Valor
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={custo.valor}
+                        onChange={(e) =>
+                          atualizarCustoAdicional(custo.tempId, "valor", e.target.value)
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <select
+                        value={custo.formaPagamento}
+                        onChange={(e) =>
+                          atualizarCustoAdicional(custo.tempId, "formaPagamento", e.target.value)
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                      >
+                        {FORMAS_PAGAMENTO.map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="btn-danger px-3 py-2 text-xs"
+                        onClick={() => removerCustoAdicional(custo.tempId)}
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-base font-bold text-gray-900">
+              Total do pedido: {formatarPorMoeda(valorTotalPedidoPreview, form.moeda)}
+            </p>
             <button
               type="submit"
               disabled={submitting}
               className="btn-primary disabled:opacity-60"
             >
-              {submitting ? "Salvando..." : "Lançar compra"}
+              {submitting ? "Salvando..." : "Lançar pedido"}
             </button>
           </div>
         </form>
@@ -1930,28 +2173,61 @@ export default function Compras() {
                     key={compra.id}
                     className="rounded-lg border border-gray-200 p-4"
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-base font-semibold text-gray-900">
-                        {compra.nomeItem}
-                      </h3>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-semibold text-gray-900">
+                          {compra.fornecedor?.nome || "Sem fornecedor"}
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          {compra.moeda} · {compra.itens?.length || 0} item(ns)
+                          {compra.tipoPagamento
+                            ? ` · ${TIPOS_PAGAMENTO.find(([v]) => v === compra.tipoPagamento)?.[1] || compra.tipoPagamento}`
+                            : ""}
+                          {compra.formaPagamento
+                            ? ` · ${FORMAS_PAGAMENTO.find(([v]) => v === compra.formaPagamento)?.[1] || compra.formaPagamento}`
+                            : ""}
+                        </p>
+                      </div>
                       <Badge variant={statusInfo.variant} size="sm">
                         {statusInfo.label}
                       </Badge>
                     </div>
 
+                    <div className="mt-3 space-y-1 rounded-lg border border-slate-100 bg-slate-50 p-2">
+                      {(compra.itens || []).map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-700"
+                        >
+                          <span>
+                            {item.nomeItem}
+                            {item.sku ? ` (${item.sku})` : ""} — {item.quantidade}{" "}
+                            {item.unidade || "un"} ×{" "}
+                            {formatarPorMoeda(item.valorUnitario, compra.moeda)}
+                          </span>
+                          <span className="font-semibold">
+                            {formatarPorMoeda(item.valorTotal, compra.moeda)}
+                          </span>
+                        </div>
+                      ))}
+                      {compra.custosAdicionais?.length > 0 && (
+                        <div className="mt-1 border-t border-slate-200 pt-1">
+                          {compra.custosAdicionais.map((custo) => (
+                            <p key={custo.id} className="text-xs text-gray-600">
+                              + {custo.descricao}: {formatarPorMoeda(custo.valor, compra.moeda)} (
+                              {FORMAS_PAGAMENTO.find(([v]) => v === custo.formaPagamento)?.[1] ||
+                                custo.formaPagamento}
+                              )
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      <p className="pt-1 text-right text-sm font-bold text-gray-900">
+                        Total: {formatarPorMoeda(compra.valorTotalPedido, compra.moeda)}
+                      </p>
+                    </div>
+
                     <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-gray-600 sm:grid-cols-2">
-                      <p>
-                        Quantidade: {compra.quantidade} {compra.unidade || ""}
-                      </p>
-                      <p>Fornecedor: {compra.fornecedor?.nome || "-"}</p>
-                      <p>Valor unitário: {formatarMoeda(compra.valorUnitario)}</p>
-                      <p>Valor total: {formatarMoeda(compra.valorTotal)}</p>
-                      <p>
-                        Onde será usado:{" "}
-                        {[compra.loja?.nome, compra.descricaoUso]
-                          .filter(Boolean)
-                          .join(" — ") || "-"}
-                      </p>
                       <p>Criado por: {compra.criadoPor?.nome || "-"}</p>
                       {compra.dataCompra && (
                         <p>
@@ -1983,17 +2259,19 @@ export default function Compras() {
                     )}
 
                     {statusAtual === "RECEBIDO" &&
-                      compra.produtoId &&
-                      compra.lojaId && (
-                        <button
-                          type="button"
-                          onClick={() => handleCriarEnvioDaCompra(compra)}
-                          className="mt-3 text-sm font-bold text-primary hover:text-primary/80"
-                        >
-                          Está no Depósito Principal — criar envio com lacre
-                          para {compra.loja?.nome} →
-                        </button>
-                      )}
+                      (compra.itens || [])
+                        .filter((item) => item.produtoId && item.lojaId)
+                        .map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleCriarEnvioDoItem(compra, item)}
+                            className="mt-2 block text-sm font-bold text-primary hover:text-primary/80"
+                          >
+                            {item.nomeItem}: está no Depósito Principal — criar envio com
+                            lacre para {item.loja?.nome} →
+                          </button>
+                        ))}
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       {statusAtual === "PESQUISANDO" && (
@@ -2018,6 +2296,19 @@ export default function Compras() {
                         <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
                           Compra finalizada
                         </span>
+                      )}
+                      {compra.contasPagar?.length > 0 ? (
+                        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                          Contas a pagar geradas ({compra.contasPagar.length})
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => abrirModalParcelas(compra)}
+                          className="btn-secondary px-4 py-2 text-sm"
+                        >
+                          Gerar contas a pagar
+                        </button>
                       )}
                     </div>
                   </div>
@@ -2068,7 +2359,7 @@ export default function Compras() {
                     <ul className="mt-1 space-y-1 text-xs text-gray-600">
                       {registros.map((registro) => (
                         <li key={registro.id}>
-                          {registro.dataCompra || "-"} — {registro.nomeItem}:{" "}
+                          {registro.compra?.dataCompra || "-"} — {registro.nomeItem}:{" "}
                           {formatarMoeda(registro.valorUnitario)} / {registro.unidade || "un"}
                         </li>
                       ))}
@@ -2437,6 +2728,112 @@ export default function Compras() {
         </div>
           </>
         )}
+
+        <Modal
+          isOpen={mostrarModalParcelas}
+          onClose={() => {
+            setMostrarModalParcelas(false);
+            setCompraParaGerarParcelas(null);
+          }}
+          title="Gerar contas a pagar"
+          size="md"
+        >
+          {compraParaGerarParcelas && (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">
+                Pedido de {compraParaGerarParcelas.fornecedor?.nome || "fornecedor"} — total{" "}
+                {formatarPorMoeda(
+                  compraParaGerarParcelas.valorTotalPedido,
+                  compraParaGerarParcelas.moeda,
+                )}
+              </p>
+
+              {parcelasForm.map((parcela, index) => (
+                <div
+                  key={parcela.numeroParcela}
+                  className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-4"
+                >
+                  <p className="sm:col-span-4 text-xs font-bold uppercase text-gray-500">
+                    Parcela {parcela.numeroParcela}/{parcelasForm.length}
+                  </p>
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-500">Vencimento</label>
+                    <input
+                      type="date"
+                      value={parcela.vencimento}
+                      onChange={(e) => atualizarParcelaForm(index, "vencimento", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-500">Valor</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={parcela.valor}
+                      onChange={(e) => atualizarParcelaForm(index, "valor", e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  {compraParaGerarParcelas.moeda === "USD" && (
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-500">Cotação US$→R$</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.0001"
+                        value={parcela.cotacaoDolar}
+                        onChange={(e) =>
+                          atualizarParcelaForm(index, "cotacaoDolar", e.target.value)
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                        placeholder="Ex: 5.35"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-500">Forma de pagamento</label>
+                    <select
+                      value={parcela.formaPagamento}
+                      onChange={(e) =>
+                        atualizarParcelaForm(index, "formaPagamento", e.target.value)
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                    >
+                      {FORMAS_PAGAMENTO.map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  className="btn-secondary px-4 py-2 text-sm"
+                  onClick={() => {
+                    setMostrarModalParcelas(false);
+                    setCompraParaGerarParcelas(null);
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary px-4 py-2 text-sm disabled:opacity-60"
+                  disabled={salvandoParcelas}
+                  onClick={salvarParcelas}
+                >
+                  {salvandoParcelas ? "Salvando..." : "Gerar contas a pagar"}
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
 
         {mostrarModalFornecedor && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 sm:p-4">

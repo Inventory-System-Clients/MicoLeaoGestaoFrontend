@@ -111,6 +111,12 @@ export function Navbar() {
           icon: "🧾",
           roles: ADMIN_ROLES,
         },
+        {
+          to: "/contas-a-pagar",
+          label: "Contas a Pagar",
+          icon: "💳",
+          roles: ADMIN_ROLES,
+        },
       ],
     },
     {
