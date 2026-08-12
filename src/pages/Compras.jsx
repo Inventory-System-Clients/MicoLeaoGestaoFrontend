@@ -748,7 +748,7 @@ export default function Compras() {
   const abrirModalParcelas = (compra) => {
     const quantidadeParcelas =
       compra.tipoPagamento === "PARCELADO" ? Number(compra.quantidadeParcelas) || 1 : 1;
-    const valorBase = Number((compra.valorTotalPedido / quantidadeParcelas).toFixed(2));
+    const valorBase = Number((compra.valorGeralPedido / quantidadeParcelas).toFixed(2));
     const parcelas = Array.from({ length: quantidadeParcelas }, (_, index) => {
       const ultima = index === quantidadeParcelas - 1;
       const valorAcumulado = Number((valorBase * (quantidadeParcelas - 1)).toFixed(2));
@@ -756,7 +756,7 @@ export default function Compras() {
         numeroParcela: index + 1,
         vencimento: "",
         valor: ultima
-          ? Number((compra.valorTotalPedido - valorAcumulado).toFixed(2))
+          ? Number((compra.valorGeralPedido - valorAcumulado).toFixed(2))
           : valorBase,
         cotacaoDolar: "",
         formaPagamento: compra.formaPagamento || "PIX",
@@ -2223,7 +2223,7 @@ export default function Compras() {
                         </div>
                       )}
                       <p className="pt-1 text-right text-sm font-bold text-gray-900">
-                        Total: {formatarPorMoeda(compra.valorTotalPedido, compra.moeda)}
+                        Total: {formatarPorMoeda(compra.valorGeralPedido, compra.moeda)}
                       </p>
                     </div>
 
@@ -2743,7 +2743,7 @@ export default function Compras() {
               <p className="text-sm text-gray-600">
                 Pedido de {compraParaGerarParcelas.fornecedor?.nome || "fornecedor"} — total{" "}
                 {formatarPorMoeda(
-                  compraParaGerarParcelas.valorTotalPedido,
+                  compraParaGerarParcelas.valorGeralPedido,
                   compraParaGerarParcelas.moeda,
                 )}
               </p>
