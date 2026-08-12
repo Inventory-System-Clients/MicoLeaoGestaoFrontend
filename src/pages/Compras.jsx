@@ -91,6 +91,13 @@ const fornecedorFormVazio = {
   anexos: [],
 };
 
+const fornecedorInlineVazio = {
+  nome: "",
+  contato: "",
+  telefoneWhatsapp: "",
+  cidade: "",
+};
+
 const hojeISO = () => {
   const hoje = new Date();
   const ano = hoje.getFullYear();
@@ -170,6 +177,9 @@ export default function Compras() {
   const [mostrarModalFornecedor, setMostrarModalFornecedor] = useState(false);
   const [editandoFornecedor, setEditandoFornecedor] = useState(null);
   const [formFornecedor, setFormFornecedor] = useState(fornecedorFormVazio);
+  const [mostrarNovoFornecedorInline, setMostrarNovoFornecedorInline] = useState(false);
+  const [novoFornecedorInline, setNovoFornecedorInline] = useState(fornecedorInlineVazio);
+  const [salvandoFornecedorInline, setSalvandoFornecedorInline] = useState(false);
   const [secaoAtiva, setSecaoAtiva] = useState("novaCompra");
   const filtrosComprasIniciais = useMemo(
     () => ({
@@ -727,6 +737,41 @@ export default function Compras() {
       setError(err.response?.data?.error || "Erro ao buscar histórico de preços");
     } finally {
       setBuscandoHistorico(false);
+    }
+  };
+
+  const criarFornecedorInline = async () => {
+    if (!novoFornecedorInline.nome.trim()) {
+      setError("Informe o nome do fornecedor.");
+      return;
+    }
+
+    try {
+      setSalvandoFornecedorInline(true);
+      setError("");
+      const response = await api.post("/fornecedores", {
+        nome: novoFornecedorInline.nome.trim(),
+        contato: novoFornecedorInline.contato.trim() || null,
+        telefoneWhatsapp: novoFornecedorInline.telefoneWhatsapp.trim() || null,
+        cidade: novoFornecedorInline.cidade.trim() || null,
+        ativo: true,
+        produtos: [],
+        anexos: [],
+      });
+      const fornecedorCriado = response.data;
+      setFornecedores((prev) =>
+        [...prev, fornecedorCriado].sort((a, b) =>
+          String(a.nome || "").localeCompare(String(b.nome || "")),
+        ),
+      );
+      setForm((prev) => ({ ...prev, fornecedorId: fornecedorCriado.id }));
+      setNovoFornecedorInline(fornecedorInlineVazio);
+      setMostrarNovoFornecedorInline(false);
+      setSuccess("Fornecedor cadastrado.");
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao cadastrar fornecedor.");
+    } finally {
+      setSalvandoFornecedorInline(false);
     }
   };
 
@@ -1296,26 +1341,106 @@ export default function Compras() {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Fornecedor
               </label>
-              <select
-                value={form.fornecedorId}
-                onChange={(e) =>
-                  atualizarFormComPrecoFornecedor({ fornecedorId: e.target.value })
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              >
-                <option value="">Selecione...</option>
-                {fornecedores.map((fornecedor) => (
-                  <option key={fornecedor.id} value={fornecedor.id}>
-                    {fornecedor.nome}
-                  </option>
-                ))}
-              </select>
-              <a
-                href="#fornecedores"
-                className="mt-1 inline-block text-xs font-bold text-primary hover:text-primary/80"
-              >
-                Ver fornecedores e comparar preços ↓
-              </a>
+              {!mostrarNovoFornecedorInline ? (
+                <>
+                  <select
+                    value={form.fornecedorId}
+                    onChange={(e) =>
+                      atualizarFormComPrecoFornecedor({ fornecedorId: e.target.value })
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                  >
+                    <option value="">Selecione...</option>
+                    {fornecedores.map((fornecedor) => (
+                      <option key={fornecedor.id} value={fornecedor.id}>
+                        {fornecedor.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="mt-1 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setMostrarNovoFornecedorInline(true)}
+                      className="text-xs font-bold text-primary hover:text-primary/80"
+                    >
+                      + Cadastrar novo fornecedor
+                    </button>
+                    <a
+                      href="#fornecedores"
+                      className="text-xs font-bold text-primary hover:text-primary/80"
+                    >
+                      Ver fornecedores e comparar preços ↓
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-2 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                  <input
+                    value={novoFornecedorInline.nome}
+                    onChange={(e) =>
+                      setNovoFornecedorInline((prev) => ({
+                        ...prev,
+                        nome: e.target.value,
+                      }))
+                    }
+                    placeholder="Nome do fornecedor"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  />
+                  <input
+                    value={novoFornecedorInline.contato}
+                    onChange={(e) =>
+                      setNovoFornecedorInline((prev) => ({
+                        ...prev,
+                        contato: e.target.value,
+                      }))
+                    }
+                    placeholder="Contato (opcional)"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  />
+                  <input
+                    value={novoFornecedorInline.telefoneWhatsapp}
+                    onChange={(e) =>
+                      setNovoFornecedorInline((prev) => ({
+                        ...prev,
+                        telefoneWhatsapp: e.target.value,
+                      }))
+                    }
+                    placeholder="Telefone/WhatsApp (opcional)"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  />
+                  <input
+                    value={novoFornecedorInline.cidade}
+                    onChange={(e) =>
+                      setNovoFornecedorInline((prev) => ({
+                        ...prev,
+                        cidade: e.target.value,
+                      }))
+                    }
+                    placeholder="Cidade (opcional)"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={criarFornecedorInline}
+                      disabled={salvandoFornecedorInline}
+                      className="btn-primary px-3 py-2 text-xs disabled:opacity-60"
+                    >
+                      {salvandoFornecedorInline ? "Salvando..." : "Salvar fornecedor"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMostrarNovoFornecedorInline(false);
+                        setNovoFornecedorInline(fornecedorInlineVazio);
+                      }}
+                      className="btn-secondary px-3 py-2 text-xs"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className={formTemProduto ? "" : "hidden"}>
