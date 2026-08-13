@@ -38,7 +38,6 @@ export function ProdutoForm() {
     codigo: "",
     nome: "",
     categoria: "",
-    custoUnitario: "",
     descricao: "",
     emoji: "🧸",
     ativo: true,
@@ -46,6 +45,7 @@ export function ProdutoForm() {
 
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(isEdit);
+  const [gerandoCodigo, setGerandoCodigo] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -64,7 +64,6 @@ export function ProdutoForm() {
         codigo: response.data.codigo || "",
         nome: response.data.nome || "",
         categoria: response.data.categoria || "",
-        custoUnitario: response.data.custoUnitario || response.data.preco || "",
         descricao: response.data.descricao || "",
         emoji: response.data.emoji || "🧸",
         ativo: response.data.ativo !== undefined ? response.data.ativo : true,
@@ -85,6 +84,31 @@ export function ProdutoForm() {
       ...formData,
       [name]: type === "checkbox" ? checked : value,
     });
+  };
+
+  const gerarCodigoProduto = async () => {
+    setGerandoCodigo(true);
+    setError("");
+    try {
+      const response = await api.get("/produtos?incluirInativos=true");
+      const codigosExistentes = new Set(
+        response.data.map((p) => (p.codigo || "").trim().toUpperCase())
+      );
+      let numero = 1;
+      let novoCodigo;
+      do {
+        novoCodigo = `PROD-${String(numero).padStart(3, "0")}`;
+        numero += 1;
+      } while (codigosExistentes.has(novoCodigo));
+      setFormData((prev) => ({ ...prev, codigo: novoCodigo }));
+    } catch (error) {
+      setError(
+        "Erro ao gerar código: " +
+          (error.response?.data?.error || error.message)
+      );
+    } finally {
+      setGerandoCodigo(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -111,8 +135,6 @@ export function ProdutoForm() {
         codigo: formData.codigo.trim(),
         nome: formData.nome.trim(),
         categoria: formData.categoria.trim(),
-        preco: parseFloat(formData.custoUnitario),
-        custoUnitario: parseFloat(formData.custoUnitario),
         emoji: formData.emoji,
         descricao: formData.descricao?.trim() || null,
         ativo: formData.ativo,
@@ -209,15 +231,26 @@ export function ProdutoForm() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Código do Produto *
                   </label>
-                  <input
-                    type="text"
-                    name="codigo"
-                    value={formData.codigo}
-                    onChange={handleChange}
-                    className="input-field"
-                    placeholder="Ex: PROD-001"
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      name="codigo"
+                      value={formData.codigo}
+                      onChange={handleChange}
+                      className="input-field"
+                      placeholder="Ex: PROD-001"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={gerarCodigoProduto}
+                      className="btn-secondary whitespace-nowrap"
+                      disabled={gerandoCodigo}
+                      title="Gera automaticamente um código sequencial (Ex: PROD-001) que ainda não está em uso"
+                    >
+                      {gerandoCodigo ? "Gerando..." : "Gerar código"}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -274,132 +307,6 @@ export function ProdutoForm() {
                   </label>
                 </div>
               </div>
-            </div>
-
-            {/* Custo */}
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-primary"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Custo
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Preço de Custo *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">
-                      R$
-                    </span>
-                    <input
-                      type="number"
-                      name="custoUnitario"
-                      value={formData.custoUnitario}
-                      onChange={handleChange}
-                      className="input-field pl-10"
-                      placeholder="0.00"
-                      step="0.01"
-                      min="0"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Análise de Lucro por Ficha */}
-              {formData.custoUnitario && (
-                <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg">
-                  <h4 className="text-sm font-bold text-green-900 mb-3 flex items-center gap-2">
-                    <span className="text-xl">🎯</span>
-                    Análise de Jogadas para Recuperar o Custo
-                  </h4>
-                  <p className="text-xs text-green-700 mb-4">
-                    Quantidade mínima de jogadas para recuperar o custo deste
-                    produto
-                  </p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Ficha R$ 2,50 */}
-                    <div className="bg-white p-4 rounded-lg border border-green-300">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold text-gray-700">
-                          💰 Ficha R$ 2,50
-                        </span>
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-bold">
-                          Econômica
-                        </span>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-3xl font-bold text-green-600">
-                          {Math.ceil(parseFloat(formData.custoUnitario) / 2.5)}
-                        </p>
-                        <p className="text-xs text-gray-600 mt-1">
-                          {Math.ceil(parseFloat(formData.custoUnitario) / 2.5) === 1
-                            ? "jogada mínima"
-                            : "jogadas mínimas"}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-2">
-                          Faturamento: R${" "}
-                          {(
-                            Math.ceil(parseFloat(formData.custoUnitario) / 2.5) * 2.5
-                          ).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Ficha R$ 5,00 */}
-                    <div className="bg-white p-4 rounded-lg border border-green-300">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold text-gray-700">
-                          💎 Ficha R$ 5,00
-                        </span>
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-bold">
-                          Premium
-                        </span>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-3xl font-bold text-blue-600">
-                          {Math.ceil(parseFloat(formData.custoUnitario) / 5)}
-                        </p>
-                        <p className="text-xs text-gray-600 mt-1">
-                          {Math.ceil(parseFloat(formData.custoUnitario) / 5) === 1
-                            ? "jogada mínima"
-                            : "jogadas mínimas"}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-2">
-                          Faturamento: R${" "}
-                          {(
-                            Math.ceil(parseFloat(formData.custoUnitario) / 5) * 5
-                          ).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                    <p className="text-xs text-yellow-800 flex items-center gap-2">
-                      <span>💡</span>
-                      <span>
-                        <strong>Dica:</strong> Quanto menor o número de jogadas,
-                        mais rápido você recupera o custo. Com ficha de
-                        R$ 5,00, o lucro é mais rápido!
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
 
             {false && (

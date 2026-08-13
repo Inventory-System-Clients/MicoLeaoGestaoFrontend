@@ -105,21 +105,6 @@ export function Produtos() {
       icon: "📁",
       gradient: "bg-gradient-to-br from-blue-500 to-blue-600",
     },
-    {
-      label: "Custo Médio",
-      value:
-        produtos.length > 0
-          ? `R$ ${(
-              produtos.reduce(
-                (sum, p) => sum + Number(p.custoUnitario || p.preco || 0),
-                0,
-              ) /
-              produtos.length
-            ).toFixed(2)}`
-          : "R$ 0,00",
-      icon: "💰",
-      gradient: "bg-gradient-to-br from-yellow-500 to-yellow-600",
-    },
   ];
 
   const columns = [
@@ -135,47 +120,6 @@ export function Produtos() {
     { key: "codigo", label: "Código" },
     { key: "nome", label: "Nome" },
     { key: "categoria", label: "Categoria" },
-    {
-      key: "preco",
-      label: "Custo",
-      render: (produto) => (
-        <span className="font-semibold text-green-600">
-          R$ {Number(produto.custoUnitario || produto.preco || 0).toFixed(2)}
-        </span>
-      ),
-    },
-    {
-      key: "jogadas_2_50",
-      label: "💰 Jogadas R$ 2,50",
-      render: (produto) => {
-        const preco = Number(produto.custoUnitario || produto.preco || 0);
-        const jogadas = Math.ceil(preco / 2.5);
-        return (
-          <div className="text-center">
-            <span className="font-bold text-green-600 text-lg">{jogadas}</span>
-            <span className="text-xs text-gray-500 block">
-              {jogadas === 1 ? "jogada" : "jogadas"}
-            </span>
-          </div>
-        );
-      },
-    },
-    {
-      key: "jogadas_5_00",
-      label: "💎 Jogadas R$ 5,00",
-      render: (produto) => {
-        const preco = Number(produto.custoUnitario || produto.preco || 0);
-        const jogadas = Math.ceil(preco / 5);
-        return (
-          <div className="text-center">
-            <span className="font-bold text-blue-600 text-lg">{jogadas}</span>
-            <span className="text-xs text-gray-500 block">
-              {jogadas === 1 ? "jogada" : "jogadas"}
-            </span>
-          </div>
-        );
-      },
-    },
     {
       key: "ativo",
       label: "Status",
