@@ -196,6 +196,10 @@ export default function Compras() {
   const [compraParaGerarParcelas, setCompraParaGerarParcelas] = useState(null);
   const [parcelasForm, setParcelasForm] = useState([]);
   const [salvandoParcelas, setSalvandoParcelas] = useState(false);
+  const [mostrarModalConferencia, setMostrarModalConferencia] = useState(false);
+  const [compraParaConferir, setCompraParaConferir] = useState(null);
+  const [conferenciaForm, setConferenciaForm] = useState([]);
+  const [salvandoConferencia, setSalvandoConferencia] = useState(false);
   const [filtrosSugestao, setFiltrosSugestao] = useState({
     busca: "",
     tipo: "todos",
@@ -386,6 +390,11 @@ export default function Compras() {
           (compra) => normalizarStatusCompra(compra.status) === status.value,
         ),
       })),
+    [compras],
+  );
+
+  const comprasComPendencia = useMemo(
+    () => compras.filter((compra) => compra.possuiPendencia),
     [compras],
   );
 
@@ -745,6 +754,65 @@ export default function Compras() {
     }
   };
 
+  const abrirModalConferencia = (compra) => {
+    setCompraParaConferir(compra);
+    setConferenciaForm(
+      (compra.itens || []).map((item) => ({
+        id: item.id,
+        nomeItem: item.nomeItem,
+        unidade: item.unidade || "un",
+        quantidade: Number(item.quantidade),
+        quantidadeRecebida:
+          item.quantidadeRecebida !== null && item.quantidadeRecebida !== undefined
+            ? String(item.quantidadeRecebida)
+            : String(item.quantidade),
+      })),
+    );
+    setMostrarModalConferencia(true);
+  };
+
+  const atualizarQuantidadeConferencia = (itemId, valor) => {
+    setConferenciaForm((prev) =>
+      prev.map((item) => (item.id === itemId ? { ...item, quantidadeRecebida: valor } : item)),
+    );
+  };
+
+  const salvarConferencia = async () => {
+    if (!compraParaConferir) return;
+
+    for (const item of conferenciaForm) {
+      const valor = Number(item.quantidadeRecebida);
+      if (!Number.isFinite(valor) || valor < 0) {
+        setError(`Informe uma quantidade recebida válida para "${item.nomeItem}".`);
+        return;
+      }
+    }
+
+    try {
+      setSalvandoConferencia(true);
+      setError("");
+      const response = await api.patch(`/compras/${compraParaConferir.id}/conferencia`, {
+        itens: conferenciaForm.map((item) => ({
+          id: item.id,
+          quantidadeRecebida: Number(item.quantidadeRecebida),
+        })),
+      });
+      setMostrarModalConferencia(false);
+      setCompraParaConferir(null);
+      setConferenciaForm([]);
+      setSuccess(
+        response.data?.possuiPendencia
+          ? "Recebimento conferido — há itens em falta nesta compra. Confira a aba Pendências."
+          : "Recebimento conferido, tudo certo!",
+      );
+      await carregarDados();
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao conferir recebimento");
+    } finally {
+      setSalvandoConferencia(false);
+    }
+  };
+
   const abrirModalParcelas = (compra) => {
     const quantidadeParcelas =
       compra.tipoPagamento === "PARCELADO" ? Number(compra.quantidadeParcelas) || 1 : 1;
@@ -1072,7 +1140,7 @@ export default function Compras() {
         )}
 
         <div className="card">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-6">
             {[
               {
                 key: "fornecedores",
@@ -1092,7 +1160,13 @@ export default function Compras() {
               {
                 key: "statusCompra",
                 title: "Status de compra",
-                subtitle: "Avancar para comprado e recebido.",
+                subtitle: "Avancar para comprado e conferir recebimento.",
+              },
+              {
+                key: "pendencias",
+                title: "Pendências",
+                subtitle: "Itens que faltaram na conferência.",
+                contador: comprasComPendencia.length,
               },
               {
                 key: "sugestoes",
@@ -1106,12 +1180,17 @@ export default function Compras() {
                   key={opcao.key}
                   type="button"
                   onClick={() => setSecaoAtiva(opcao.key)}
-                  className={`rounded-lg border px-4 py-3 text-left transition ${
+                  className={`relative rounded-lg border px-4 py-3 text-left transition ${
                     ativo
                       ? "border-primary bg-primary text-white shadow-md"
                       : "border-slate-200 bg-white text-gray-900 hover:border-primary/50 hover:bg-orange-50"
                   }`}
                 >
+                  {Boolean(opcao.contador) && (
+                    <span className="absolute -top-2 -right-2 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white shadow">
+                      {opcao.contador}
+                    </span>
+                  )}
                   <span className="block text-sm font-bold">{opcao.title}</span>
                   <span
                     className={`mt-1 block text-xs ${
@@ -2204,6 +2283,14 @@ export default function Compras() {
                             {item.sku ? ` (${item.sku})` : ""} — {item.quantidade}{" "}
                             {item.unidade || "un"} ×{" "}
                             {formatarPorMoeda(item.valorUnitario, compra.moeda)}
+                            {statusAtual === "RECEBIDO" &&
+                              Number(item.quantidadeRecebida || 0) < Number(item.quantidade) && (
+                                <span className="ml-2 font-bold text-red-600">
+                                  · recebido {item.quantidadeRecebida ?? 0}/{item.quantidade} — faltam{" "}
+                                  {Number(item.quantidade) - Number(item.quantidadeRecebida || 0)}{" "}
+                                  {item.unidade || "un"}
+                                </span>
+                              )}
                           </span>
                           <span className="font-semibold">
                             {formatarPorMoeda(item.valorTotal, compra.moeda)}
@@ -2286,16 +2373,30 @@ export default function Compras() {
                       {statusAtual === "COMPRADO" && (
                         <button
                           type="button"
-                          onClick={() => handleAtualizarStatus(compra.id, "RECEBIDO")}
+                          onClick={() => abrirModalConferencia(compra)}
                           className="btn-primary px-4 py-2 text-sm"
                         >
-                          Dar como recebido
+                          Conferir recebimento
                         </button>
                       )}
-                      {statusAtual === "RECEBIDO" && (
+                      {statusAtual === "RECEBIDO" && !compra.possuiPendencia && (
                         <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
                           Compra finalizada
                         </span>
+                      )}
+                      {statusAtual === "RECEBIDO" && compra.possuiPendencia && (
+                        <>
+                          <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
+                            ⚠️ Itens em falta
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => abrirModalConferencia(compra)}
+                            className="btn-primary px-4 py-2 text-sm"
+                          >
+                            Completar recebimento
+                          </button>
+                        </>
                       )}
                       {compra.contasPagar?.length > 0 ? (
                         <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
@@ -2320,6 +2421,94 @@ export default function Compras() {
             </div>
           )}
         </div>
+        )}
+
+        {secaoAtiva === "pendencias" && (
+          <div className="card">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Pendências de recebimento
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Compras conferidas onde a quantidade recebida ficou abaixo do pedido.
+                </p>
+              </div>
+              <Badge variant="danger" size="sm">
+                {comprasComPendencia.length}
+              </Badge>
+            </div>
+
+            {comprasComPendencia.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-gray-500">
+                Nenhuma pendência no momento.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {comprasComPendencia.map((compra) => {
+                  const itensFaltantes = (compra.itens || []).filter(
+                    (item) => Number(item.quantidadeRecebida || 0) < Number(item.quantidade),
+                  );
+                  return (
+                    <div
+                      key={compra.id}
+                      className="rounded-lg border border-red-200 bg-red-50/40 p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-base font-semibold text-gray-900">
+                            {compra.fornecedor?.nome || "Sem fornecedor"}
+                          </h3>
+                          <p className="text-xs text-gray-500">
+                            {compra.moeda} · Recebido em{" "}
+                            {formatarDataHora(compra.recebidoEm)} por{" "}
+                            {compra.recebidoPor?.nome || "-"}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
+                          {itensFaltantes.length} item(ns) em falta
+                        </span>
+                      </div>
+
+                      <div className="mt-3 space-y-1 rounded-lg border border-red-100 bg-white p-2">
+                        {itensFaltantes.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-700"
+                          >
+                            <span>
+                              {item.nomeItem}
+                              {item.sku ? ` (${item.sku})` : ""}
+                            </span>
+                            <span className="font-bold text-red-700">
+                              Pedido {item.quantidade} · Recebido {item.quantidadeRecebida ?? 0} ·
+                              Faltam{" "}
+                              {Number(item.quantidade) - Number(item.quantidadeRecebida || 0)}{" "}
+                              {item.unidade || "un"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <p className="mt-2 text-right text-sm font-bold text-gray-900">
+                        Total do pedido: {formatarPorMoeda(compra.valorGeralPedido, compra.moeda)}
+                      </p>
+
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => abrirModalConferencia(compra)}
+                          className="btn-primary px-4 py-2 text-sm"
+                        >
+                          Completar recebimento
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {secaoAtiva === "pesquisa" && (
@@ -2829,6 +3018,90 @@ export default function Compras() {
                   onClick={salvarParcelas}
                 >
                   {salvandoParcelas ? "Salvando..." : "Gerar contas a pagar"}
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
+
+        <Modal
+          isOpen={mostrarModalConferencia}
+          onClose={() => {
+            setMostrarModalConferencia(false);
+            setCompraParaConferir(null);
+            setConferenciaForm([]);
+          }}
+          title="Conferência de recebimento"
+          size="md"
+        >
+          {compraParaConferir && (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">
+                Confira quanto chegou de cada item de{" "}
+                {compraParaConferir.fornecedor?.nome || "fornecedor"}. Itens abaixo do
+                pedido geram uma pendência.
+              </p>
+
+              {conferenciaForm.map((item) => {
+                const valorRecebido = Number(item.quantidadeRecebida);
+                const faltando =
+                  Number.isFinite(valorRecebido) && valorRecebido < item.quantidade
+                    ? item.quantidade - valorRecebido
+                    : 0;
+                return (
+                  <div
+                    key={item.id}
+                    className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-3 sm:items-center"
+                  >
+                    <div className="sm:col-span-2">
+                      <p className="text-sm font-semibold text-gray-800">{item.nomeItem}</p>
+                      <p className="text-xs text-gray-500">
+                        Pedido: {item.quantidade} {item.unidade}
+                        {faltando > 0 && (
+                          <span className="ml-2 font-bold text-red-600">
+                            Faltam {faltando} {item.unidade}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-500">
+                        Quantidade recebida
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.quantidadeRecebida}
+                        onChange={(e) =>
+                          atualizarQuantidadeConferencia(item.id, e.target.value)
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  className="btn-secondary px-4 py-2 text-sm"
+                  onClick={() => {
+                    setMostrarModalConferencia(false);
+                    setCompraParaConferir(null);
+                    setConferenciaForm([]);
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary px-4 py-2 text-sm disabled:opacity-60"
+                  disabled={salvandoConferencia}
+                  onClick={salvarConferencia}
+                >
+                  {salvandoConferencia ? "Salvando..." : "Confirmar recebimento"}
                 </button>
               </div>
             </div>
