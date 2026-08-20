@@ -64,14 +64,37 @@ const FORMAS_PAGAMENTO = [
   ["BOLETO", "Boleto"],
 ];
 
+const MOEDAS_CUSTO = [
+  ["BRL", "Real (R$)"],
+  ["USD", "Dólar (US$)"],
+];
+
+const TIPOS_VALOR_CUSTO = [
+  ["FIXO", "Valor fixo"],
+  ["PERCENTUAL", "Porcentagem"],
+];
+
+const BASES_CALCULO_CUSTO = [
+  ["SEM_DESCONTO", "Sobre o valor sem desconto"],
+  ["COM_DESCONTO", "Sobre o valor com desconto"],
+];
+
+const TIPOS_DESCONTO = [
+  ["PERCENTUAL", "Porcentagem"],
+  ["FIXO", "Valor fixo"],
+];
+
 const formInicial = {
   fornecedorId: "",
+  numeroPedido: "",
   moeda: "BRL",
   tipoPagamento: "A_VISTA",
   quantidadeParcelas: "",
   formaPagamento: "PIX",
   observacao: "",
   fotoUrl: "",
+  descontoTipo: "",
+  descontoValor: "",
 };
 
 const itemPedidoVazio = {
@@ -91,7 +114,10 @@ const itemPedidoVazio = {
 
 const custoAdicionalVazio = {
   descricao: "",
+  tipoValor: "FIXO",
   valor: "",
+  baseCalculo: "SEM_DESCONTO",
+  moeda: "BRL",
   formaPagamento: "PIX",
 };
 
@@ -324,11 +350,33 @@ export default function Compras() {
     (acc, item) => acc + Number(item.quantidade || 0) * Number(item.valorUnitario || 0),
     0,
   );
-  const valorTotalCustos = custosAdicionais.reduce(
-    (acc, custo) => acc + Number(custo.valor || 0),
-    0,
+  const valorDescontoPreview = (() => {
+    if (!form.descontoTipo || !form.descontoValor) return 0;
+    const valor =
+      form.descontoTipo === "PERCENTUAL"
+        ? (valorTotalItens * Number(form.descontoValor)) / 100
+        : Number(form.descontoValor);
+    return Math.min(Math.max(valor, 0), valorTotalItens);
+  })();
+  const valorItensComDescontoPreview = valorTotalItens - valorDescontoPreview;
+  const calcularValorCustoPreview = (custo) => {
+    if (custo.tipoValor === "PERCENTUAL") {
+      const base =
+        custo.baseCalculo === "COM_DESCONTO" ? valorItensComDescontoPreview : valorTotalItens;
+      return (base * Number(custo.valor || 0)) / 100;
+    }
+    return Number(custo.valor || 0);
+  };
+  const custosPorMoedaPreview = custosAdicionais.reduce((acc, custo) => {
+    const moedaCusto = custo.moeda || form.moeda;
+    acc[moedaCusto] = (acc[moedaCusto] || 0) + calcularValorCustoPreview(custo);
+    return acc;
+  }, {});
+  const valorTotalCustosNaMoedaDoPedido = custosPorMoedaPreview[form.moeda] || 0;
+  const outrasMoedasPreview = Object.entries(custosPorMoedaPreview).filter(
+    ([moedaCusto]) => moedaCusto !== form.moeda,
   );
-  const valorTotalPedidoPreview = valorTotalItens + valorTotalCustos;
+  const valorTotalPedidoPreview = valorItensComDescontoPreview + valorTotalCustosNaMoedaDoPedido;
 
   const obterNomeItemPorTipo = useCallback(
     (dados) => {
@@ -736,12 +784,15 @@ export default function Compras() {
       setError("");
       await api.post("/compras", {
         fornecedorId: form.fornecedorId || null,
+        numeroPedido: form.numeroPedido || null,
         moeda: form.moeda,
         tipoPagamento: form.tipoPagamento || null,
         quantidadeParcelas: form.tipoPagamento === "PARCELADO" ? Number(form.quantidadeParcelas) : null,
         formaPagamento: form.formaPagamento || null,
         fotoUrl: form.fotoUrl || null,
         observacao: form.observacao || null,
+        descontoTipo: form.descontoTipo || null,
+        descontoValor: form.descontoTipo ? Number(form.descontoValor) : null,
         itens: itensCompra.map((item) => {
           const { tempId: _tempId, ...resto } = item;
           return resto;
@@ -1573,6 +1624,20 @@ export default function Compras() {
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Número do pedido
+              </label>
+              <input
+                value={form.numeroPedido}
+                onChange={(e) => setForm((prev) => ({ ...prev, numeroPedido: e.target.value }))}
+                placeholder="Ex: 1024 ou NF-00123 (opcional)"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="md:col-span-3">
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Previsão de pagamento
@@ -2049,6 +2114,64 @@ export default function Compras() {
             )}
           </div>
 
+          <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
+            <h3 className="text-sm font-bold text-gray-900">Desconto</h3>
+            <p className="text-xs text-gray-600">
+              Aplicado só sobre o total dos itens — não afeta os custos adicionais.
+            </p>
+            <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Tipo
+                </label>
+                <select
+                  value={form.descontoTipo}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      descontoTipo: e.target.value,
+                      descontoValor: e.target.value ? prev.descontoValor : "",
+                    }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                >
+                  <option value="">Sem desconto</option>
+                  {TIPOS_DESCONTO.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {form.descontoTipo && (
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    {form.descontoTipo === "PERCENTUAL" ? "Porcentagem (%)" : "Valor"}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={form.descontoTipo === "PERCENTUAL" ? "100" : undefined}
+                    step="0.01"
+                    value={form.descontoValor}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, descontoValor: e.target.value }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                  />
+                </div>
+              )}
+              {form.descontoTipo && valorDescontoPreview > 0 && (
+                <div className="flex flex-col justify-end text-xs text-gray-700">
+                  <p>Desconto: -{formatarPorMoeda(valorDescontoPreview, form.moeda)}</p>
+                  <p className="font-bold">
+                    Itens com desconto: {formatarPorMoeda(valorItensComDescontoPreview, form.moeda)}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="mt-4 rounded-lg border border-orange-100 bg-orange-50 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -2071,7 +2194,7 @@ export default function Compras() {
                 {custosAdicionais.map((custo) => (
                   <div
                     key={custo.tempId}
-                    className="grid grid-cols-1 gap-3 rounded-lg border border-orange-200 bg-white p-3 md:grid-cols-4"
+                    className="grid grid-cols-1 gap-3 rounded-lg border border-orange-200 bg-white p-3 md:grid-cols-6"
                   >
                     <div className="md:col-span-2">
                       <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
@@ -2088,11 +2211,30 @@ export default function Compras() {
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                        Valor
+                        Tipo
+                      </label>
+                      <select
+                        value={custo.tipoValor}
+                        onChange={(e) =>
+                          atualizarCustoAdicional(custo.tempId, "tipoValor", e.target.value)
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                      >
+                        {TIPOS_VALOR_CUSTO.map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                        {custo.tipoValor === "PERCENTUAL" ? "Porcentagem (%)" : "Valor"}
                       </label>
                       <input
                         type="number"
                         min="0"
+                        max={custo.tipoValor === "PERCENTUAL" ? "100" : undefined}
                         step="0.01"
                         value={custo.valor}
                         onChange={(e) =>
@@ -2100,6 +2242,24 @@ export default function Compras() {
                         }
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
                       />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                        Moeda
+                      </label>
+                      <select
+                        value={custo.moeda}
+                        onChange={(e) =>
+                          atualizarCustoAdicional(custo.tempId, "moeda", e.target.value)
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                      >
+                        {MOEDAS_CUSTO.map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="flex items-end gap-2">
                       <select
@@ -2123,16 +2283,73 @@ export default function Compras() {
                         Remover
                       </button>
                     </div>
+                    {custo.tipoValor === "PERCENTUAL" && (
+                      <div className="md:col-span-3">
+                        <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                          Calcular sobre
+                        </label>
+                        <select
+                          value={custo.baseCalculo || "SEM_DESCONTO"}
+                          onChange={(e) =>
+                            atualizarCustoAdicional(custo.tempId, "baseCalculo", e.target.value)
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                        >
+                          {BASES_CALCULO_CUSTO.map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {custo.tipoValor === "PERCENTUAL" && Number(custo.valor) > 0 && (
+                      <p className="md:col-span-3 self-end text-xs text-gray-600">
+                        = {formatarPorMoeda(calcularValorCustoPreview(custo), custo.moeda)}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-base font-bold text-gray-900">
-              Total do pedido: {formatarPorMoeda(valorTotalPedidoPreview, form.moeda)}
+          <div className="mt-4 space-y-1 rounded-lg border border-gray-200 bg-white p-3 text-sm">
+            <p className="flex justify-between text-gray-600">
+              <span>Total dos itens</span>
+              <span>{formatarPorMoeda(valorTotalItens, form.moeda)}</span>
             </p>
+            {form.descontoTipo && valorDescontoPreview > 0 && (
+              <>
+                <p className="flex justify-between text-gray-600">
+                  <span>Desconto</span>
+                  <span>-{formatarPorMoeda(valorDescontoPreview, form.moeda)}</span>
+                </p>
+                <p className="flex justify-between text-gray-600">
+                  <span>Itens com desconto</span>
+                  <span>{formatarPorMoeda(valorItensComDescontoPreview, form.moeda)}</span>
+                </p>
+              </>
+            )}
+            {valorTotalCustosNaMoedaDoPedido > 0 && (
+              <p className="flex justify-between text-gray-600">
+                <span>Custos adicionais ({form.moeda})</span>
+                <span>{formatarPorMoeda(valorTotalCustosNaMoedaDoPedido, form.moeda)}</span>
+              </p>
+            )}
+            {outrasMoedasPreview.map(([moedaCusto, valor]) => (
+              <p key={moedaCusto} className="flex justify-between text-gray-600">
+                <span>Custos adicionais em outra moeda</span>
+                <span>{formatarPorMoeda(valor, moedaCusto)}</span>
+              </p>
+            ))}
+            <p className="flex justify-between border-t border-gray-200 pt-1 text-base font-bold text-gray-900">
+              <span>Total do pedido</span>
+              <span>{formatarPorMoeda(valorTotalPedidoPreview, form.moeda)}</span>
+            </p>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
             <button
               type="submit"
               disabled={submitting}
@@ -2319,6 +2536,7 @@ export default function Compras() {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <h3 className="text-base font-semibold text-gray-900">
+                          {compra.numeroPedido ? `#${compra.numeroPedido} — ` : ""}
                           {compra.fornecedor?.nome || "Sem fornecedor"}
                         </h3>
                         <p className="text-xs text-gray-500">
@@ -2361,11 +2579,25 @@ export default function Compras() {
                           </span>
                         </div>
                       ))}
+                      {compra.valorDesconto > 0 && (
+                        <p className="text-xs text-gray-600">
+                          Desconto (
+                          {compra.descontoTipo === "PERCENTUAL"
+                            ? `${numeroFormatado.format(Number(compra.descontoValor))}%`
+                            : "valor fixo"}
+                          ): -{formatarPorMoeda(compra.valorDesconto, compra.moeda)}
+                        </p>
+                      )}
                       {compra.custosAdicionais?.length > 0 && (
                         <div className="mt-1 border-t border-slate-200 pt-1">
                           {compra.custosAdicionais.map((custo) => (
                             <p key={custo.id} className="text-xs text-gray-600">
-                              + {custo.descricao}: {formatarPorMoeda(custo.valor, compra.moeda)} (
+                              + {custo.descricao}
+                              {custo.tipoValor === "PERCENTUAL"
+                                ? ` (${numeroFormatado.format(Number(custo.valor))}%)`
+                                : ""}
+                              : {formatarPorMoeda(custo.valorCalculado ?? custo.valor, custo.moeda || compra.moeda)}{" "}
+                              (
                               {FORMAS_PAGAMENTO.find(([v]) => v === custo.formaPagamento)?.[1] ||
                                 custo.formaPagamento}
                               )
@@ -2373,6 +2605,12 @@ export default function Compras() {
                           ))}
                         </div>
                       )}
+                      {compra.custosAdicionaisOutrasMoedas?.length > 0 &&
+                        compra.custosAdicionaisOutrasMoedas.map(({ moeda: moedaCusto, valor }) => (
+                          <p key={moedaCusto} className="text-xs text-gray-600">
+                            Custos adicionais em {moedaCusto}: {formatarPorMoeda(valor, moedaCusto)}
+                          </p>
+                        ))}
                       <p className="pt-1 text-right text-sm font-bold text-gray-900">
                         Total: {formatarPorMoeda(compra.valorGeralPedido, compra.moeda)}
                       </p>
@@ -2521,6 +2759,7 @@ export default function Compras() {
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                           <h3 className="text-base font-semibold text-gray-900">
+                            {compra.numeroPedido ? `#${compra.numeroPedido} — ` : ""}
                             {compra.fornecedor?.nome || "Sem fornecedor"}
                           </h3>
                           <p className="text-xs text-gray-500">
@@ -2994,7 +3233,10 @@ export default function Compras() {
           {compraParaGerarParcelas && (
             <div className="space-y-3">
               <p className="text-sm text-gray-600">
-                Pedido de {compraParaGerarParcelas.fornecedor?.nome || "fornecedor"} — total{" "}
+                {compraParaGerarParcelas.numeroPedido
+                  ? `Pedido #${compraParaGerarParcelas.numeroPedido} de `
+                  : "Pedido de "}
+                {compraParaGerarParcelas.fornecedor?.nome || "fornecedor"} — total{" "}
                 {formatarPorMoeda(
                   compraParaGerarParcelas.valorGeralPedido,
                   compraParaGerarParcelas.moeda,
