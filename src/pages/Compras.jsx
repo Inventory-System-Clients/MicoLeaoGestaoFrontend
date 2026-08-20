@@ -573,6 +573,7 @@ export default function Compras() {
 
     return {
       tipoItem: dados.tipoItem === "insumo" ? "INSUMO" : dados.tipoItem === "peca" ? "PECA" : "PRODUTO",
+      itemNovo: Boolean(dados.itemNovo),
       nomeItem: dados.nomeItem.trim(),
       produtoId: dados.produtoId || null,
       insumoId: dados.insumoId || null,
