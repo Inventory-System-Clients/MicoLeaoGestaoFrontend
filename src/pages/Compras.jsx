@@ -1624,20 +1624,6 @@ export default function Compras() {
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Número do pedido
-              </label>
-              <input
-                value={form.numeroPedido}
-                onChange={(e) => setForm((prev) => ({ ...prev, numeroPedido: e.target.value }))}
-                placeholder="Ex: 1024 ou NF-00123 (opcional)"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="md:col-span-3">
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Previsão de pagamento
@@ -2312,6 +2298,20 @@ export default function Compras() {
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Número do pedido
+              </label>
+              <input
+                value={form.numeroPedido}
+                onChange={(e) => setForm((prev) => ({ ...prev, numeroPedido: e.target.value }))}
+                placeholder="Ex: 1024 ou NF-00123 (opcional)"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+              />
+            </div>
           </div>
 
           <div className="mt-4 space-y-1 rounded-lg border border-gray-200 bg-white p-3 text-sm">
