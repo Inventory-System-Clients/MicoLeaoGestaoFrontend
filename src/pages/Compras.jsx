@@ -303,7 +303,7 @@ export default function Compras() {
       const estoquesLojasRes = await Promise.all(
         lojasOperacionais.map((loja) =>
           api
-            .get(`/estoque-loja/${loja.id}`)
+            .get(`/estoque-lojas/${loja.id}`)
             .then((res) => ({ lojaId: loja.id, itens: res.data || [] }))
             .catch(() => ({ lojaId: loja.id, itens: [] })),
         ),
