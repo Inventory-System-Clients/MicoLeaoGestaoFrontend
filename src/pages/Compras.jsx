@@ -190,6 +190,7 @@ export default function Compras() {
   const [form, setForm] = useState(formInicial);
   const [itensCompra, setItensCompra] = useState([]);
   const [itemEmEdicao, setItemEmEdicao] = useState(itemPedidoVazio);
+  const [itemEditandoTempId, setItemEditandoTempId] = useState(null);
   const [custosAdicionais, setCustosAdicionais] = useState([]);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [mostrarModalParcelas, setMostrarModalParcelas] = useState(false);
@@ -590,12 +591,45 @@ export default function Compras() {
   const adicionarItemCompra = () => {
     try {
       const item = montarItemPedido();
-      setItensCompra((prev) => [...prev, { ...item, tempId: crypto.randomUUID() }]);
+      if (itemEditandoTempId) {
+        setItensCompra((prev) =>
+          prev.map((atual) =>
+            atual.tempId === itemEditandoTempId ? { ...item, tempId: itemEditandoTempId } : atual,
+          ),
+        );
+        setSuccess("Item atualizado na lista do pedido.");
+      } else {
+        setItensCompra((prev) => [...prev, { ...item, tempId: crypto.randomUUID() }]);
+        setSuccess("Item adicionado na lista do pedido.");
+      }
       setItemEmEdicao(itemPedidoVazio);
-      setSuccess("Item adicionado na lista do pedido.");
+      setItemEditandoTempId(null);
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const editarItemCompra = (item) => {
+    setItemEmEdicao({
+      tipoItem: item.tipoItem === "INSUMO" ? "insumo" : item.tipoItem === "PECA" ? "peca" : "produto",
+      itemNovo: Boolean(item.itemNovo),
+      nomeItem: item.nomeItem || "",
+      produtoId: item.produtoId || "",
+      insumoId: item.insumoId || "",
+      pecaId: item.pecaId || "",
+      sku: item.sku || "",
+      quantidade: item.quantidade ?? "",
+      unidade: item.unidade || "",
+      valorUnitario: item.valorUnitario ?? "",
+      lojaId: item.lojaId || "",
+      descricaoUso: item.descricaoUso || "",
+    });
+    setItemEditandoTempId(item.tempId);
+  };
+
+  const cancelarEdicaoItemCompra = () => {
+    setItemEmEdicao(itemPedidoVazio);
+    setItemEditandoTempId(null);
   };
 
   const adicionarSugestaoNaCompra = (sugestao) => {
@@ -637,6 +671,10 @@ export default function Compras() {
 
   const removerItemCompra = (tempId) => {
     setItensCompra((prev) => prev.filter((item) => item.tempId !== tempId));
+    if (itemEditandoTempId === tempId) {
+      setItemEmEdicao(itemPedidoVazio);
+      setItemEditandoTempId(null);
+    }
   };
 
   const adicionarCustoAdicional = () => {
@@ -716,6 +754,7 @@ export default function Compras() {
       setForm(formInicial);
       setItensCompra([]);
       setItemEmEdicao(itemPedidoVazio);
+      setItemEditandoTempId(null);
       setCustosAdicionais([]);
       setSuccess("Pedido de compra lançado.");
       await carregarDados();
@@ -1658,6 +1697,12 @@ export default function Compras() {
               Adicione produtos, insumos ou peças. Cada item pode vir do catálogo ou ser novo.
             </p>
 
+            {itemEditandoTempId && (
+              <p className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
+                Editando item da lista. Altere os campos abaixo e clique em "Salvar alterações do item".
+              </p>
+            )}
+
             <div className="grid grid-cols-1 gap-3 rounded-lg border border-orange-200 bg-white p-3 md:grid-cols-3">
               <div className="md:col-span-3">
                 <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
@@ -1894,13 +1939,22 @@ export default function Compras() {
                 </>
               )}
 
-              <div className="md:col-span-3 flex justify-end">
+              <div className="md:col-span-3 flex justify-end gap-2">
+                {itemEditandoTempId && (
+                  <button
+                    type="button"
+                    className="btn-secondary px-4 py-2 text-sm"
+                    onClick={cancelarEdicaoItemCompra}
+                  >
+                    Cancelar edição
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-secondary px-4 py-2 text-sm"
                   onClick={adicionarItemCompra}
                 >
-                  + Adicionar item na lista
+                  {itemEditandoTempId ? "Salvar alterações do item" : "+ Adicionar item na lista"}
                 </button>
               </div>
             </div>
@@ -1924,13 +1978,22 @@ export default function Compras() {
                             .join(" — ") || "Sem destino definido"}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        className="btn-danger px-3 py-2 text-xs"
-                        onClick={() => removerItemCompra(item.tempId)}
-                      >
-                        Remover
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="btn-secondary px-3 py-2 text-xs"
+                          onClick={() => editarItemCompra(item)}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-danger px-3 py-2 text-xs"
+                          onClick={() => removerItemCompra(item.tempId)}
+                        >
+                          Remover
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
