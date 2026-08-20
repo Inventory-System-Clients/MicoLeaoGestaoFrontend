@@ -84,6 +84,8 @@ const TIPOS_DESCONTO = [
   ["FIXO", "Valor fixo"],
 ];
 
+const SECOES_FUNCIONARIO_ESTOQUE = ["statusCompra", "pendencias"];
+
 const formInicial = {
   fornecedorId: "",
   numeroPedido: "",
@@ -197,6 +199,7 @@ const limparPayloadFornecedor = (form) => ({
 export default function Compras() {
   const { usuario, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const podeVerValores = usuario?.role !== "FUNCIONARIO_ESTOQUE";
 
   const [compras, setCompras] = useState([]);
   const [produtos, setProdutos] = useState([]);
@@ -340,6 +343,13 @@ export default function Compras() {
     if (authLoading) return;
     carregarDados();
   }, [authLoading, carregarDados]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (usuario?.role === "FUNCIONARIO_ESTOQUE" && !SECOES_FUNCIONARIO_ESTOQUE.includes(secaoAtiva)) {
+      setSecaoAtiva("statusCompra");
+    }
+  }, [authLoading, usuario, secaoAtiva]);
 
   const valorTotalPreview =
     itemEmEdicao.quantidade && itemEmEdicao.valorUnitario
@@ -1264,7 +1274,13 @@ export default function Compras() {
                 title: "Sugestao de compra",
                 subtitle: "Ver faltas por loja, produto e pecas.",
               },
-            ].map((opcao) => {
+            ]
+              .filter(
+                (opcao) =>
+                  usuario?.role !== "FUNCIONARIO_ESTOQUE" ||
+                  SECOES_FUNCIONARIO_ESTOQUE.includes(opcao.key),
+              )
+              .map((opcao) => {
               const ativo = secaoAtiva === opcao.key;
               return (
                 <button
@@ -2413,46 +2429,48 @@ export default function Compras() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                    Valor mín.
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={filtrosCompras.valorMin}
-                    onChange={(e) =>
-                      setFiltrosCompras((prev) => ({
-                        ...prev,
-                        valorMin: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                    placeholder="0"
-                  />
+              {podeVerValores && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                      Valor mín.
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={filtrosCompras.valorMin}
+                      onChange={(e) =>
+                        setFiltrosCompras((prev) => ({
+                          ...prev,
+                          valorMin: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                      Valor máx.
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={filtrosCompras.valorMax}
+                      onChange={(e) =>
+                        setFiltrosCompras((prev) => ({
+                          ...prev,
+                          valorMax: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                      placeholder="5"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                    Valor máx.
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={filtrosCompras.valorMax}
-                    onChange={(e) =>
-                      setFiltrosCompras((prev) => ({
-                        ...prev,
-                        valorMax: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                    placeholder="5"
-                  />
-                </div>
-              </div>
+              )}
 
               <div>
                 <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
@@ -2563,8 +2581,13 @@ export default function Compras() {
                           <span>
                             {item.nomeItem}
                             {item.sku ? ` (${item.sku})` : ""} — {item.quantidade}{" "}
-                            {item.unidade || "un"} ×{" "}
-                            {formatarPorMoeda(item.valorUnitario, compra.moeda)}
+                            {item.unidade || "un"}
+                            {podeVerValores && (
+                              <>
+                                {" "}
+                                × {formatarPorMoeda(item.valorUnitario, compra.moeda)}
+                              </>
+                            )}
                             {statusAtual === "RECEBIDO" &&
                               Number(item.quantidadeRecebida || 0) < Number(item.quantidade) && (
                                 <span className="ml-2 font-bold text-red-600">
@@ -2574,12 +2597,14 @@ export default function Compras() {
                                 </span>
                               )}
                           </span>
-                          <span className="font-semibold">
-                            {formatarPorMoeda(item.valorTotal, compra.moeda)}
-                          </span>
+                          {podeVerValores && (
+                            <span className="font-semibold">
+                              {formatarPorMoeda(item.valorTotal, compra.moeda)}
+                            </span>
+                          )}
                         </div>
                       ))}
-                      {compra.valorDesconto > 0 && (
+                      {podeVerValores && compra.valorDesconto > 0 && (
                         <p className="text-xs text-gray-600">
                           Desconto (
                           {compra.descontoTipo === "PERCENTUAL"
@@ -2588,7 +2613,7 @@ export default function Compras() {
                           ): -{formatarPorMoeda(compra.valorDesconto, compra.moeda)}
                         </p>
                       )}
-                      {compra.custosAdicionais?.length > 0 && (
+                      {podeVerValores && compra.custosAdicionais?.length > 0 && (
                         <div className="mt-1 border-t border-slate-200 pt-1">
                           {compra.custosAdicionais.map((custo) => (
                             <p key={custo.id} className="text-xs text-gray-600">
@@ -2605,15 +2630,18 @@ export default function Compras() {
                           ))}
                         </div>
                       )}
-                      {compra.custosAdicionaisOutrasMoedas?.length > 0 &&
+                      {podeVerValores &&
+                        compra.custosAdicionaisOutrasMoedas?.length > 0 &&
                         compra.custosAdicionaisOutrasMoedas.map(({ moeda: moedaCusto, valor }) => (
                           <p key={moedaCusto} className="text-xs text-gray-600">
                             Custos adicionais em {moedaCusto}: {formatarPorMoeda(valor, moedaCusto)}
                           </p>
                         ))}
-                      <p className="pt-1 text-right text-sm font-bold text-gray-900">
-                        Total: {formatarPorMoeda(compra.valorGeralPedido, compra.moeda)}
-                      </p>
+                      {podeVerValores && (
+                        <p className="pt-1 text-right text-sm font-bold text-gray-900">
+                          Total: {formatarPorMoeda(compra.valorGeralPedido, compra.moeda)}
+                        </p>
+                      )}
                     </div>
 
                     <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-gray-600 sm:grid-cols-2">
@@ -2700,19 +2728,20 @@ export default function Compras() {
                           </button>
                         </>
                       )}
-                      {compra.contasPagar?.length > 0 ? (
-                        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                          Contas a pagar geradas ({compra.contasPagar.length})
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => abrirModalParcelas(compra)}
-                          className="btn-secondary px-4 py-2 text-sm"
-                        >
-                          Gerar contas a pagar
-                        </button>
-                      )}
+                      {podeVerValores &&
+                        (compra.contasPagar?.length > 0 ? (
+                          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                            Contas a pagar geradas ({compra.contasPagar.length})
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => abrirModalParcelas(compra)}
+                            className="btn-secondary px-4 py-2 text-sm"
+                          >
+                            Gerar contas a pagar
+                          </button>
+                        ))}
                     </div>
                   </div>
                 );
@@ -2793,9 +2822,11 @@ export default function Compras() {
                         ))}
                       </div>
 
-                      <p className="mt-2 text-right text-sm font-bold text-gray-900">
-                        Total do pedido: {formatarPorMoeda(compra.valorGeralPedido, compra.moeda)}
-                      </p>
+                      {podeVerValores && (
+                        <p className="mt-2 text-right text-sm font-bold text-gray-900">
+                          Total do pedido: {formatarPorMoeda(compra.valorGeralPedido, compra.moeda)}
+                        </p>
+                      )}
 
                       <div className="mt-3 flex justify-end">
                         <button
