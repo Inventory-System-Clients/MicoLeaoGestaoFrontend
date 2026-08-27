@@ -13,6 +13,13 @@ import {
 import { PageLoader } from "../components/Loading";
 import { useAuth } from "../contexts/AuthContext";
 
+const normalizarTexto = (valor) =>
+  String(valor || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
+
 const obterStatusLoja = (loja) => {
   const status = loja.statusOperacao || loja.status_operacao;
 
@@ -30,6 +37,7 @@ const obterStatusLoja = (loja) => {
 export function Lojas() {
   const { usuario } = useAuth();
   const [lojas, setLojas] = useState([]);
+  const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deleteDialog, setDeleteDialog] = useState({
@@ -226,6 +234,17 @@ export function Lojas() {
     },
   ];
 
+  const buscaNormalizada = normalizarTexto(busca);
+  const lojasFiltradas = buscaNormalizada
+    ? lojas.filter((loja) => {
+        const nomeBate = normalizarTexto(loja.nome).includes(buscaNormalizada);
+        const maquinaBate = (loja.maquinas || []).some((maquina) =>
+          normalizarTexto(maquina.codigo).includes(buscaNormalizada),
+        );
+        return nomeBate || maquinaBate;
+      })
+    : lojas;
+
   if (loading) return <PageLoader />;
 
   return (
@@ -331,10 +350,27 @@ export function Lojas() {
           </div>
         </div>
 
+        <div className="card mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Buscar loja
+          </label>
+          <input
+            type="text"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className="input-field"
+            placeholder="Digite o nome da loja ou o código de uma máquina que tem lá dentro..."
+          />
+        </div>
+
         <DataTable
           headers={headers}
-          data={lojas}
-          emptyMessage="Nenhuma loja cadastrada. Clique em 'Nova Loja' para começar."
+          data={lojasFiltradas}
+          emptyMessage={
+            busca
+              ? "Nenhuma loja encontrada com esse nome ou código de máquina."
+              : "Nenhuma loja cadastrada. Clique em 'Nova Loja' para começar."
+          }
         />
       </div>
 
