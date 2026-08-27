@@ -2,7 +2,6 @@ import Veiculos from "./pages/Veiculos";
 import Alertas from "./pages/Alertas";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
-import { useAuth } from "./contexts/AuthContext";
 import { AlertasProvider } from "./contexts/AlertasContext";
 import { PrivateRoute } from "./components/PrivateRoute";
 import { Login } from "./pages/Login";
@@ -45,10 +44,6 @@ import { AnaliseEstoque } from "./pages/AnaliseEstoque";
 import "./App.css";
 
 function HomeRoute() {
-  const { usuario } = useAuth();
-  if (usuario?.role === "ENTREGADOR") {
-    return <Navigate to="/envios" replace />;
-  }
   return <Dashboard />;
 }
 
@@ -281,7 +276,6 @@ function App() {
                   "ADMIN",
                   "DESENVOLVEDOR",
                   "FUNCIONARIO_ESTOQUE",
-                  "ENTREGADOR",
                   "FUNCIONARIO_CADASTRO",
                 ]}
               >

@@ -30,10 +30,8 @@ export function Navbar() {
         ? "Administrador"
         : usuario?.role === "FUNCIONARIO_ESTOQUE"
           ? "Funcionário de Estoque"
-          : usuario?.role === "ENTREGADOR"
-            ? "Entregador"
-            : usuario?.role === "FUNCIONARIO_CADASTRO"
-              ? "Funcionário de Cadastro"
+          : usuario?.role === "FUNCIONARIO_CADASTRO"
+            ? "Funcionário de Cadastro"
           : "Funcionário";
 
   const handleLogout = () => {
@@ -63,7 +61,7 @@ export function Navbar() {
   // acessa (ele não vê é Financeiro, Gráficos, Relatórios e Usuários).
   const CADASTRO_ROLES = [...ADMIN_ROLES, "FUNCIONARIO_CADASTRO"];
   const ESTOQUE_ROLES = [...CADASTRO_ROLES, "FUNCIONARIO_ESTOQUE"];
-  const ENVIO_ROLES = [...ESTOQUE_ROLES, "ENTREGADOR"];
+  const ENVIO_ROLES = ESTOQUE_ROLES;
   const COMPRAS_ROLES = ESTOQUE_ROLES;
   // Fabricação de Pelúcia também é responsabilidade do Funcionário de Estoque.
   const FABRICA_ROLES = [...CADASTRO_ROLES, "FUNCIONARIO_ESTOQUE"];

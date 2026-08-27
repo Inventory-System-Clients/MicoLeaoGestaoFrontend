@@ -38,11 +38,12 @@ export default function Envios() {
   const { usuario, loading: authLoading } = useAuth();
   const location = useLocation();
   const prefill = location.state;
-  const isEntregador = usuario?.role === "ENTREGADOR";
 
   const [envios, setEnvios] = useState([]);
   const [lojas, setLojas] = useState([]);
-  const [usuarios, setUsuarios] = useState([]);
+  const [transportadores, setTransportadores] = useState([]);
+  const [novoTransportadorNome, setNovoTransportadorNome] = useState("");
+  const [criandoTransportador, setCriandoTransportador] = useState(false);
   const [produtos, setProdutos] = useState([]);
   const [divergentes, setDivergentes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,49 +68,43 @@ export default function Envios() {
     ],
   });
 
-  const carregarDados = useCallback(
-    async (params = {}) => {
-      try {
-        setError("");
-        if (isEntregador) {
-          const enviosRes = await api.get("/envios", { params });
-          setEnvios(Array.isArray(enviosRes.data) ? enviosRes.data : []);
-          setLoading(false);
-          return;
-        }
+  const carregarDados = useCallback(async (params = {}) => {
+    try {
+      setError("");
 
-        const [enviosRes, lojasRes, usuariosRes, produtosRes, divergentesRes] =
-          await Promise.all([
-            api.get("/envios", { params }),
-            api.get("/lojas"),
-            api.get("/usuarios").catch(() => ({ data: [] })),
-            api.get("/produtos"),
-            api.get("/lacres/divergentes"),
-          ]);
+      const [
+        enviosRes,
+        lojasRes,
+        transportadoresRes,
+        produtosRes,
+        divergentesRes,
+      ] = await Promise.all([
+        api.get("/envios", { params }),
+        api.get("/lojas"),
+        api.get("/transportadores").catch(() => ({ data: [] })),
+        api.get("/produtos"),
+        api.get("/lacres/divergentes"),
+      ]);
 
-        setEnvios(Array.isArray(enviosRes.data) ? enviosRes.data : []);
-        setLojas(
-          filtrarLojasOperacionais(
-            Array.isArray(lojasRes.data) ? lojasRes.data : [],
-          ),
-        );
-        setUsuarios(
-          Array.isArray(usuariosRes.data)
-            ? usuariosRes.data.filter((user) => user.role === "ENTREGADOR")
-            : [],
-        );
-        setProdutos(Array.isArray(produtosRes.data) ? produtosRes.data : []);
-        setDivergentes(
-          Array.isArray(divergentesRes.data) ? divergentesRes.data : [],
-        );
-      } catch (err) {
-        setError(err.response?.data?.error || "Erro ao carregar dados");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [isEntregador],
-  );
+      setEnvios(Array.isArray(enviosRes.data) ? enviosRes.data : []);
+      setLojas(
+        filtrarLojasOperacionais(
+          Array.isArray(lojasRes.data) ? lojasRes.data : [],
+        ),
+      );
+      setTransportadores(
+        Array.isArray(transportadoresRes.data) ? transportadoresRes.data : [],
+      );
+      setProdutos(Array.isArray(produtosRes.data) ? produtosRes.data : []);
+      setDivergentes(
+        Array.isArray(divergentesRes.data) ? divergentesRes.data : [],
+      );
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao carregar dados");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -161,6 +156,26 @@ export default function Envios() {
         idx === indexLacre ? { ...lacre, [campo]: valor } : lacre,
       ),
     }));
+  };
+
+  const handleCriarTransportador = async () => {
+    const nome = novoTransportadorNome.trim();
+    if (!nome) return;
+
+    try {
+      setCriandoTransportador(true);
+      setError("");
+      const response = await api.post("/transportadores", { nome });
+      setTransportadores((prev) =>
+        [...prev, response.data].sort((a, b) => a.nome.localeCompare(b.nome)),
+      );
+      setForm((prev) => ({ ...prev, transportadorId: response.data.id }));
+      setNovoTransportadorNome("");
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao cadastrar transportador");
+    } finally {
+      setCriandoTransportador(false);
+    }
   };
 
   const handleCriarEnvio = async (event) => {
@@ -239,7 +254,7 @@ export default function Envios() {
 
       <div className="mx-auto max-w-5xl space-y-4 px-4 py-8 sm:px-6 lg:px-8">
         <PageHeader
-          title={isEntregador ? "Minhas Entregas" : "Envios"}
+          title="Envios"
           subtitle={`Usuário: ${usuario?.nome || "-"} (${usuario?.role || "-"})`}
           icon="📦"
         />
@@ -294,15 +309,14 @@ export default function Envios() {
           </div>
         </div>
 
-        {!isEntregador && prefill?.produtoId && (
+        {prefill?.produtoId && (
           <AlertBox
             type="info"
             message="Loja e produto pré-preenchidos a partir da compra recebida. Informe o número do lacre e o transportador para montar o envio."
           />
         )}
 
-        {!isEntregador && (
-          <form onSubmit={handleCriarEnvio} className="card">
+        <form onSubmit={handleCriarEnvio} className="card">
             <h2 className="mb-3 text-lg font-semibold text-gray-900">
               Montar novo envio
             </h2>
@@ -345,12 +359,28 @@ export default function Envios() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
                 >
                   <option value="">Selecione...</option>
-                  {usuarios.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.nome}
+                  {transportadores.map((transportador) => (
+                    <option key={transportador.id} value={transportador.id}>
+                      {transportador.nome}
                     </option>
                   ))}
                 </select>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={novoTransportadorNome}
+                    onChange={(e) => setNovoTransportadorNome(e.target.value)}
+                    placeholder="Novo transportador (nome)"
+                    className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCriarTransportador}
+                    disabled={criandoTransportador || !novoTransportadorNome.trim()}
+                    className="btn-secondary text-xs whitespace-nowrap disabled:opacity-60"
+                  >
+                    {criandoTransportador ? "Cadastrando..." : "+ Cadastrar"}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -467,11 +497,10 @@ export default function Envios() {
               </button>
             </div>
           </form>
-        )}
 
         <div className="card">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            {isEntregador ? "Entregas atribuídas" : "Envios"} ({envios.length})
+            Envios ({envios.length})
           </h2>
 
           {envios.length === 0 ? (
@@ -572,8 +601,7 @@ export default function Envios() {
           )}
         </div>
 
-        {!isEntregador && (
-          <div className="card">
+        <div className="card">
             <h2 className="mb-3 text-lg font-semibold text-gray-900">
               Lacres divergentes
             </h2>
@@ -607,7 +635,6 @@ export default function Envios() {
               </div>
             )}
           </div>
-        )}
       </div>
 
       <Footer />
