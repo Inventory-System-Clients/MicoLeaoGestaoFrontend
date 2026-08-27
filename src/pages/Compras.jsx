@@ -519,7 +519,11 @@ export default function Compras() {
       return (itens || [])
         .map((item) => {
           const atual = Number(item.quantidade || 0);
-          const minimo = Number(item.estoqueMinimo ?? item.produto?.estoqueMinimo ?? 0);
+          // "??" não serve aqui: o backend sempre grava 0 (não null) quando a
+          // loja não tem um mínimo próprio configurado, então "0" precisa cair
+          // pro mínimo do produto — mesma lógica já usada em alertasEstoqueLoja
+          // no backend (estoqueLojaController.js).
+          const minimo = Number(item.estoqueMinimo || item.produto?.estoqueMinimo || 0);
           const faltaMinimo = Math.max(0, minimo - atual);
           if (faltaMinimo <= 0) return null;
           return {
