@@ -88,6 +88,12 @@ const DEFINICAO_TIPOS = [
     icone: "🛒",
     cor: "amber",
   },
+  {
+    id: "sugestao-compra-pendente",
+    label: "Sugestão de compra pendente",
+    icone: "📝",
+    cor: "purple",
+  },
   { id: "veiculos", label: "Veículos", icone: "🚗", cor: "blue" },
   {
     id: "divergencia-blink",
@@ -137,6 +143,7 @@ export function AlertasProvider({ children }) {
         carrinhoTransitoRes,
         lacresDivergentesRes,
         comprasPendentesRes,
+        sugestoesCompraPendentesRes,
         divergenciaBlinkRes,
       ] = await Promise.all([
         api
@@ -178,6 +185,9 @@ export function AlertasProvider({ children }) {
         api.get("/lacres/divergentes").catch(() => ({ data: [] })),
         api
           .get("/compras", { params: { status: "PESQUISANDO,COMPRADO" } })
+          .catch(() => ({ data: [] })),
+        api
+          .get("/sugestoes-compra", { params: { status: "PENDENTE" } })
           .catch(() => ({ data: [] })),
         api.get("/registro-dinheiro/alertas-blink").catch(() => ({ data: [] })),
       ]);
@@ -236,6 +246,19 @@ export function AlertasProvider({ children }) {
           }))
         : [];
 
+      const sugestaoCompraPendenteItens = Array.isArray(
+        sugestoesCompraPendentesRes.data,
+      )
+        ? sugestoesCompraPendentesRes.data.map((sugestao) => ({
+            id: sugestao.id,
+            titulo: "Sugestão de compra",
+            mensagem: `${sugestao.itens?.length || 0} item(ns) sugerido(s) por ${
+              sugestao.criadoPor?.nome || "-"
+            }`,
+            createdAt: sugestao.createdAt,
+          }))
+        : [];
+
       const divergenciaBlinkItens = Array.isArray(divergenciaBlinkRes.data)
         ? divergenciaBlinkRes.data.map((registro) => {
             const contado =
@@ -287,6 +310,10 @@ export function AlertasProvider({ children }) {
           itens: lacresDivergentesItens,
         },
         { id: "compra-pendente", itens: compraPendenteItens },
+        {
+          id: "sugestao-compra-pendente",
+          itens: sugestaoCompraPendenteItens,
+        },
         { id: "veiculos", itens: veiculosItens },
         { id: "divergencia-blink", itens: divergenciaBlinkItens },
       ].map((resultado) => {

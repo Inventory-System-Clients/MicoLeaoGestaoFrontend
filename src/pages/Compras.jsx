@@ -84,7 +84,11 @@ const TIPOS_DESCONTO = [
   ["FIXO", "Valor fixo"],
 ];
 
-const SECOES_FUNCIONARIO_ESTOQUE = ["statusCompra", "pendencias"];
+const SECOES_FUNCIONARIO_ESTOQUE = [
+  "statusCompra",
+  "pendencias",
+  "solicitacoesCompra",
+];
 
 const formInicial = {
   fornecedorId: "",
@@ -202,6 +206,8 @@ export default function Compras() {
   const podeVerValores = usuario?.role !== "FUNCIONARIO_ESTOQUE";
 
   const [compras, setCompras] = useState([]);
+  const [comprasNaoConfirmadas, setComprasNaoConfirmadas] = useState([]);
+  const [comprasRecebidasSemFiltro, setComprasRecebidasSemFiltro] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [insumos, setInsumos] = useState([]);
   const [pecas, setPecas] = useState([]);
@@ -271,6 +277,25 @@ export default function Compras() {
     filtrosComprasIniciais,
   );
 
+  const [solicitacoesCompra, setSolicitacoesCompra] = useState([]);
+  const [itensSolicitacao, setItensSolicitacao] = useState([]);
+  const [itemSolicitacaoEmEdicao, setItemSolicitacaoEmEdicao] = useState({
+    tipoItem: "PRODUTO",
+    itemNovo: false,
+    produtoId: "",
+    insumoId: "",
+    pecaId: "",
+    nomeItem: "",
+    quantidade: "",
+    unidade: "",
+  });
+  const [observacaoSolicitacao, setObservacaoSolicitacao] = useState("");
+  const [enviandoSolicitacao, setEnviandoSolicitacao] = useState(false);
+  const [recusandoSolicitacaoId, setRecusandoSolicitacaoId] = useState(null);
+  const [motivoRecusaSolicitacao, setMotivoRecusaSolicitacao] = useState({});
+  const [sugestaoCompraOrigemId, setSugestaoCompraOrigemId] = useState(null);
+  const [nomeSugestaoCompraOrigem, setNomeSugestaoCompraOrigem] = useState("");
+
   const carregarDados = useCallback(async () => {
     try {
       setError("");
@@ -281,6 +306,9 @@ export default function Compras() {
       );
       const [
         comprasRes,
+        comprasNaoConfirmadasRes,
+        comprasRecebidasSemFiltroRes,
+        solicitacoesCompraRes,
         produtosRes,
         insumosRes,
         fornecedoresRes,
@@ -290,6 +318,17 @@ export default function Compras() {
         maquinasRes,
       ] = await Promise.all([
         api.get("/compras", { params: paramsCompras }),
+        // Pedidos ainda não confirmados (não recebidos) sempre aparecem,
+        // independente do filtro de data escolhido acima.
+        api
+          .get("/compras", { params: { status: "PESQUISANDO,COMPRADO" } })
+          .catch(() => ({ data: [] })),
+        // Pendências (itens que faltaram na conferência) também ignoram o
+        // filtro de data — nunca somem da tela por causa da data.
+        api
+          .get("/compras", { params: { status: "RECEBIDO" } })
+          .catch(() => ({ data: [] })),
+        api.get("/sugestoes-compra").catch(() => ({ data: [] })),
         api.get("/produtos"),
         api.get("/insumos"),
         api.get("/fornecedores"),
@@ -321,6 +360,19 @@ export default function Compras() {
       );
 
       setCompras(Array.isArray(comprasRes.data) ? comprasRes.data : []);
+      setComprasNaoConfirmadas(
+        Array.isArray(comprasNaoConfirmadasRes.data)
+          ? comprasNaoConfirmadasRes.data
+          : [],
+      );
+      setComprasRecebidasSemFiltro(
+        Array.isArray(comprasRecebidasSemFiltroRes.data)
+          ? comprasRecebidasSemFiltroRes.data
+          : [],
+      );
+      setSolicitacoesCompra(
+        Array.isArray(solicitacoesCompraRes.data) ? solicitacoesCompraRes.data : [],
+      );
       setProdutos(Array.isArray(produtosRes.data) ? produtosRes.data : []);
       setInsumos(Array.isArray(insumosRes.data) ? insumosRes.data : []);
       setPecas(Array.isArray(pecasRes.data) ? pecasRes.data : []);
@@ -445,16 +497,19 @@ export default function Compras() {
     () =>
       STATUS_OPCOES.map((status) => ({
         ...status,
-        compras: compras.filter(
+        // Pedidos ainda não confirmados (Em pesquisa/Comprado) sempre
+        // aparecem, independente do filtro de data — só o Recebido
+        // (histórico já concluído) respeita o filtro escolhido.
+        compras: (status.value === "RECEBIDO" ? compras : comprasNaoConfirmadas).filter(
           (compra) => normalizarStatusCompra(compra.status) === status.value,
         ),
       })),
-    [compras],
+    [compras, comprasNaoConfirmadas],
   );
 
   const comprasComPendencia = useMemo(
-    () => compras.filter((compra) => compra.possuiPendencia),
-    [compras],
+    () => comprasRecebidasSemFiltro.filter((compra) => compra.possuiPendencia),
+    [comprasRecebidasSemFiltro],
   );
 
   const sugestoesCompra = useMemo(() => {
@@ -719,6 +774,57 @@ export default function Compras() {
     setSecaoAtiva("novaCompra");
   };
 
+  // Aceitar uma solicitação de compra não é um botão isolado: ela vira
+  // itens já carregados aqui na Nova Compra, e só quando o Admin de fato
+  // finalizar o pedido (com fornecedor/valor) é que a solicitação é
+  // marcada como aceita no backend (criarCompra recebe o sugestaoCompraId).
+  const handleUsarSolicitacaoNaCompra = (solicitacao) => {
+    setItensCompra((prev) => [
+      ...prev,
+      ...(solicitacao.itens || []).map((item) => ({
+        tempId: crypto.randomUUID(),
+        tipoItem: item.tipoItem,
+        itemNovo: Boolean(item.itemNovo),
+        nomeItem: item.nomeItem,
+        produtoId: item.produtoId || null,
+        insumoId: item.insumoId || null,
+        pecaId: item.pecaId || null,
+        sku: item.sku || null,
+        lojaId: item.lojaId || null,
+        descricaoUso: item.descricaoUso || null,
+        quantidade: Number(item.quantidade),
+        unidade: item.unidade || (item.tipoItem === "PRODUTO" ? "un" : null),
+        valorUnitario: null,
+      })),
+    ]);
+    setSugestaoCompraOrigemId(solicitacao.id);
+    setNomeSugestaoCompraOrigem(solicitacao.criadoPor?.nome || "");
+    setSecaoAtiva("novaCompra");
+    setSuccess(
+      "Itens da solicitação carregados aqui embaixo — complete fornecedor e valor, e finalize o pedido normalmente.",
+    );
+  };
+
+  const handleRecusarSolicitacao = async (id) => {
+    const resposta = motivoRecusaSolicitacao[id] || "";
+    if (!resposta.trim()) {
+      setError("Informe o motivo para não aceitar a solicitação");
+      return;
+    }
+
+    try {
+      setRecusandoSolicitacaoId(id);
+      setError("");
+      await api.patch(`/sugestoes-compra/${id}/recusar`, { resposta });
+      setSuccess("Solicitação recusada.");
+      await carregarDados();
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao recusar solicitação");
+    } finally {
+      setRecusandoSolicitacaoId(null);
+    }
+  };
+
   const atualizarItemCompra = (tempId, campo, valor) => {
     setItensCompra((prev) =>
       prev.map((item) =>
@@ -811,13 +917,20 @@ export default function Compras() {
           const { tempId: _tempId, ...resto } = custo;
           return resto;
         }),
+        sugestaoCompraId: sugestaoCompraOrigemId || null,
       });
       setForm(formInicial);
       setItensCompra([]);
       setItemEmEdicao(itemPedidoVazio);
       setItemEditandoTempId(null);
       setCustosAdicionais([]);
-      setSuccess("Pedido de compra lançado.");
+      setSugestaoCompraOrigemId(null);
+      setNomeSugestaoCompraOrigem("");
+      setSuccess(
+        sugestaoCompraOrigemId
+          ? "Pedido de compra lançado — solicitação marcada como aceita."
+          : "Pedido de compra lançado.",
+      );
       await carregarDados();
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao criar pedido de compra");
@@ -989,6 +1102,101 @@ export default function Compras() {
   const limparFiltrosCompras = () => {
     setFiltrosCompras(filtrosComprasIniciais);
     setFiltrosComprasAplicados(filtrosComprasIniciais);
+  };
+
+  const handleChangeTipoItemSolicitacao = (tipoItem) => {
+    setItemSolicitacaoEmEdicao({
+      tipoItem,
+      itemNovo: false,
+      produtoId: "",
+      insumoId: "",
+      pecaId: "",
+      nomeItem: "",
+      quantidade: itemSolicitacaoEmEdicao.quantidade,
+      unidade: "",
+    });
+  };
+
+  const handleAdicionarItemSolicitacao = () => {
+    const nomeItem = itemSolicitacaoEmEdicao.itemNovo
+      ? itemSolicitacaoEmEdicao.nomeItem.trim()
+      : obterNomeItemPorTipo(itemSolicitacaoEmEdicao) || "";
+    const quantidade = Number(itemSolicitacaoEmEdicao.quantidade);
+
+    if (!nomeItem) {
+      setError("Escolha ou digite o nome do item da solicitação");
+      return;
+    }
+    if (!Number.isFinite(quantidade) || quantidade <= 0) {
+      setError("Informe uma quantidade válida para o item");
+      return;
+    }
+
+    setItensSolicitacao((prev) => [
+      ...prev,
+      {
+        _key: `novo-${Date.now()}-${prev.length}`,
+        tipoItem: itemSolicitacaoEmEdicao.tipoItem,
+        produtoId: itemSolicitacaoEmEdicao.produtoId || null,
+        insumoId: itemSolicitacaoEmEdicao.insumoId || null,
+        pecaId: itemSolicitacaoEmEdicao.pecaId || null,
+        itemNovo: itemSolicitacaoEmEdicao.itemNovo,
+        nomeItem,
+        quantidade,
+        unidade:
+          itemSolicitacaoEmEdicao.tipoItem === "INSUMO"
+            ? itemSolicitacaoEmEdicao.unidade || null
+            : "un",
+      },
+    ]);
+    setItemSolicitacaoEmEdicao({
+      tipoItem: "PRODUTO",
+      itemNovo: false,
+      produtoId: "",
+      insumoId: "",
+      pecaId: "",
+      nomeItem: "",
+      quantidade: "",
+      unidade: "",
+    });
+    setError("");
+  };
+
+  const handleRemoverItemSolicitacao = (key) => {
+    setItensSolicitacao((prev) => prev.filter((item) => item._key !== key));
+  };
+
+  const handleEnviarSolicitacao = async () => {
+    if (itensSolicitacao.length === 0) {
+      setError("Adicione ao menos um item à solicitação");
+      return;
+    }
+
+    try {
+      setEnviandoSolicitacao(true);
+      setError("");
+      await api.post("/sugestoes-compra", {
+        observacao: observacaoSolicitacao.trim() || null,
+        itens: itensSolicitacao.map((item) => ({
+          tipoItem: item.tipoItem,
+          produtoId: item.produtoId,
+          insumoId: item.insumoId,
+          pecaId: item.pecaId,
+          itemNovo: item.itemNovo,
+          nomeItem: item.nomeItem,
+          quantidade: item.quantidade,
+          unidade: item.unidade,
+        })),
+      });
+      setItensSolicitacao([]);
+      setObservacaoSolicitacao("");
+      setSuccess("Solicitação enviada! O admin vai avaliar.");
+      await carregarDados();
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao enviar solicitação");
+    } finally {
+      setEnviandoSolicitacao(false);
+    }
   };
 
   const handleBuscarHistorico = async (event) => {
@@ -1274,6 +1482,14 @@ export default function Compras() {
                 title: "Sugestao de compra",
                 subtitle: "Ver faltas por loja, produto e pecas.",
               },
+              {
+                key: "solicitacoesCompra",
+                title: "Solicitações de compra",
+                subtitle: "Pedir produto/insumo pro Admin aprovar.",
+                contador: solicitacoesCompra.filter(
+                  (solicitacao) => solicitacao.status === "PENDENTE",
+                ).length,
+              },
             ]
               .filter(
                 (opcao) =>
@@ -1500,6 +1716,18 @@ export default function Compras() {
 
         {secaoAtiva === "novaCompra" && (
           <>
+        {sugestaoCompraOrigemId && (
+          <AlertBox
+            type="info"
+            message={`Completando a solicitação de compra${
+              nomeSugestaoCompraOrigem ? ` de ${nomeSugestaoCompraOrigem}` : ""
+            } — os itens já foram carregados abaixo. Escolha fornecedor e valor e finalize o pedido.`}
+            onClose={() => {
+              setSugestaoCompraOrigemId(null);
+              setNomeSugestaoCompraOrigem("");
+            }}
+          />
+        )}
         <form onSubmit={handleCriarCompra} className="card">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">Novo pedido de compra</h2>
 
@@ -2842,6 +3070,350 @@ export default function Compras() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {secaoAtiva === "solicitacoesCompra" && (
+          <div className="space-y-4">
+            <div className="card">
+              <h2 className="mb-1 text-lg font-semibold text-gray-900">
+                Nova solicitação de compra
+              </h2>
+              <p className="mb-4 text-sm text-gray-500">
+                Peça produto(s)/insumo(s)/peça(s) que estão faltando — o Admin
+                avalia e, se aceitar, gera o pedido de compra pra completar
+                fornecedor e valor.
+              </p>
+
+              <div className="grid grid-cols-1 gap-3 rounded-lg border border-orange-200 bg-white p-3 md:grid-cols-3">
+                <div className="md:col-span-3">
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Tipo de item
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      ["PRODUTO", "Produto"],
+                      ["INSUMO", "Insumo"],
+                      ["PECA", "Peça"],
+                    ].map(([value, label]) => {
+                      const ativo = itemSolicitacaoEmEdicao.tipoItem === value;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => handleChangeTipoItemSolicitacao(value)}
+                          className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+                            ativo
+                              ? "border-primary bg-primary text-white shadow-sm"
+                              : "border-orange-200 bg-white text-gray-700 hover:bg-orange-100"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="md:col-span-3">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={itemSolicitacaoEmEdicao.itemNovo}
+                      onChange={(e) =>
+                        setItemSolicitacaoEmEdicao((prev) => ({
+                          ...prev,
+                          itemNovo: e.target.checked,
+                          produtoId: "",
+                          insumoId: "",
+                          pecaId: "",
+                          nomeItem: "",
+                        }))
+                      }
+                    />
+                    Ainda não existe no catálogo (nome livre)
+                  </label>
+                </div>
+
+                {itemSolicitacaoEmEdicao.itemNovo ? (
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                      Nome do item
+                    </label>
+                    <input
+                      value={itemSolicitacaoEmEdicao.nomeItem}
+                      onChange={(e) =>
+                        setItemSolicitacaoEmEdicao((prev) => ({
+                          ...prev,
+                          nomeItem: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                      placeholder="Ex: Pelúcia urso 30cm"
+                    />
+                  </div>
+                ) : (
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                      Item do catálogo
+                    </label>
+                    <select
+                      value={
+                        itemSolicitacaoEmEdicao.tipoItem === "PRODUTO"
+                          ? itemSolicitacaoEmEdicao.produtoId
+                          : itemSolicitacaoEmEdicao.tipoItem === "INSUMO"
+                            ? itemSolicitacaoEmEdicao.insumoId
+                            : itemSolicitacaoEmEdicao.pecaId
+                      }
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        const lista =
+                          itemSolicitacaoEmEdicao.tipoItem === "PRODUTO"
+                            ? produtos
+                            : itemSolicitacaoEmEdicao.tipoItem === "INSUMO"
+                              ? insumos
+                              : pecas;
+                        const selecionado = lista.find((item) => item.id === id);
+                        setItemSolicitacaoEmEdicao((prev) => ({
+                          ...prev,
+                          produtoId: prev.tipoItem === "PRODUTO" ? id : "",
+                          insumoId: prev.tipoItem === "INSUMO" ? id : "",
+                          pecaId: prev.tipoItem === "PECA" ? id : "",
+                          nomeItem: selecionado?.nome || "",
+                          unidade: selecionado?.unidade || prev.unidade,
+                        }));
+                      }}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                    >
+                      <option value="">Selecione...</option>
+                      {(itemSolicitacaoEmEdicao.tipoItem === "PRODUTO"
+                        ? produtos
+                        : itemSolicitacaoEmEdicao.tipoItem === "INSUMO"
+                          ? insumos
+                          : pecas
+                      ).map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    Quantidade
+                  </label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={itemSolicitacaoEmEdicao.quantidade}
+                    onChange={(e) =>
+                      setItemSolicitacaoEmEdicao((prev) => ({
+                        ...prev,
+                        quantidade: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                {itemSolicitacaoEmEdicao.tipoItem === "INSUMO" && (
+                  <div>
+                    <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                      Unidade
+                    </label>
+                    <input
+                      value={itemSolicitacaoEmEdicao.unidade}
+                      onChange={(e) =>
+                        setItemSolicitacaoEmEdicao((prev) => ({
+                          ...prev,
+                          unidade: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                      placeholder="Ex: kg, un, m"
+                    />
+                  </div>
+                )}
+
+                <div className="flex justify-end md:col-span-3">
+                  <button
+                    type="button"
+                    onClick={handleAdicionarItemSolicitacao}
+                    className="btn-secondary text-sm"
+                  >
+                    + Adicionar item
+                  </button>
+                </div>
+              </div>
+
+              {itensSolicitacao.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {itensSolicitacao.map((item) => (
+                    <div
+                      key={item._key}
+                      className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                    >
+                      <span>
+                        {item.quantidade} {item.unidade || "un"} — {item.nomeItem}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoverItemSolicitacao(item._key)}
+                        className="text-xs font-semibold text-red-600 hover:text-red-800"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-4">
+                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                  Observação (opcional)
+                </label>
+                <textarea
+                  value={observacaoSolicitacao}
+                  onChange={(e) => setObservacaoSolicitacao(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                  placeholder="Ex: pra reposição da loja X, urgente"
+                />
+              </div>
+
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleEnviarSolicitacao}
+                  disabled={enviandoSolicitacao}
+                  className="btn-primary disabled:opacity-60"
+                >
+                  {enviandoSolicitacao ? "Enviando..." : "Enviar solicitação"}
+                </button>
+              </div>
+            </div>
+
+            <div className="card">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900">
+                Solicitações enviadas
+              </h2>
+
+              {solicitacoesCompra.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-gray-500">
+                  Nenhuma solicitação registrada ainda.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {solicitacoesCompra.map((solicitacao) => {
+                    const podeResponder =
+                      ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role) &&
+                      solicitacao.status === "PENDENTE";
+                    const corBorda =
+                      solicitacao.status === "ACEITA"
+                        ? "border-emerald-200 bg-emerald-50/40"
+                        : solicitacao.status === "RECUSADA"
+                          ? "border-red-200 bg-red-50/40"
+                          : "border-amber-200 bg-amber-50/40";
+                    const badgeVariant =
+                      solicitacao.status === "ACEITA"
+                        ? "success"
+                        : solicitacao.status === "RECUSADA"
+                          ? "danger"
+                          : "warning";
+                    const badgeLabel =
+                      solicitacao.status === "ACEITA"
+                        ? "Aceita"
+                        : solicitacao.status === "RECUSADA"
+                          ? "Recusada"
+                          : "Pendente";
+
+                    return (
+                      <div
+                        key={solicitacao.id}
+                        className={`rounded-lg border p-4 ${corBorda}`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900">
+                              {solicitacao.criadoPor?.nome || "-"}
+                            </h3>
+                            <p className="text-xs text-gray-500">
+                              {formatarDataHora(solicitacao.createdAt)}
+                            </p>
+                          </div>
+                          <Badge variant={badgeVariant} size="sm">
+                            {badgeLabel}
+                          </Badge>
+                        </div>
+
+                        <div className="mt-2 space-y-1 rounded-lg border border-white/60 bg-white p-2">
+                          {(solicitacao.itens || []).map((item) => (
+                            <p key={item.id} className="text-xs text-gray-700">
+                              {item.quantidade} {item.unidade || "un"} —{" "}
+                              {item.nomeItem}
+                            </p>
+                          ))}
+                        </div>
+
+                        {solicitacao.observacao && (
+                          <p className="mt-2 text-xs text-gray-600">
+                            Observação: {solicitacao.observacao}
+                          </p>
+                        )}
+
+                        {solicitacao.status !== "PENDENTE" && (
+                          <p className="mt-2 text-xs text-gray-600">
+                            {solicitacao.status === "ACEITA" ? "Aceita" : "Recusada"}{" "}
+                            por {solicitacao.respondidoPor?.nome || "-"} em{" "}
+                            {formatarDataHora(solicitacao.respondidoEm)}
+                            {solicitacao.resposta
+                              ? ` — Motivo: ${solicitacao.resposta}`
+                              : ""}
+                            {solicitacao.compraGerada
+                              ? ` — Virou o pedido de compra em "Status de compra".`
+                              : ""}
+                          </p>
+                        )}
+
+                        {podeResponder && (
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleUsarSolicitacaoNaCompra(solicitacao)}
+                              className="btn-primary text-xs"
+                            >
+                              Aceitar e montar compra
+                            </button>
+                            <input
+                              value={motivoRecusaSolicitacao[solicitacao.id] || ""}
+                              onChange={(e) =>
+                                setMotivoRecusaSolicitacao((prev) => ({
+                                  ...prev,
+                                  [solicitacao.id]: e.target.value,
+                                }))
+                              }
+                              placeholder="Motivo se for recusar"
+                              className="min-w-40 flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRecusarSolicitacao(solicitacao.id)}
+                              disabled={recusandoSolicitacaoId === solicitacao.id}
+                              className="btn-secondary text-xs disabled:opacity-60"
+                            >
+                              Recusar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
