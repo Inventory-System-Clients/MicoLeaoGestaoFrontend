@@ -2570,6 +2570,7 @@ export function Dashboard() {
             </div>
           )}
           {/* Veículos */}
+          {usuario?.role !== "FUNCIONARIO_ESTOQUE" && (
           <div
             className="stat-card bg-linear-to-br from-gray-700 to-gray-900 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
             onClick={() => navigate("/veiculos")}
@@ -2597,6 +2598,7 @@ export function Dashboard() {
               </p>
             </div>
           </div>
+          )}
           {usuario?.role === "FUNCIONARIO" && (
             <div
               className={`stat-card p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer transition-all ${
