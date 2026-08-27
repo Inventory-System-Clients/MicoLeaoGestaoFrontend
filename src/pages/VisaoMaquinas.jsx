@@ -385,6 +385,17 @@ export function VisaoMaquinas() {
                     R$ {Number(item.maquina.valorFicha || 0).toFixed(2)}
                   </p>
                 </div>
+                {item.maquina.custoAquisicao !== null &&
+                  item.maquina.custoAquisicao !== undefined && (
+                    <div className="rounded-lg bg-white/80 p-3">
+                      <p className="text-xs font-bold uppercase text-gray-500">
+                        Custo de aquisição
+                      </p>
+                      <p className="mt-1 font-bold text-gray-900">
+                        R$ {Number(item.maquina.custoAquisicao).toFixed(2)}
+                      </p>
+                    </div>
+                  )}
               </div>
 
               {item.maquina.localizacao && (

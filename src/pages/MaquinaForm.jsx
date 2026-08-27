@@ -21,6 +21,7 @@ export function MaquinaForm() {
     statusOperacao: "EM_OPERACAO",
     motivoParada: "",
     capacidadePadrao: "",
+    custoAquisicao: "",
     geradoraReceita: "nao",
     categoriaGeradora: "maquina",
     telemetria: "",
@@ -121,6 +122,7 @@ export function MaquinaForm() {
           !lojaIdAtual && statusAtual === "EM_OPERACAO" ? "PARADA" : statusAtual,
         motivoParada: response.data.motivoParada || "",
         capacidadePadrao: response.data.capacidadePadrao || "",
+        custoAquisicao: response.data.custoAquisicao ?? "",
         geradoraReceita:
           response.data.geradoraReceita === undefined || response.data.geradoraReceita
             ? "sim"
@@ -289,6 +291,10 @@ export function MaquinaForm() {
             ? formData.motivoParada?.trim() || null
             : null,
         capacidadePadrao: parseInt(formData.capacidadePadrao, 10) || 0,
+        custoAquisicao:
+          formData.custoAquisicao !== "" && formData.custoAquisicao !== null
+            ? Number(formData.custoAquisicao)
+            : null,
         geradoraReceita: formData.geradoraReceita === "sim",
         categoriaGeradora:
           formData.geradoraReceita === "sim"
@@ -616,6 +622,26 @@ export function MaquinaForm() {
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Capacidade máxima de produtos
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Custo de aquisição (R$)
+                  </label>
+                  <input
+                    type="number"
+                    name="custoAquisicao"
+                    value={formData.custoAquisicao}
+                    onChange={handleChange}
+                    className="input-field"
+                    placeholder="Ex: 3500 (opcional)"
+                    min="0"
+                    step="0.01"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Quanto custou a máquina — opcional, aparece na Visão das
+                    Máquinas
                   </p>
                 </div>
 
