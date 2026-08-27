@@ -45,6 +45,7 @@ const filtrosConcluidosPadrao = () => {
 
 export default function FabricacaoPelucia() {
   const { usuario, loading: authLoading } = useAuth();
+  const podeVerValores = usuario?.role !== "FUNCIONARIO_ESTOQUE";
 
   const [insumos, setInsumos] = useState([]);
   const [compras, setCompras] = useState([]);
@@ -776,7 +777,7 @@ export default function FabricacaoPelucia() {
                     <th>Insumo</th>
                     <th>Estoque</th>
                     <th>Mínimo</th>
-                    <th>Custo</th>
+                    {podeVerValores && <th>Custo</th>}
                     <th className="text-right">Ações</th>
                   </tr>
                 </thead>
@@ -827,7 +828,9 @@ export default function FabricacaoPelucia() {
                             </span>
                           </td>
                           <td>{insumo.estoqueMinimo ?? 0}</td>
-                          <td>{formatarMoeda(insumo.custoUnitarioUltimo)}</td>
+                          {podeVerValores && (
+                            <td>{formatarMoeda(insumo.custoUnitarioUltimo)}</td>
+                          )}
                           <td>
                             <div className="flex flex-wrap justify-end gap-2">
                               <button
@@ -886,24 +889,26 @@ export default function FabricacaoPelucia() {
                                       className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
                                     />
                                   </div>
-                                  <div>
-                                    <label className="mb-1 block text-xs font-medium text-gray-700">
-                                      Custo unitário (R$)
-                                    </label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      value={formCompra.custoUnitario}
-                                      onChange={(e) =>
-                                        setFormCompra((prev) => ({
-                                          ...prev,
-                                          custoUnitario: e.target.value,
-                                        }))
-                                      }
-                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                                    />
-                                  </div>
+                                  {podeVerValores && (
+                                    <div>
+                                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                                        Custo unitário (R$)
+                                      </label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={formCompra.custoUnitario}
+                                        onChange={(e) =>
+                                          setFormCompra((prev) => ({
+                                            ...prev,
+                                            custoUnitario: e.target.value,
+                                          }))
+                                        }
+                                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                      />
+                                    </div>
+                                  )}
                                   <div>
                                     <label className="mb-1 block text-xs font-medium text-gray-700">
                                       Fornecedor
@@ -1033,24 +1038,26 @@ export default function FabricacaoPelucia() {
                                       className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
                                     />
                                   </div>
-                                  <div>
-                                    <label className="mb-1 block text-xs font-medium text-gray-700">
-                                      Custo unitário última compra (R$)
-                                    </label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      value={formEditarInsumo.custoUnitarioUltimo}
-                                      onChange={(e) =>
-                                        setFormEditarInsumo((prev) => ({
-                                          ...prev,
-                                          custoUnitarioUltimo: e.target.value,
-                                        }))
-                                      }
-                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                                    />
-                                  </div>
+                                  {podeVerValores && (
+                                    <div>
+                                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                                        Custo unitário última compra (R$)
+                                      </label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={formEditarInsumo.custoUnitarioUltimo}
+                                        onChange={(e) =>
+                                          setFormEditarInsumo((prev) => ({
+                                            ...prev,
+                                            custoUnitarioUltimo: e.target.value,
+                                          }))
+                                        }
+                                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                      />
+                                    </div>
+                                  )}
                                   <div className="md:col-span-2">
                                     <label className="mb-1 block text-xs font-medium text-gray-700">
                                       Observação
@@ -1125,8 +1132,8 @@ export default function FabricacaoPelucia() {
                     {compra.insumo?.unidade || ""}
                   </span>
                   <span className="text-gray-500">
-                    {compra.fornecedor?.nome || "-"} ·{" "}
-                    {formatarMoeda(compra.custoTotal)}
+                    {compra.fornecedor?.nome || "-"}
+                    {podeVerValores ? ` · ${formatarMoeda(compra.custoTotal)}` : ""}
                   </span>
                 </div>
               ))}
