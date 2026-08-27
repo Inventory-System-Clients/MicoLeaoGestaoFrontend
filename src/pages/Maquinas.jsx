@@ -55,6 +55,13 @@ export function Maquinas() {
   });
   const [salvandoTransferencia, setSalvandoTransferencia] = useState(false);
   const [erroTransferencia, setErroTransferencia] = useState("");
+  const [modalTipoMaquinaAberto, setModalTipoMaquinaAberto] = useState(false);
+  const [formTipoMaquina, setFormTipoMaquina] = useState({
+    nome: "",
+    capacidadePadrao: "100",
+  });
+  const [salvandoTipoMaquina, setSalvandoTipoMaquina] = useState(false);
+  const [erroTipoMaquina, setErroTipoMaquina] = useState("");
 
   useEffect(() => {
     carregarDados();
@@ -163,6 +170,38 @@ export function Maquinas() {
       );
     } finally {
       setSalvandoTransferencia(false);
+    }
+  };
+
+  const handleChangeTipoMaquina = (e) => {
+    const { name, value } = e.target;
+    setFormTipoMaquina((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmitTipoMaquina = async (e) => {
+    e.preventDefault();
+    setErroTipoMaquina("");
+
+    if (!formTipoMaquina.nome.trim()) {
+      setErroTipoMaquina("Informe o nome do tipo de máquina.");
+      return;
+    }
+
+    setSalvandoTipoMaquina(true);
+    try {
+      await api.post("/tipos-maquina", {
+        nome: formTipoMaquina.nome.trim(),
+        capacidadePadrao: Number(formTipoMaquina.capacidadePadrao) || 100,
+      });
+      setSuccess("✅ Tipo de máquina cadastrado com sucesso!");
+      setModalTipoMaquinaAberto(false);
+      setFormTipoMaquina({ nome: "", capacidadePadrao: "100" });
+    } catch (error) {
+      setErroTipoMaquina(
+        error.response?.data?.error || "Erro ao cadastrar tipo de máquina",
+      );
+    } finally {
+      setSalvandoTipoMaquina(false);
     }
   };
 
@@ -317,12 +356,24 @@ export function Maquinas() {
           action={
             ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
               usuario?.role,
-            )
-              ? {
-                  label: "Nova Máquina",
-                  onClick: () => navigate("/maquinas/nova"),
-                }
-              : undefined
+            ) ? (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalTipoMaquinaAberto(true)}
+                  className="btn-secondary"
+                >
+                  Cadastrar tipo de máquina
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/maquinas/nova")}
+                  className="btn-primary"
+                >
+                  Nova Máquina
+                </button>
+              </div>
+            ) : undefined
           }
         />
 
@@ -537,6 +588,72 @@ export function Maquinas() {
             </div>
           </form>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={modalTipoMaquinaAberto}
+        onClose={() => setModalTipoMaquinaAberto(false)}
+        title="🎰 Cadastrar tipo de máquina"
+        size="sm"
+      >
+        <form onSubmit={handleSubmitTipoMaquina} className="space-y-4">
+          {erroTipoMaquina && (
+            <AlertBox type="error" message={erroTipoMaquina} />
+          )}
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Nome do tipo *
+            </label>
+            <input
+              type="text"
+              name="nome"
+              value={formTipoMaquina.nome}
+              onChange={handleChangeTipoMaquina}
+              className="input-field"
+              placeholder="Ex: Garra, Poltrona, Takeball..."
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Capacidade padrão *
+            </label>
+            <input
+              type="number"
+              name="capacidadePadrao"
+              value={formTipoMaquina.capacidadePadrao}
+              onChange={handleChangeTipoMaquina}
+              className="input-field"
+              min="0"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Vai preencher automaticamente a Capacidade Padrão quando esse
+              tipo for escolhido no cadastro/edição de máquina (ainda dá pra
+              ajustar depois, por máquina).
+            </p>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => setModalTipoMaquinaAberto(false)}
+              className="btn-secondary"
+              disabled={salvandoTipoMaquina}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={salvandoTipoMaquina}
+            >
+              {salvandoTipoMaquina ? "Salvando..." : "Cadastrar"}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

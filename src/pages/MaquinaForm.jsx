@@ -38,6 +38,7 @@ export function MaquinaForm() {
   const [lojas, setLojas] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [telemetrias, setTelemetrias] = useState([]);
+  const [tiposMaquina, setTiposMaquina] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState("");
@@ -48,6 +49,7 @@ export function MaquinaForm() {
     carregarLojas();
     carregarProdutos();
     carregarTelemetrias();
+    carregarTiposMaquina();
     if (isEdit) {
       carregarMaquina();
     } else {
@@ -89,6 +91,15 @@ export function MaquinaForm() {
       setTelemetrias([...new Set(valores)].sort());
     } catch (error) {
       // Não bloqueia o formulário se a lista de telemetrias não carregar
+    }
+  };
+
+  const carregarTiposMaquina = async () => {
+    try {
+      const response = await api.get("/tipos-maquina");
+      setTiposMaquina(response.data || []);
+    } catch (error) {
+      // Não bloqueia o formulário se o catálogo de tipos não carregar
     }
   };
 
@@ -167,6 +178,12 @@ export function MaquinaForm() {
       novosDados.valorFicha = "";
       novosDados.modoFichas = "indefinido";
       novosDados.fichasNecessarias = "";
+    }
+    if (name === "tipo" && value) {
+      const tipoEscolhido = tiposMaquina.find((t) => t.nome === value);
+      if (tipoEscolhido) {
+        novosDados.capacidadePadrao = String(tipoEscolhido.capacidadePadrao);
+      }
     }
     setFormData({
       ...novosDados,
@@ -533,16 +550,26 @@ export function MaquinaForm() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Tipo de Máquina
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="tipo"
                     value={formData.tipo}
                     onChange={handleChange}
-                    className="input-field"
-                    placeholder="Ex: Garra, Empurrador, etc."
-                  />
+                    className="select-field"
+                  >
+                    <option value="">Selecione o tipo</option>
+                    {formData.tipo &&
+                      !tiposMaquina.some((t) => t.nome === formData.tipo) && (
+                        <option value={formData.tipo}>{formData.tipo}</option>
+                      )}
+                    {tiposMaquina.map((tipo) => (
+                      <option key={tipo.id} value={tipo.nome}>
+                        {tipo.nome}
+                      </option>
+                    ))}
+                  </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    Tipo ou modelo da máquina
+                    Escolher um tipo preenche a Capacidade Padrão
+                    automaticamente (ainda dá pra ajustar depois).
                   </p>
                 </div>
 
