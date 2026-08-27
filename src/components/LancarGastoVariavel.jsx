@@ -9,12 +9,16 @@ const labelClass = "mb-1 block text-sm font-medium text-gray-700";
 export default function LancarGastoVariavel({
   lojas = [],
   veiculos = [],
+  roteiros = [],
   onClose,
   onSuccess,
 }) {
   const [categoria, setCategoria] = useState("Gasolina");
   const [nomeOutros, setNomeOutros] = useState("");
+  const [modoLoja, setModoLoja] = useState("unica");
   const [lojaId, setLojaId] = useState("");
+  const [lojaIdsSelecionadas, setLojaIdsSelecionadas] = useState([]);
+  const [roteiroId, setRoteiroId] = useState("");
   const [valor, setValor] = useState("");
   const [observacao, setObservacao] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -38,8 +42,28 @@ export default function LancarGastoVariavel({
   const valorValido =
     valor !== "" && Number.isFinite(Number(valor)) && Number(valor) > 0;
 
+  const roteiroSelecionado = roteiros.find((r) => r.id === roteiroId);
+  const lojaIdsDoRoteiro = (roteiroSelecionado?.itens || [])
+    .filter((item) => item.tipo === "LOJA" && item.lojaId)
+    .map((item) => item.lojaId);
+
+  const lojaIdsFinal =
+    modoLoja === "unica"
+      ? lojaId
+        ? [lojaId]
+        : []
+      : modoLoja === "varias"
+        ? lojaIdsSelecionadas
+        : lojaIdsDoRoteiro;
+
+  const toggleLojaSelecionada = (id) => {
+    setLojaIdsSelecionadas((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
   const formValido =
-    lojaId &&
+    lojaIdsFinal.length > 0 &&
     valorValido &&
     (!isOutros || nomeOutros.trim()) &&
     (!isGasolina || (veiculoId && kmValido));
@@ -51,7 +75,7 @@ export default function LancarGastoVariavel({
     try {
       const nome = isOutros ? nomeOutros.trim() : categoria;
       const payload = {
-        lojaId,
+        lojaIds: lojaIdsFinal,
         nome,
         valor: Number(valor),
         observacao: observacao || undefined,
@@ -71,6 +95,10 @@ export default function LancarGastoVariavel({
       Swal.fire({
         icon: "success",
         title: "Gasto lançado com sucesso!",
+        text:
+          lojaIdsFinal.length > 1
+            ? `Dividido entre ${lojaIdsFinal.length} lojas.`
+            : undefined,
         showConfirmButton: true,
         confirmButtonText: "OK",
       });
@@ -137,9 +165,33 @@ export default function LancarGastoVariavel({
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-            <label className={labelClass}>Loja</label>
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+          <label className={labelClass}>Loja</label>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {[
+              ["unica", "Uma loja"],
+              ["varias", "Várias lojas"],
+              ["roteiro", "Roteiro"],
+            ].map(([value, label]) => {
+              const ativo = modoLoja === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setModoLoja(value)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                    ativo
+                      ? "border-orange-400 bg-orange-500 text-white shadow-sm"
+                      : "border-slate-300 bg-white text-slate-700 hover:bg-orange-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {modoLoja === "unica" && (
             <select
               value={lojaId}
               onChange={(e) => setLojaId(e.target.value)}
@@ -152,20 +204,69 @@ export default function LancarGastoVariavel({
                 </option>
               ))}
             </select>
-          </div>
+          )}
 
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-            <label className={labelClass}>Valor (R$)</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-              className={inputClass}
-              onWheel={(e) => e.target.blur()}
-            />
-          </div>
+          {modoLoja === "varias" && (
+            <>
+              <div className="max-h-40 space-y-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2">
+                {lojas.map((loja) => (
+                  <label
+                    key={loja.id}
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-orange-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={lojaIdsSelecionadas.includes(loja.id)}
+                      onChange={() => toggleLojaSelecionada(loja.id)}
+                    />
+                    {loja.nome}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                {lojaIdsSelecionadas.length > 0
+                  ? `O valor será dividido igualmente entre as ${lojaIdsSelecionadas.length} lojas selecionadas.`
+                  : "Selecione as lojas que vão dividir esse gasto."}
+              </p>
+            </>
+          )}
+
+          {modoLoja === "roteiro" && (
+            <>
+              <select
+                value={roteiroId}
+                onChange={(e) => setRoteiroId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Selecione o roteiro</option>
+                {roteiros.map((roteiro) => (
+                  <option key={roteiro.id} value={roteiro.id}>
+                    {roteiro.nome}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-slate-500">
+                {roteiroId
+                  ? lojaIdsDoRoteiro.length > 0
+                    ? `O valor será dividido igualmente entre as ${lojaIdsDoRoteiro.length} lojas desse roteiro.`
+                    : "Esse roteiro não tem lojas cadastradas."
+                  : "O valor será dividido igualmente entre as lojas do roteiro."}
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+          <label className={labelClass}>Valor (R$)</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            className={inputClass}
+            onWheel={(e) => e.target.blur()}
+          />
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">

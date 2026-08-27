@@ -45,6 +45,7 @@ const getUltimoDiaMesAtual = () => {
 export function GastosVariaveis() {
   const [lojas, setLojas] = useState([]);
   const [veiculos, setVeiculos] = useState([]);
+  const [roteiros, setRoteiros] = useState([]);
   const [gastos, setGastos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -98,12 +99,14 @@ export function GastosVariaveis() {
   useEffect(() => {
     const carregarBase = async () => {
       try {
-        const [lojasRes, veiculosRes] = await Promise.all([
+        const [lojasRes, veiculosRes, roteirosRes] = await Promise.all([
           api.get("/lojas"),
           api.get("/veiculos"),
+          api.get("/roteiros").catch(() => ({ data: [] })),
         ]);
         setLojas(filtrarLojasOperacionais(lojasRes.data || []));
         setVeiculos(veiculosRes.data || []);
+        setRoteiros(Array.isArray(roteirosRes.data) ? roteirosRes.data : []);
       } catch (err) {
         console.error("Erro ao carregar lojas/veículos:", err);
       }
@@ -283,6 +286,7 @@ export function GastosVariaveis() {
               <LancarGastoVariavel
                 lojas={lojas}
                 veiculos={veiculos}
+                roteiros={roteiros}
                 onClose={() => setModalAberto(false)}
                 onSuccess={() => {
                   setSuccess("Gasto variável lançado com sucesso!");

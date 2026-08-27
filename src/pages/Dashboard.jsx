@@ -271,6 +271,7 @@ export function Dashboard() {
   const [loadingManutencoesPendentes, setLoadingManutencoesPendentes] =
     useState(false);
   const [veiculos, setVeiculos] = useState([]);
+  const [roteiros, setRoteiros] = useState([]);
   const [modalGastoVariavel, setModalGastoVariavel] = useState(false);
 
   // Estados para busca e navegação
@@ -1040,6 +1041,16 @@ export function Dashboard() {
       .catch((error) => {
         console.error("Erro ao carregar veículos:", error);
         setVeiculos([]);
+      });
+  }, []);
+
+  useEffect(() => {
+    api
+      .get("/roteiros")
+      .then((response) => setRoteiros(response.data || []))
+      .catch((error) => {
+        console.error("Erro ao carregar roteiros:", error);
+        setRoteiros([]);
       });
   }, []);
 
@@ -2754,6 +2765,7 @@ export function Dashboard() {
               <LancarGastoVariavel
                 lojas={lojas}
                 veiculos={veiculos}
+                roteiros={roteiros}
                 onClose={() => setModalGastoVariavel(false)}
                 onSuccess={() => setModalGastoVariavel(false)}
               />
