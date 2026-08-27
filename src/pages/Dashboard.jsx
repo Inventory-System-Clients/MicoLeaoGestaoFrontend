@@ -2569,6 +2569,78 @@ export function Dashboard() {
               </div>
             </div>
           )}
+          {["FUNCIONARIO_ESTOQUE", "FUNCIONARIO_CADASTRO"].includes(
+            usuario?.role,
+          ) && (
+            <>
+              {/* Estoque */}
+              <div
+                className="stat-card bg-linear-to-br from-amber-600 to-orange-700 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
+                onClick={() => navigate("/estoque")}
+              >
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium opacity-90">
+                      Estoque
+                    </h3>
+                    <span className="text-2xl">📦</span>
+                  </div>
+                  <p className="text-xs opacity-75 mt-1">
+                    Ver e movimentar o estoque das lojas
+                  </p>
+                </div>
+              </div>
+              {/* Envios */}
+              <div
+                className="stat-card bg-linear-to-br from-cyan-600 to-blue-700 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
+                onClick={() => navigate("/envios")}
+              >
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium opacity-90">Envios</h3>
+                    <span className="text-2xl">📦</span>
+                  </div>
+                  <p className="text-xs opacity-75 mt-1">
+                    Montar envios e dar baixa
+                  </p>
+                </div>
+              </div>
+              {/* Compras */}
+              <div
+                className="stat-card bg-linear-to-br from-emerald-600 to-green-700 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
+                onClick={() => navigate("/compras")}
+              >
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium opacity-90">
+                      Compras
+                    </h3>
+                    <span className="text-2xl">🛒</span>
+                  </div>
+                  <p className="text-xs opacity-75 mt-1">
+                    Acompanhar compras e pendências
+                  </p>
+                </div>
+              </div>
+              {/* Fabricação de Pelúcia */}
+              <div
+                className="stat-card bg-linear-to-br from-pink-600 to-rose-700 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
+                onClick={() => navigate("/fabricacao-pelucia")}
+              >
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium opacity-90">
+                      Fabricação de Pelúcia
+                    </h3>
+                    <span className="text-2xl">🧵</span>
+                  </div>
+                  <p className="text-xs opacity-75 mt-1">
+                    Insumos, receitas e pedidos de pelúcia
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
           {/* Veículos */}
           {usuario?.role !== "FUNCIONARIO_ESTOQUE" && (
           <div
