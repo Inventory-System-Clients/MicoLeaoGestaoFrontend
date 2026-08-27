@@ -309,16 +309,26 @@ export function LojaDetalhes() {
                 </p>
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="text-sm font-semibold text-gray-500">
-                  Vencimento do extintor
+                  Extintores
                 </label>
-                <p className="text-gray-900">
-                  {formatarDataLoja(
-                    loja.dataVencimentoExtintor ||
-                      loja.data_vencimento_extintor,
-                  )}
-                </p>
+                {Array.isArray(loja.extintores) && loja.extintores.length > 0 ? (
+                  <ul className="mt-1 space-y-1">
+                    {loja.extintores.map((extintor) => (
+                      <li key={extintor.id} className="text-gray-900">
+                        {extintor.identificacao
+                          ? `${extintor.identificacao}: `
+                          : ""}
+                        {formatarDataLoja(
+                          extintor.dataVencimento || extintor.data_vencimento,
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-900">Nenhum extintor cadastrado</p>
+                )}
               </div>
 
               <div>

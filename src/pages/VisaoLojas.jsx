@@ -100,12 +100,24 @@ const diferencaDias = (valor) => {
   return Math.floor((Date.now() - data.getTime()) / (1000 * 60 * 60 * 24));
 };
 
-const obterDataExtintor = (loja) =>
-  loja?.dataVencimentoExtintor ||
-  loja?.vencimentoExtintor ||
-  loja?.extintorVencimento ||
-  loja?.dataExtintor ||
-  null;
+const obterExtintores = (loja) =>
+  Array.isArray(loja?.extintores) ? loja.extintores : [];
+
+// Pega o extintor que vence primeiro (o "pior caso" da loja). Se a loja
+// ainda não tiver nenhum extintor na lista nova, cai pro campo antigo
+// (compatibilidade com dados que ainda não passaram pela migração).
+const obterProximoExtintor = (loja) => {
+  const lista = obterExtintores(loja);
+  if (lista.length > 0) {
+    return [...lista].sort(
+      (a, b) => new Date(a.dataVencimento) - new Date(b.dataVencimento),
+    )[0];
+  }
+
+  const dataAntiga =
+    loja?.dataVencimentoExtintor || loja?.data_vencimento_extintor || null;
+  return dataAntiga ? { dataVencimento: dataAntiga } : null;
+};
 
 const DIAS_AVISO_CONTRATO_DEFAULT = 60;
 
@@ -290,13 +302,15 @@ export function VisaoLojas() {
               (maquina) => numero(maquina.jogadasBoasPorPelucia) > 0,
             );
 
-            const dataExtintor = obterDataExtintor(loja);
+            const proximoExtintor = obterProximoExtintor(loja);
+            const dataExtintor = proximoExtintor?.dataVencimento || null;
             const diasExtintor = dataExtintor
               ? Math.ceil(
                   (new Date(dataExtintor).getTime() - Date.now()) /
                     (1000 * 60 * 60 * 24),
                 )
               : null;
+            const totalExtintores = obterExtintores(loja).length;
 
             const dataContrato = obterDataContrato(loja);
             const diasContrato = dataContrato
@@ -338,6 +352,7 @@ export function VisaoLojas() {
               diasSemMov,
               dataExtintor,
               diasExtintor,
+              totalExtintores,
               dataContrato,
               diasContrato,
               contratoAlerta,
@@ -576,12 +591,16 @@ export function VisaoLojas() {
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 p-3">
-                  <p className="font-bold text-gray-800">Extintor</p>
+                  <p className="font-bold text-gray-800">
+                    Extintor{item.totalExtintores > 1 ? "es" : ""}
+                  </p>
                   <p className="mt-1 text-gray-600">
                     {item.dataExtintor
                       ? `${formatarData(item.dataExtintor)}${
-                          item.diasExtintor <= 30 ? " · atenção" : ""
-                        }`
+                          item.totalExtintores > 1
+                            ? ` (+${item.totalExtintores - 1})`
+                            : ""
+                        }${item.diasExtintor <= 30 ? " · atenção" : ""}`
                       : "Sem cadastro"}
                   </p>
                 </div>

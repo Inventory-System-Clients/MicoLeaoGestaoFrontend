@@ -22,7 +22,6 @@ export function LojaForm() {
     statusOperacao: "ATIVA",
     dataInicio: "",
     observacoes: "",
-    dataVencimentoExtintor: "",
     dataFimContrato: "",
     diasAvisoContrato: "60",
     valorFichaPadrao: "2,50",
@@ -78,6 +77,14 @@ export function LojaForm() {
     vigenciaFim: "",
   });
 
+  let contadorExtintor = 0;
+  const criarExtintorVazio = () => ({
+    _key: `novo-${Date.now()}-${contadorExtintor++}`,
+    id: null,
+    identificacao: "",
+    dataVencimento: "",
+  });
+
   // "sempre" (sem data), "unico" (so um mes) ou "apartir" (a partir de um
   // mes, sem data de fim).
   const obterTipoVigencia = (gasto) => {
@@ -101,6 +108,9 @@ export function LojaForm() {
   // Gastos fixos da loja
   const [gastosFixos, setGastosFixos] = useState([]);
 
+  // Extintores da loja
+  const [extintores, setExtintores] = useState([]);
+
   useEffect(() => {
     if (isEdit) {
       carregarLoja();
@@ -115,6 +125,31 @@ export function LojaForm() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit]);
+
+  // Carregar extintores da loja ao editar
+  useEffect(() => {
+    if (isEdit) {
+      carregarExtintores();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit]);
+
+  const carregarExtintores = async () => {
+    try {
+      const response = await api.get(`/extintores-loja/${id}`);
+      const lista = Array.isArray(response.data) ? response.data : [];
+      setExtintores(
+        lista.map((item) => ({
+          _key: `db-${item.id}`,
+          id: item.id,
+          identificacao: item.identificacao || "",
+          dataVencimento: item.dataVencimento || item.data_vencimento || "",
+        })),
+      );
+    } catch (error) {
+      setExtintores([]);
+    }
+  };
   // Função para carregar gastos fixos do backend
   const carregarGastosFixos = async () => {
     try {
@@ -157,10 +192,6 @@ export function LojaForm() {
           (response.data?.ativo === false ? "INATIVA" : "ATIVA"),
         dataInicio: response.data?.dataInicio || response.data?.data_inicio || "",
         observacoes: response.data?.observacoes || "",
-        dataVencimentoExtintor:
-          response.data?.dataVencimentoExtintor ||
-          response.data?.data_vencimento_extintor ||
-          "",
         dataFimContrato:
           response.data?.dataFimContrato ||
           response.data?.data_fim_contrato ||
@@ -211,6 +242,21 @@ export function LojaForm() {
 
   const handleRemoverGastoFixo = (idx) => {
     setGastosFixos((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  // Manipula alteração dos campos de extintores
+  const handleChangeExtintor = (idx, field, value) => {
+    setExtintores((prev) =>
+      prev.map((ex, i) => (i === idx ? { ...ex, [field]: value } : ex)),
+    );
+  };
+
+  const handleAdicionarExtintor = () => {
+    setExtintores((prev) => [...prev, criarExtintorVazio()]);
+  };
+
+  const handleRemoverExtintor = (idx) => {
+    setExtintores((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleChangeTipoVigencia = (idx, tipo) => {
@@ -276,6 +322,20 @@ export function LojaForm() {
     });
   };
 
+  // Só considera extintores com data de validade preenchida
+  const extintoresValidos = () =>
+    extintores.filter((ex) => ex.dataVencimento);
+
+  const salvarExtintores = async (lojaId, extintoresValidosLista) => {
+    await api.post(`/extintores-loja/${lojaId}`, {
+      extintores: extintoresValidosLista.map((ex) => ({
+        id: ex.id || undefined,
+        identificacao: ex.identificacao?.trim() || null,
+        dataVencimento: ex.dataVencimento,
+      })),
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -307,7 +367,6 @@ export function LojaForm() {
         statusOperacao: formData.statusOperacao || "ATIVA",
         dataInicio: formData.dataInicio || null,
         observacoes: formData.observacoes?.trim() || null,
-        dataVencimentoExtintor: formData.dataVencimentoExtintor || null,
         dataFimContrato: formData.dataFimContrato || null,
         diasAvisoContrato: formData.diasAvisoContrato
           ? parseInt(formData.diasAvisoContrato, 10)
@@ -318,15 +377,21 @@ export function LojaForm() {
           : formData.ativo,
       };
 
+      const extintoresValidosLista = extintoresValidos();
+
       if (isEdit) {
         await api.put(`/lojas/${id}`, data);
         await salvarGastosFixos(id, gastosValidos);
+        await salvarExtintores(id, extintoresValidosLista);
         setSuccess("Loja atualizada com sucesso!");
       } else {
         const response = await api.post("/lojas", data);
         const novaLojaId = response.data?.id;
         if (novaLojaId && gastosValidos.length > 0) {
           await salvarGastosFixos(novaLojaId, gastosValidos);
+        }
+        if (novaLojaId && extintoresValidosLista.length > 0) {
+          await salvarExtintores(novaLojaId, extintoresValidosLista);
         }
         setSuccess("Loja criada com sucesso!");
       }
@@ -489,6 +554,64 @@ export function LojaForm() {
                   + Adicionar gasto fixo
                 </button>
               </div>
+
+            {/* Extintores */}
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span className="text-xl leading-none">🧯</span>
+                Extintores
+              </h3>
+
+              {extintores.length === 0 && (
+                <p className="text-sm text-gray-500 mb-3">
+                  Nenhum extintor cadastrado ainda.
+                </p>
+              )}
+
+              <div className="space-y-3">
+                {extintores.map((extintor, idx) => (
+                  <div
+                    key={extintor._key || idx}
+                    className="bg-gray-50 rounded-lg p-4 flex flex-col md:flex-row gap-2 md:items-center"
+                  >
+                    <input
+                      type="text"
+                      className="input-field flex-1"
+                      placeholder="Identificação (ex: corredor, cozinha) — opcional"
+                      value={extintor.identificacao}
+                      onChange={(e) =>
+                        handleChangeExtintor(idx, "identificacao", e.target.value)
+                      }
+                    />
+                    <input
+                      type="date"
+                      className="input-field md:w-48"
+                      value={extintor.dataVencimento}
+                      onChange={(e) =>
+                        handleChangeExtintor(idx, "dataVencimento", e.target.value)
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoverExtintor(idx)}
+                      className="text-red-600 hover:text-red-800 font-semibold text-sm px-2 whitespace-nowrap"
+                      title="Remover este extintor"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAdicionarExtintor}
+                className="btn-secondary mt-3 text-sm"
+              >
+                + Adicionar extintor
+              </button>
+            </div>
+
             {/* Informações Básicas */}
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -593,19 +716,6 @@ export function LojaForm() {
                     type="date"
                     name="dataInicio"
                     value={formData.dataInicio || ""}
-                    onChange={handleChange}
-                    className="input-field"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Vencimento do extintor
-                  </label>
-                  <input
-                    type="date"
-                    name="dataVencimentoExtintor"
-                    value={formData.dataVencimentoExtintor || ""}
                     onChange={handleChange}
                     className="input-field"
                   />
