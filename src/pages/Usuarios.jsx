@@ -142,9 +142,6 @@ export function Usuarios() {
                 <option value="FUNCIONARIO_CADASTRO">
                   Funcionário de Cadastro
                 </option>
-                <option value="FUNCIONARIO_FABRICA">
-                  Funcionário de Fábrica
-                </option>
                 <option value="ENTREGADOR">Entregador</option>
               </select>
             </div>
@@ -219,9 +216,7 @@ export function Usuarios() {
                               ? "bg-orange-100 text-orange-800"
                               : usuario.role === "FUNCIONARIO_CADASTRO"
                                 ? "bg-teal-100 text-teal-800"
-                                : usuario.role === "FUNCIONARIO_FABRICA"
-                                  ? "bg-pink-100 text-pink-800"
-                                  : usuario.role === "ENTREGADOR"
+                                : usuario.role === "ENTREGADOR"
                                 ? "bg-emerald-100 text-emerald-800"
                                 : "bg-blue-100 text-blue-800"
                         }`}
@@ -234,9 +229,7 @@ export function Usuarios() {
                               ? "Func. Estoque"
                               : usuario.role === "FUNCIONARIO_CADASTRO"
                                 ? "Func. Cadastro"
-                                : usuario.role === "FUNCIONARIO_FABRICA"
-                                  ? "Func. Fábrica"
-                                  : usuario.role === "ENTREGADOR"
+                                : usuario.role === "ENTREGADOR"
                                 ? "Entregador"
                               : "Funcionário"}
                       </span>
