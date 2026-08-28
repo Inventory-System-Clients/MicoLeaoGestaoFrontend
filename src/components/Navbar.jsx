@@ -81,12 +81,6 @@ export function Navbar() {
           icon: "💰",
           roles: ["FUNCIONARIO"],
         },
-        {
-          to: "/gastos-variaveis",
-          label: "Lançar Gasto Variável",
-          icon: "🧾",
-          roles: ["FUNCIONARIO"],
-        },
       ],
     },
     {

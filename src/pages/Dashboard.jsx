@@ -8,7 +8,6 @@ import { IAgarraAssistente } from "../components/IAgarraAssistente";
 import { PageLoader } from "../components/Loading";
 import { Badge } from "../components/UIComponents";
 import AlertAdmin from "../components/AlertAdmin";
-import LancarGastoVariavel from "../components/LancarGastoVariavel";
 import { useAuth } from "../contexts/AuthContext";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 
@@ -270,9 +269,6 @@ export function Dashboard() {
   const [manutencoesPendentes, setManutencoesPendentes] = useState([]);
   const [loadingManutencoesPendentes, setLoadingManutencoesPendentes] =
     useState(false);
-  const [veiculos, setVeiculos] = useState([]);
-  const [roteiros, setRoteiros] = useState([]);
-  const [modalGastoVariavel, setModalGastoVariavel] = useState(false);
 
   // Estados para busca e navegação
 
@@ -1033,26 +1029,6 @@ export function Dashboard() {
   useEffect(() => {
     carregarManutencoesPendentes();
   }, [carregarManutencoesPendentes]);
-
-  useEffect(() => {
-    api
-      .get("/veiculos")
-      .then((response) => setVeiculos(response.data || []))
-      .catch((error) => {
-        console.error("Erro ao carregar veículos:", error);
-        setVeiculos([]);
-      });
-  }, []);
-
-  useEffect(() => {
-    api
-      .get("/roteiros")
-      .then((response) => setRoteiros(response.data || []))
-      .catch((error) => {
-        console.error("Erro ao carregar roteiros:", error);
-        setRoteiros([]);
-      });
-  }, []);
 
   const carregarAlertasEstoqueLoja = async (lojasData) => {
     try {
@@ -2259,9 +2235,7 @@ export function Dashboard() {
                 💵 Registrar dinheiro
               </button>
             )}
-            {["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO", "FUNCIONARIO_ESTOQUE"].includes(
-              usuario?.role,
-            ) && (
+            {["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role) && (
               <button
                 type="button"
                 onClick={() => navigate("/gastos-variaveis")}
@@ -2730,48 +2704,7 @@ export function Dashboard() {
               </div>
             </div>
           )}
-          {usuario?.role === "FUNCIONARIO" && (
-            <div
-              className="stat-card bg-linear-to-br from-emerald-600 to-emerald-800 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
-              onClick={() => setModalGastoVariavel(true)}
-            >
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium opacity-90">
-                    Lançar Gasto Variável
-                  </h3>
-                  <span className="text-2xl">🧾</span>
-                </div>
-                <p className="text-3xl font-bold">💰</p>
-                <p className="text-xs opacity-75 mt-1">
-                  Gasolina, estacionamento e outros
-                </p>
-              </div>
-            </div>
-          )}
         </div>
-
-        {modalGastoVariavel && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-            <div className="relative w-full max-w-md rounded-lg border border-orange-100 bg-white p-6 shadow-2xl">
-              <button
-                type="button"
-                onClick={() => setModalGastoVariavel(false)}
-                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                aria-label="Fechar"
-              >
-                ×
-              </button>
-              <LancarGastoVariavel
-                lojas={lojas}
-                veiculos={veiculos}
-                roteiros={roteiros}
-                onClose={() => setModalGastoVariavel(false)}
-                onSuccess={() => setModalGastoVariavel(false)}
-              />
-            </div>
-          </div>
-        )}
 
         {/* Estoque dos Depósitos - Apenas para ADMIN */}
         {usuario?.role === "ADMIN" && lojasComEstoque.length > 0 && (

@@ -413,7 +413,7 @@ function App() {
           <Route
             path="/gastos-variaveis"
             element={
-              <PrivateRoute>
+              <PrivateRoute adminOnly>
                 <GastosVariaveis />
               </PrivateRoute>
             }

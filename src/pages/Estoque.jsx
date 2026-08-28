@@ -239,24 +239,15 @@ export function Estoque() {
   const [lojas, setLojas] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [produtos, setProdutos] = useState([]);
-  const [fornecedores, setFornecedores] = useState([]);
   const [expandidos, setExpandidos] = useState({});
   const [estoqueEditando, setEstoqueEditando] = useState(null);
   const [salvandoEstoque, setSalvandoEstoque] = useState(false);
-  const [modalCompra, setModalCompra] = useState(false);
-  const [salvandoCompra, setSalvandoCompra] = useState(false);
   const [modalMovimentacao, setModalMovimentacao] = useState(false);
   const [salvandoMovimentacao, setSalvandoMovimentacao] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [compra, setCompra] = useState({
-    fornecedorId: "",
-    destinoLojaId: "",
-    observacao: "",
-    produtos: [{ produtoId: "", quantidade: "" }],
-  });
   const [movimentacaoLojaId, setMovimentacaoLojaId] = useState("");
   const [produtosMovimentacao, setProdutosMovimentacao] = useState([
     { produtoId: "", quantidade: "" },
@@ -267,13 +258,11 @@ export function Estoque() {
       if (exibirLoading) setLoading(true);
       setError("");
 
-      const [lojasRes, maquinasRes, produtosRes, fornecedoresRes] =
-        await Promise.all([
-          api.get("/lojas"),
-          api.get("/maquinas"),
-          api.get("/produtos"),
-          api.get("/fornecedores").catch(() => ({ data: [] })),
-        ]);
+      const [lojasRes, maquinasRes, produtosRes] = await Promise.all([
+        api.get("/lojas"),
+        api.get("/maquinas"),
+        api.get("/produtos"),
+      ]);
 
       const lojasData = lojasRes.data || [];
       const maquinasData = maquinasRes.data || [];
@@ -321,7 +310,6 @@ export function Estoque() {
         })),
       );
       setProdutos(produtosRes.data || []);
-      setFornecedores(fornecedoresRes.data || []);
     } catch (err) {
       console.error("Erro ao carregar estoque:", err);
       setError(err.response?.data?.error || "Não foi possível carregar o estoque.");
@@ -456,85 +444,6 @@ export function Estoque() {
     }
   };
 
-  const abrirCompra = () => {
-    setCompra({
-      fornecedorId: "",
-      destinoLojaId: garagem?.id || lojas[0]?.id || "",
-      observacao: "",
-      produtos: [{ produtoId: "", quantidade: "" }],
-    });
-    setModalCompra(true);
-    setError("");
-    setSuccess("");
-  };
-
-  const alterarProdutoCompra = (index, campo, valor) => {
-    setCompra((atual) => ({
-      ...atual,
-      produtos: atual.produtos.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, [campo]: valor } : item,
-      ),
-    }));
-  };
-
-  const adicionarProdutoCompra = () => {
-    setCompra((atual) => ({
-      ...atual,
-      produtos: [...atual.produtos, { produtoId: "", quantidade: "" }],
-    }));
-  };
-
-  const removerProdutoCompra = (index) => {
-    setCompra((atual) => ({
-      ...atual,
-      produtos:
-        atual.produtos.length === 1
-          ? atual.produtos
-          : atual.produtos.filter((_, itemIndex) => itemIndex !== index),
-    }));
-  };
-
-  const salvarCompra = async (event) => {
-    event.preventDefault();
-    const itensValidos = compra.produtos.filter(
-      (item) => item.produtoId && Number(item.quantidade) > 0,
-    );
-
-    if (!compra.destinoLojaId || itensValidos.length === 0) {
-      setError("Selecione o destino e informe pelo menos um produto.");
-      return;
-    }
-
-    try {
-      setSalvandoCompra(true);
-      setError("");
-      const fornecedor = fornecedores.find(
-        (item) => String(item.id) === String(compra.fornecedorId),
-      );
-
-      await api.post("/movimentacao-estoque-loja", {
-        lojaId: compra.destinoLojaId,
-        observacao:
-          compra.observacao ||
-          `Entrada de compra${fornecedor?.nome ? ` - ${fornecedor.nome}` : ""}`,
-        produtos: itensValidos.map((item) => ({
-          produtoId: item.produtoId,
-          quantidade: Number(item.quantidade),
-          tipoMovimentacao: "entrada",
-        })),
-      });
-
-      setModalCompra(false);
-      setSuccess("Entrada de compra registrada com sucesso.");
-      await carregarDados({ exibirLoading: false });
-    } catch (err) {
-      console.error("Erro ao registrar compra:", err);
-      setError(err.response?.data?.error || "Não foi possível registrar a compra.");
-    } finally {
-      setSalvandoCompra(false);
-    }
-  };
-
   const abrirMovimentacao = () => {
     setMovimentacaoLojaId("");
     setProdutosMovimentacao([{ produtoId: "", quantidade: "" }]);
@@ -625,14 +534,6 @@ export function Estoque() {
           >
             <span className="text-xl">🔄</span>
             Movimentação de Estoque
-          </button>
-          <button
-            type="button"
-            onClick={abrirCompra}
-            className="inline-flex items-center gap-3 rounded-lg bg-primary px-6 py-3 font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-primary/90"
-          >
-            <span className="text-xl">🛒</span>
-            Fazer compra
           </button>
         </div>
 
@@ -903,110 +804,6 @@ export function Estoque() {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {modalCompra && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <form
-            onSubmit={salvarCompra}
-            className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
-          >
-            <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-orange-500 to-red-600 p-5 text-white">
-              <div>
-                <h2 className="text-xl font-black">🛒 Fazer compra</h2>
-                <p className="text-sm text-orange-50">
-                  Registra entrada no estoque selecionado.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalCompra(false)}
-                className="rounded-lg p-2 text-2xl hover:bg-white/10"
-                disabled={salvandoCompra}
-                aria-label="Fechar"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="overflow-y-auto p-5">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <label className="text-sm font-semibold text-gray-700">
-                  Fornecedor
-                  <select
-                    value={compra.fornecedorId}
-                    onChange={(event) =>
-                      setCompra((atual) => ({ ...atual, fornecedorId: event.target.value }))
-                    }
-                    className="select-field mt-2"
-                  >
-                    <option value="">Sem fornecedor</option>
-                    {fornecedores.map((fornecedor) => (
-                      <option key={fornecedor.id} value={fornecedor.id}>
-                        {fornecedor.nome}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="text-sm font-semibold text-gray-700">
-                  Destino *
-                  <select
-                    value={compra.destinoLojaId}
-                    onChange={(event) =>
-                      setCompra((atual) => ({ ...atual, destinoLojaId: event.target.value }))
-                    }
-                    className="select-field mt-2"
-                    required
-                  >
-                    <option value="">Selecione o destino...</option>
-                    {lojas.map((loja) => (
-                      <option key={loja.id} value={loja.id}>
-                        {ehGaragem(loja) ? "🏭" : "🏪"} {loja.nome}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <ProdutosMovimentacaoEditor
-                titulo="Produtos da compra"
-                produtos={produtos}
-                itens={compra.produtos}
-                onAdd={adicionarProdutoCompra}
-                onRemove={removerProdutoCompra}
-                onChange={alterarProdutoCompra}
-              />
-
-              <label className="mt-5 block text-sm font-semibold text-gray-700">
-                Observação
-                <textarea
-                  value={compra.observacao}
-                  onChange={(event) =>
-                    setCompra((atual) => ({ ...atual, observacao: event.target.value }))
-                  }
-                  className="input-field mt-2"
-                  rows="3"
-                  placeholder="Nota fiscal, pedido, observações..."
-                />
-              </label>
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 border-t bg-gray-50 p-5 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setModalCompra(false)}
-                className="btn-secondary"
-                disabled={salvandoCompra}
-              >
-                Cancelar
-              </button>
-              <button type="submit" className="btn-primary" disabled={salvandoCompra}>
-                {salvandoCompra ? "Registrando..." : "Confirmar compra"}
-              </button>
-            </div>
-          </form>
         </div>
       )}
 

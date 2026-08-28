@@ -136,6 +136,11 @@ export default function ManutencaoPage() {
   });
 
   const isAdmin = ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role);
+  // Custo da manutenção (gera gasto variável automático) fica restrito ao
+  // ADMIN — diferente de `isAdmin` acima, que também libera o Funcionário
+  // de Cadastro pra criar/gerenciar manutenção, mas não pra mexer com
+  // gasto/financeiro.
+  const podeDefinirCusto = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
 
   const manutencoesOrdenadas = useMemo(
     () =>
@@ -357,7 +362,7 @@ export default function ManutencaoPage() {
       return;
     }
 
-    const custoInformado = form.custo !== "";
+    const custoInformado = podeDefinirCusto && form.custo !== "";
     const custoNumerico = custoInformado
       ? Number(String(form.custo).replace(",", "."))
       : null;
@@ -1113,35 +1118,37 @@ export default function ManutencaoPage() {
               )}
             </div>
 
-            {/* Custo */}
-            <div className="rounded-lg border border-amber-100 bg-amber-50/70 p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-amber-800">
-                <span className="text-lg">💰</span> Custo da manutenção{" "}
-                <span className="text-xs font-normal normal-case text-gray-500">
-                  (opcional)
-                </span>
-              </h3>
-              <div className="sm:w-1/2">
-                <label className="mb-1 block text-sm font-bold text-gray-700">
-                  Custo (R$)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.custo}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, custo: e.target.value }))
-                  }
-                  className="input-field"
-                  placeholder="Ex: 150.00"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Se informado, gera automaticamente um gasto variável para a
-                  loja ou máquina selecionada.
-                </p>
+            {/* Custo — só ADMIN, é o que gera o gasto variável automático */}
+            {podeDefinirCusto && (
+              <div className="rounded-lg border border-amber-100 bg-amber-50/70 p-4">
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-amber-800">
+                  <span className="text-lg">💰</span> Custo da manutenção{" "}
+                  <span className="text-xs font-normal normal-case text-gray-500">
+                    (opcional)
+                  </span>
+                </h3>
+                <div className="sm:w-1/2">
+                  <label className="mb-1 block text-sm font-bold text-gray-700">
+                    Custo (R$)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.custo}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, custo: e.target.value }))
+                    }
+                    className="input-field"
+                    placeholder="Ex: 150.00"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Se informado, gera automaticamente um gasto variável para a
+                    loja ou máquina selecionada.
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex justify-end">
               <button
@@ -1387,7 +1394,7 @@ export default function ManutencaoPage() {
                         ✍️ <span className="font-semibold">Criado por:</span>{" "}
                         {item.criadoPor?.nome || "-"}
                       </p>
-                      {isAdmin && (
+                      {podeDefinirCusto && (
                         <p>
                           💰 <span className="font-semibold">Custo:</span>{" "}
                           {item.custo !== null && item.custo !== undefined
