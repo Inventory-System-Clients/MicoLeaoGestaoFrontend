@@ -172,6 +172,12 @@ export function Navbar() {
           icon: "🔁",
           roles: CADASTRO_ROLES,
         },
+        {
+          to: "/projetos-loja",
+          label: "Projetos Loja",
+          icon: "🏗️",
+          roles: ADMIN_ROLES,
+        },
       ],
     },
     {

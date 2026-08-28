@@ -11,6 +11,8 @@ import { Usuarios } from "./pages/Usuarios";
 import { UsuarioForm } from "./pages/UsuarioForm";
 import { Lojas } from "./pages/Lojas";
 import { LojaForm } from "./pages/LojaForm";
+import { ProjetosLoja } from "./pages/ProjetosLoja";
+import { ProjetoLojaForm } from "./pages/ProjetoLojaForm";
 import { LojaDetalhes } from "./pages/LojaDetalhes";
 import { VisaoLojas } from "./pages/VisaoLojas";
 import { VisaoMaquinas } from "./pages/VisaoMaquinas";
@@ -164,6 +166,30 @@ function App() {
             element={
               <PrivateRoute>
                 <LojaForm />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/projetos-loja"
+            element={
+              <PrivateRoute adminOnly>
+                <ProjetosLoja />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/projetos-loja/novo"
+            element={
+              <PrivateRoute adminOnly>
+                <ProjetoLojaForm />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/projetos-loja/:id/editar"
+            element={
+              <PrivateRoute adminOnly>
+                <ProjetoLojaForm />
               </PrivateRoute>
             }
           />
