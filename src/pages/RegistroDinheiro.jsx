@@ -332,6 +332,7 @@ export function RegistroDinheiro() {
                     <th>Contado</th>
                     <th>Esperado</th>
                     <th>Diferença</th>
+                    <th>Fichas (Blink)</th>
                     <th>Conferido por</th>
                     <th>Registrado por</th>
                     <th>Registrado em</th>
@@ -370,6 +371,20 @@ export function RegistroDinheiro() {
                           }
                         >
                           R$ {formatCurrency(diferenca)}
+                        </td>
+                        <td
+                          className={
+                            item.diferencaFichasBlink !== null &&
+                            item.diferencaFichasBlink !== undefined &&
+                            Number(item.diferencaFichasBlink) !== 0
+                              ? "font-bold text-red-600"
+                              : ""
+                          }
+                        >
+                          {item.quantidadeFichasBlink !== null &&
+                          item.quantidadeFichasBlink !== undefined
+                            ? `${item.quantidadeFichasSistema ?? "-"} / ${item.quantidadeFichasBlink}`
+                            : "-"}
                         </td>
                         <td>{item.conferidoPor?.nome || "-"}</td>
                         <td>{item.contadoPor?.nome || "-"}</td>

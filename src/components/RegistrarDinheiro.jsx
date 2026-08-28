@@ -34,6 +34,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
   const [valorDinheiro, setValorDinheiro] = useState("");
   const [valorCartaoPix, setValorCartaoPix] = useState("");
   const [valorBlink, setValorBlink] = useState("");
+  const [quantidadeFichasBlink, setQuantidadeFichasBlink] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [gastosVariaveis, setGastosVariaveis] = useState([]);
   const [conferidoPorId, setConferidoPorId] = useState("");
@@ -41,6 +42,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
   const [enviandoComprovante, setEnviandoComprovante] = useState(false);
   const [valorEsperado, setValorEsperado] = useState(null);
   const [carregandoEsperado, setCarregandoEsperado] = useState(false);
+  const [quantidadeFichasSistema, setQuantidadeFichasSistema] = useState(null);
 
   // Sempre que a loja/máquina (ou "total da loja") muda, busca o último
   // fechamento já registrado pra esse recorte e usa o dia seguinte como
@@ -144,6 +146,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
       (!registrarTotalLoja && !maquinaSelecionada)
     ) {
       setValorEsperado(null);
+      setQuantidadeFichasSistema(null);
       return undefined;
     }
 
@@ -163,10 +166,16 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
       .then((response) => {
         if (!cancelado) {
           setValorEsperado(response.data?.valorEsperadoSistema ?? 0);
+          setQuantidadeFichasSistema(
+            response.data?.quantidadeFichasSistema ?? null,
+          );
         }
       })
       .catch(() => {
-        if (!cancelado) setValorEsperado(null);
+        if (!cancelado) {
+          setValorEsperado(null);
+          setQuantidadeFichasSistema(null);
+        }
       })
       .finally(() => {
         if (!cancelado) setCarregandoEsperado(false);
@@ -190,6 +199,16 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
   const diferencaBlinkPreview =
     registrarTotalLoja && valorBlinkNumeroPreview !== null
       ? Number((valorContadoTotal - valorBlinkNumeroPreview).toFixed(2))
+      : null;
+
+  const quantidadeFichasBlinkNumeroPreview =
+    quantidadeFichasBlink === "" ? null : Number(quantidadeFichasBlink);
+  const diferencaFichasBlinkPreview =
+    registrarTotalLoja &&
+    quantidadeFichasSistema !== null &&
+    quantidadeFichasBlinkNumeroPreview !== null &&
+    Number.isFinite(quantidadeFichasBlinkNumeroPreview)
+      ? quantidadeFichasSistema - quantidadeFichasBlinkNumeroPreview
       : null;
 
   const handleSubmit = async (e) => {
@@ -233,6 +252,22 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
       return;
     }
 
+    let quantidadeFichasBlinkNumero = null;
+    if (quantidadeFichasBlink !== "") {
+      quantidadeFichasBlinkNumero = Number(quantidadeFichasBlink);
+      if (
+        !Number.isFinite(quantidadeFichasBlinkNumero) ||
+        !Number.isInteger(quantidadeFichasBlinkNumero) ||
+        quantidadeFichasBlinkNumero < 0
+      ) {
+        aviso(
+          "Valor inválido",
+          "Quantidade de fichas do Blink inválida.",
+        );
+        return;
+      }
+    }
+
     const gastosNormalizados = registrarTotalLoja
       ? gastosVariaveis.map((gasto) => ({
           ...gasto,
@@ -254,6 +289,9 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
       valorDinheiro: dinheiroNumero,
       valorCartaoPix: cartaoPixNumero,
       valorBlink: registrarTotalLoja ? blinkNumero : null,
+      quantidadeFichasBlink: registrarTotalLoja
+        ? quantidadeFichasBlinkNumero
+        : null,
       observacoes: observacoes === "" ? null : observacoes,
       conferidoPorId: conferidoPorId || null,
       comprovanteUrl: comprovanteUrl.trim() === "" ? null : comprovanteUrl.trim(),
@@ -301,40 +339,15 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
             >
               <option value="">Selecione a máquina</option>
               {maquinas &&
-                (() => {
-                  // Encontrar a loja selecionada pelo id
-                  const lojaObj = lojas?.find((l) => l.id === lojaSelecionada);
-                  // Se for Agarramais Aeroporto, mostrar todas as máquinas da loja
-                  if (
-                    lojaObj &&
-                    lojaObj.nome &&
-                    lojaObj.nome.trim().toLowerCase().includes("aeroporto")
-                  ) {
-                    return maquinas
-                      .filter((m) => m.lojaId === lojaSelecionada)
-                      .map((maquina) => (
-                        <option key={maquina.id} value={maquina.id}>
-                          {maquina.nome}
-                        </option>
-                      ));
-                  } else {
-                    // Lógica padrão: só takeball e poltrona
-                    return maquinas
-                      .filter(
-                        (m) =>
-                          m.lojaId === lojaSelecionada &&
-                          ((typeof m.nome === "string" &&
-                            m.nome.trim().toUpperCase().endsWith("TAKEBALL")) ||
-                            (typeof m.nome === "string" &&
-                              m.nome.toLowerCase().includes("poltrona"))),
-                      )
-                      .map((maquina) => (
-                        <option key={maquina.id} value={maquina.id}>
-                          {maquina.nome}
-                        </option>
-                      ));
-                  }
-                })()}
+                maquinas
+                  .filter(
+                    (m) => m.lojaId === lojaSelecionada && m.geradoraReceita,
+                  )
+                  .map((maquina) => (
+                    <option key={maquina.id} value={maquina.id}>
+                      {maquina.nome}
+                    </option>
+                  ))}
             </select>
           </div>
         </div>
@@ -345,7 +358,10 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
             checked={registrarTotalLoja}
             onChange={(e) => {
               setRegistrarTotalLoja(e.target.checked);
-              if (!e.target.checked) setValorBlink("");
+              if (!e.target.checked) {
+                setValorBlink("");
+                setQuantidadeFichasBlink("");
+              }
             }}
           />
           Registrar valor total da loja (não selecionar máquina)
@@ -481,7 +497,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
         <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-emerald-800">
           <span className="text-lg">💰</span> Valores contados
         </h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-bold text-gray-700">
               💵 Dinheiro
@@ -509,33 +525,55 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
               className="input-field"
             />
           </div>
-
-          {registrarTotalLoja && (
-            <div>
-              <label className="mb-1 block text-sm font-bold text-gray-700">
-                ⚡ Blink
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={valorBlink}
-                onChange={(e) => setValorBlink(e.target.value)}
-                placeholder="Ex: 15,00"
-                className="input-field"
-              />
-            </div>
-          )}
         </div>
 
         {registrarTotalLoja && (
-          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-xs text-gray-600">
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-emerald-800">
+              <span className="text-lg">💰</span> Valores contados no Blink
+            </h4>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-bold text-gray-700">
+                  ⚡ Blink (R$)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={valorBlink}
+                  onChange={(e) => setValorBlink(e.target.value)}
+                  placeholder="Ex: 15,00"
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-bold text-gray-700">
+                  🎟️ Fichas (Blink)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={quantidadeFichasBlink}
+                  onChange={(e) =>
+                    setQuantidadeFichasBlink(
+                      e.target.value.replace(/\D/g, ""),
+                    )
+                  }
+                  placeholder="Ex: 320"
+                  className="input-field"
+                />
+              </div>
+            </div>
+
+            <p className="mt-3 text-xs text-gray-600">
               ⚡ <strong>Blink é só para comparação</strong>: não entra na
               soma contada, só serve pra conferir se bate com Dinheiro +
-              Cartão/Pix. Se a diferença for maior que R$ 0,01, um alerta é
-              criado automaticamente na página de{" "}
-              <strong>Alertas</strong>.
+              Cartão/Pix e se a quantidade de fichas bate com o que o sistema
+              registrou nas coletas. Se houver diferença, um alerta é criado
+              automaticamente na página de <strong>Alertas</strong>.
             </p>
+
             {valorBlinkNumeroPreview !== null && (
               <p
                 className={`mt-2 text-sm font-black ${
@@ -547,6 +585,27 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
                 {Math.abs(diferencaBlinkPreview) < 0.01
                   ? "✅ Bate com Dinheiro + Cartão/Pix"
                   : `⚠️ Diferença de R$ ${diferencaBlinkPreview.toFixed(2)} em relação ao Blink`}
+              </p>
+            )}
+
+            {quantidadeFichasSistema !== null && (
+              <p className="mt-2 text-sm font-semibold text-gray-700">
+                🎟️ Fichas registradas pelo sistema no período (exceto
+                Cascata): <strong>{quantidadeFichasSistema}</strong>
+              </p>
+            )}
+
+            {diferencaFichasBlinkPreview !== null && (
+              <p
+                className={`mt-1 text-sm font-black ${
+                  diferencaFichasBlinkPreview === 0
+                    ? "text-emerald-700"
+                    : "text-red-700"
+                }`}
+              >
+                {diferencaFichasBlinkPreview === 0
+                  ? "✅ Quantidade de fichas bate com o sistema"
+                  : `⚠️ Diferença de ${diferencaFichasBlinkPreview} ficha(s) em relação ao Blink`}
               </p>
             )}
           </div>

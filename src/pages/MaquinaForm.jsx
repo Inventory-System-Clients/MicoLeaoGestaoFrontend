@@ -754,7 +754,7 @@ export function MaquinaForm() {
                 ) && (
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Jogadas por pelúcia
+                      Jogadas por Prêmio
                     </label>
                     <input
                       type="number"
