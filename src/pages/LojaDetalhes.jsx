@@ -317,6 +317,7 @@ export function LojaDetalhes() {
                   <ul className="mt-1 space-y-1">
                     {loja.extintores.map((extintor) => (
                       <li key={extintor.id} className="text-gray-900">
+                        {extintor.numero ? `Nº ${extintor.numero} — ` : ""}
                         {extintor.identificacao
                           ? `${extintor.identificacao}: `
                           : ""}

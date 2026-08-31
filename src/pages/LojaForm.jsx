@@ -82,6 +82,7 @@ export function LojaForm() {
     _key: `novo-${Date.now()}-${contadorExtintor++}`,
     id: null,
     identificacao: "",
+    numero: "",
     dataVencimento: "",
   });
 
@@ -143,6 +144,7 @@ export function LojaForm() {
           _key: `db-${item.id}`,
           id: item.id,
           identificacao: item.identificacao || "",
+          numero: item.numero || "",
           dataVencimento: item.dataVencimento || item.data_vencimento || "",
         })),
       );
@@ -331,6 +333,7 @@ export function LojaForm() {
       extintores: extintoresValidosLista.map((ex) => ({
         id: ex.id || undefined,
         identificacao: ex.identificacao?.trim() || null,
+        numero: ex.numero?.trim() || null,
         dataVencimento: ex.dataVencimento,
       })),
     });
@@ -581,6 +584,15 @@ export function LojaForm() {
                       value={extintor.identificacao}
                       onChange={(e) =>
                         handleChangeExtintor(idx, "identificacao", e.target.value)
+                      }
+                    />
+                    <input
+                      type="text"
+                      className="input-field md:w-40"
+                      placeholder="Nº do extintor — opcional"
+                      value={extintor.numero}
+                      onChange={(e) =>
+                        handleChangeExtintor(idx, "numero", e.target.value)
                       }
                     />
                     <input
