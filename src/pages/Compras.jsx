@@ -2923,7 +2923,7 @@ export default function Compras() {
                         ))}
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {statusAtual === "PESQUISANDO" && (
+                      {statusAtual === "PESQUISANDO" && podeVerValores && (
                         <button
                           type="button"
                           onClick={() => handleAtualizarStatus(compra.id, "COMPRADO")}
@@ -2931,6 +2931,11 @@ export default function Compras() {
                         >
                           Dar como comprado
                         </button>
+                      )}
+                      {statusAtual === "PESQUISANDO" && !podeVerValores && (
+                        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600">
+                          Aguardando compra pelo Admin
+                        </span>
                       )}
                       {statusAtual === "COMPRADO" && (
                         <button
