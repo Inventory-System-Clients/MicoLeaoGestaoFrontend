@@ -7,6 +7,30 @@ import { PageHeader, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 
+// Máscara de moeda: guarda os dígitos digitados (centavos) e formata
+// exibindo sempre "0,00" com os últimos 2 dígitos como centavos.
+const numeroParaCentavos = (valor) => {
+  if (valor === null || valor === undefined || valor === "") return "";
+  const numero = Number(valor);
+  if (Number.isNaN(numero)) return "";
+  return String(Math.round(numero * 100));
+};
+
+const centavosParaExibicao = (digitos) => {
+  if (!digitos) return "";
+  const limpo = digitos.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  if (limpo === "") return "";
+  const preenchido = limpo.padStart(3, "0");
+  const centavos = preenchido.slice(-2);
+  const inteiro = preenchido.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${inteiro},${centavos}`;
+};
+
+const centavosParaNumero = (digitos) => {
+  if (!digitos) return null;
+  return Number(digitos) / 100;
+};
+
 export function MaquinaForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -122,7 +146,7 @@ export function MaquinaForm() {
           !lojaIdAtual && statusAtual === "EM_OPERACAO" ? "PARADA" : statusAtual,
         motivoParada: response.data.motivoParada || "",
         capacidadePadrao: response.data.capacidadePadrao || "",
-        custoAquisicao: response.data.custoAquisicao ?? "",
+        custoAquisicao: numeroParaCentavos(response.data.custoAquisicao),
         geradoraReceita:
           response.data.geradoraReceita === undefined || response.data.geradoraReceita
             ? "sim"
@@ -155,6 +179,9 @@ export function MaquinaForm() {
       ...formData,
       [name]: type === "checkbox" ? checked : value,
     };
+    if (name === "custoAquisicao") {
+      novosDados.custoAquisicao = value.replace(/\D/g, "");
+    }
     if (name === "loja_id" && !value && novosDados.statusOperacao === "EM_OPERACAO") {
       novosDados.statusOperacao = "PARADA";
     }
@@ -291,10 +318,7 @@ export function MaquinaForm() {
             ? formData.motivoParada?.trim() || null
             : null,
         capacidadePadrao: parseInt(formData.capacidadePadrao, 10) || 0,
-        custoAquisicao:
-          formData.custoAquisicao !== "" && formData.custoAquisicao !== null
-            ? Number(formData.custoAquisicao)
-            : null,
+        custoAquisicao: centavosParaNumero(formData.custoAquisicao),
         geradoraReceita: formData.geradoraReceita === "sim",
         categoriaGeradora:
           formData.geradoraReceita === "sim"
@@ -630,14 +654,13 @@ export function MaquinaForm() {
                     Custo de aquisição (R$)
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     name="custoAquisicao"
-                    value={formData.custoAquisicao}
+                    value={centavosParaExibicao(formData.custoAquisicao)}
                     onChange={handleChange}
                     className="input-field"
-                    placeholder="Ex: 3500 (opcional)"
-                    min="0"
-                    step="0.01"
+                    placeholder="Ex: 3.500,00 (opcional)"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Quanto custou a máquina — opcional, aparece na Visão das
