@@ -107,6 +107,12 @@ export function Navbar() {
           icon: "💳",
           roles: ADMIN_ROLES,
         },
+        {
+          to: "/configuracao-moeda",
+          label: "Configuração de Moeda",
+          icon: "💱",
+          roles: ADMIN_ROLES,
+        },
       ],
     },
     {

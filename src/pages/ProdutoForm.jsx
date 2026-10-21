@@ -29,6 +29,36 @@ const EMOJIS_PELUCIA = [
   "🦒",
 ];
 
+// Máscara de moeda (mesma do MaquinaForm): guarda os dígitos digitados
+// (centavos) e formata exibindo sempre "0,00".
+const numeroParaCentavos = (valor) => {
+  if (valor === null || valor === undefined || valor === "") return "";
+  const numero = Number(valor);
+  if (Number.isNaN(numero)) return "";
+  return String(Math.round(numero * 100));
+};
+
+const centavosParaExibicao = (digitos) => {
+  if (!digitos) return "";
+  const limpo = digitos.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  if (limpo === "") return "";
+  const preenchido = limpo.padStart(3, "0");
+  const centavos = preenchido.slice(-2);
+  const inteiro = preenchido.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${inteiro},${centavos}`;
+};
+
+const centavosParaNumero = (digitos) => {
+  if (!digitos) return null;
+  return Number(digitos) / 100;
+};
+
+const formatarMoeda = (valor) =>
+  Number(valor || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
 export function ProdutoForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -41,7 +71,9 @@ export function ProdutoForm() {
     descricao: "",
     emoji: "🧸",
     ativo: true,
+    custoUnitario: "",
   });
+  const [historicoCustos, setHistoricoCustos] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(isEdit);
@@ -67,7 +99,9 @@ export function ProdutoForm() {
         descricao: response.data.descricao || "",
         emoji: response.data.emoji || "🧸",
         ativo: response.data.ativo !== undefined ? response.data.ativo : true,
+        custoUnitario: numeroParaCentavos(response.data.custoUnitario),
       });
+      setHistoricoCustos(response.data.historicoCustos || []);
     } catch (error) {
       setError(
         "Erro ao carregar produto: " +
@@ -80,6 +114,10 @@ export function ProdutoForm() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    if (name === "custoUnitario") {
+      setFormData({ ...formData, custoUnitario: value.replace(/\D/g, "") });
+      return;
+    }
     setFormData({
       ...formData,
       [name]: type === "checkbox" ? checked : value,
@@ -138,6 +176,7 @@ export function ProdutoForm() {
         emoji: formData.emoji,
         descricao: formData.descricao?.trim() || null,
         ativo: formData.ativo,
+        custoUnitario: centavosParaNumero(formData.custoUnitario),
       };
 
       if (isEdit) {
@@ -292,6 +331,25 @@ export function ProdutoForm() {
                   </datalist>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Custo pelúcia (R$)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    name="custoUnitario"
+                    value={centavosParaExibicao(formData.custoUnitario)}
+                    onChange={handleChange}
+                    className="input-field"
+                    placeholder="Ex: 12,50"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Ao trocar o valor, o novo custo vale a partir de agora — saídas
+                    anteriores continuam com o custo da época.
+                  </p>
+                </div>
+
                 <div className="flex items-center">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -308,6 +366,41 @@ export function ProdutoForm() {
                 </div>
               </div>
             </div>
+
+            {isEdit && historicoCustos.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                  Histórico do custo pelúcia
+                </h4>
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 text-gray-600">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Vale desde</th>
+                        <th className="px-3 py-2 text-left">Custo</th>
+                        <th className="px-3 py-2 text-left">Alterado por</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historicoCustos.map((item, indice) => (
+                        <tr key={item.id} className="border-t border-gray-100">
+                          <td className="px-3 py-2">
+                            {new Date(item.vigenteDesde).toLocaleString("pt-BR")}
+                            {indice === 0 && (
+                              <span className="ml-2 text-xs font-semibold text-primary">
+                                atual
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">{formatarMoeda(item.custo)}</td>
+                          <td className="px-3 py-2">{item.usuario?.nome || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {false && (
               <>

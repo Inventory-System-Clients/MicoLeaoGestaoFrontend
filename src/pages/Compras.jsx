@@ -48,6 +48,23 @@ const moedaUsd = new Intl.NumberFormat("en-US", {
 const formatarPorMoeda = (valor, moedaCodigo) =>
   moedaCodigo === "USD" ? moedaUsd.format(Number(valor || 0)) : moeda.format(Number(valor || 0));
 
+// Valor em dólar convertido pra real na cotação da compra (`cotacaoDolar`,
+// vem do backend: a do recebimento, ou a de hoje se ainda não chegou).
+const converterCompraParaReal = (valor, compra) =>
+  compra?.moeda === "USD" && compra?.cotacaoDolar
+    ? moeda.format(Number(valor || 0) * Number(compra.cotacaoDolar))
+    : null;
+
+function ConversaoReal({ valor, compra, className = "" }) {
+  const convertido = converterCompraParaReal(valor, compra);
+  if (!convertido) return null;
+  return (
+    <span className={`block text-[11px] font-normal text-gray-500 ${className}`}>
+      ≈ {convertido} (US$ 1 = {moeda.format(Number(compra.cotacaoDolar))})
+    </span>
+  );
+}
+
 const numeroFormatado = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 2,
 });
@@ -972,6 +989,29 @@ export default function Compras() {
     }
   };
 
+  // Só Admin: volta a compra pra "Comprado", tira do estoque o que entrou e
+  // apaga do histórico os custos que esse recebimento gravou.
+  const handleDesfazerRecebimento = async (compra) => {
+    const confirmado = await confirmar({
+      title: "Desfazer recebimento?",
+      text:
+        "A compra volta para \"Comprado\", o que entrou no estoque é retirado e os custos " +
+        "que este recebimento gravou saem do histórico (o custo do produto volta ao anterior). " +
+        "Depois é só conferir o recebimento de novo.",
+      confirmButtonText: "Desfazer recebimento",
+    });
+    if (!confirmado) return;
+
+    try {
+      setError("");
+      await api.patch(`/compras/${compra.id}/desfazer-recebimento`);
+      await carregarDados();
+      setSuccess("Recebimento desfeito. A compra voltou para Comprado.");
+    } catch (err) {
+      setError(err.response?.data?.error || "Erro ao desfazer recebimento");
+    }
+  };
+
   const abrirModalConferencia = (compra) => {
     setCompraParaConferir(compra);
     setConferenciaForm(
@@ -1044,7 +1084,9 @@ export default function Compras() {
         valor: ultima
           ? Number((compra.valorGeralPedido - valorAcumulado).toFixed(2))
           : valorBase,
-        cotacaoDolar: "",
+        // Sugere a cotação configurada em Financeiro > Configuração de moeda;
+        // dá pra trocar pela cotação real do pagamento.
+        cotacaoDolar: compra.cotacaoDolar ? String(compra.cotacaoDolar) : "",
         formaPagamento: compra.formaPagamento || "PIX",
       };
     });
@@ -2818,6 +2860,12 @@ export default function Compras() {
                               <>
                                 {" "}
                                 × {formatarPorMoeda(item.valorUnitario, compra.moeda)}
+                                {converterCompraParaReal(item.valorUnitario, compra) && (
+                                  <span className="text-gray-500">
+                                    {" "}
+                                    (≈ {converterCompraParaReal(item.valorUnitario, compra)})
+                                  </span>
+                                )}
                               </>
                             )}
                             {statusAtual === "RECEBIDO" &&
@@ -2830,8 +2878,13 @@ export default function Compras() {
                               )}
                           </span>
                           {podeVerValores && (
-                            <span className="font-semibold">
+                            <span className="text-right font-semibold">
                               {formatarPorMoeda(item.valorTotal, compra.moeda)}
+                              {converterCompraParaReal(item.valorTotal, compra) && (
+                                <span className="block text-[11px] font-normal text-gray-500">
+                                  ≈ {converterCompraParaReal(item.valorTotal, compra)}
+                                </span>
+                              )}
                             </span>
                           )}
                         </div>
@@ -2872,6 +2925,7 @@ export default function Compras() {
                       {podeVerValores && (
                         <p className="pt-1 text-right text-sm font-bold text-gray-900">
                           Total: {formatarPorMoeda(compra.valorGeralPedido, compra.moeda)}
+                          <ConversaoReal valor={compra.valorGeralPedido} compra={compra} />
                         </p>
                       )}
                     </div>
@@ -2965,6 +3019,16 @@ export default function Compras() {
                           </button>
                         </>
                       )}
+                      {statusAtual === "RECEBIDO" &&
+                        ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role) && (
+                          <button
+                            type="button"
+                            onClick={() => handleDesfazerRecebimento(compra)}
+                            className="btn-secondary px-4 py-2 text-sm"
+                          >
+                            Desfazer recebimento
+                          </button>
+                        )}
                       {podeVerValores &&
                         (compra.contasPagar?.length > 0 ? (
                           <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
@@ -3062,6 +3126,7 @@ export default function Compras() {
                       {podeVerValores && (
                         <p className="mt-2 text-right text-sm font-bold text-gray-900">
                           Total do pedido: {formatarPorMoeda(compra.valorGeralPedido, compra.moeda)}
+                          <ConversaoReal valor={compra.valorGeralPedido} compra={compra} />
                         </p>
                       )}
 
