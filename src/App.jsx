@@ -5,7 +5,6 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { AlertasProvider } from "./contexts/AlertasContext";
 import { PrivateRoute } from "./components/PrivateRoute";
 import { Login } from "./pages/Login";
-import { Registrar } from "./pages/Registrar";
 import { Dashboard } from "./pages/Dashboard";
 import { Usuarios } from "./pages/Usuarios";
 import { UsuarioForm } from "./pages/UsuarioForm";
@@ -84,7 +83,8 @@ function App() {
             }
           />
           ;
-          <Route path="/registrar" element={<Registrar />} />
+          {/* Cadastro público desativado: usuários são criados pelo Admin */}
+          <Route path="/registrar" element={<Navigate to="/login" replace />} />
           <Route path="/style-guide" element={<StyleGuide />} />
           <Route
             path="/"

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Login() {
@@ -164,41 +164,9 @@ export function Login() {
           </button>
         </form>
 
-        <div className="mt-8 text-center">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500 rounded-full">
-                ou
-              </span>
-            </div>
-          </div>
-
-          <p className="mt-4 text-sm text-gray-600">
-            Não tem uma conta?{" "}
-            <Link
-              to="/registrar"
-              className="font-bold text-primary hover:text-accent-yellow transition-colors inline-flex items-center gap-1"
-            >
-              Registre-se aqui
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 7l5 5m0 0l-5 5m5-5H6"
-                />
-              </svg>
-            </Link>
-          </p>
-        </div>
+        <p className="mt-8 text-center text-sm text-gray-600">
+          Não tem acesso? Peça ao administrador para criar seu usuário.
+        </p>
 
         {/* Footer decorativo */}
         <div className="mt-6 pt-6 border-t border-gray-200 text-center">
