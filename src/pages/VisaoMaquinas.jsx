@@ -3,9 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { Navbar } from "../components/Navbar";
-import { AlertBox } from "../components/UIComponents";
+import { AlertBox, Modal } from "../components/UIComponents";
+import { useAuth } from "../contexts/AuthContext";
 import api from "../services/api";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { confirmar } from "../utils/alerts";
+import { pode } from "../utils/perfis";
 
 const statusMaquina = {
   EM_OPERACAO: {
@@ -71,10 +74,35 @@ const obterStatusCodigo = (maquina) => {
   return status === "EM_TRANSPORTE" ? "PARADA" : status;
 };
 
+// Página de máquinas do sistema (substituiu a antiga lista /maquinas, que agora
+// redireciona pra cá). Cadastrar tipo e desativar/excluir vieram de lá.
 export function VisaoMaquinas() {
   const navigate = useNavigate();
+  const { usuario } = useAuth();
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
+  const regraCadastroMaquinas = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
+    usuario?.role,
+  );
+  const podeCriarMaquina = pode(usuario, "maquinas.criar", regraCadastroMaquinas);
+  const podeEditarMaquina = pode(usuario, "maquinas.editar", regraCadastroMaquinas);
+  const podeExcluirMaquina = pode(usuario, "maquinas.excluir", regraCadastroMaquinas);
+  const podeCriarTipoMaquina = pode(usuario, "tiposMaquina.criar", regraCadastroMaquinas);
+  const podeVerTransferencias = pode(
+    usuario,
+    "maquinas.relatorioTransferencias",
+    regraCadastroMaquinas,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [recarregar, setRecarregar] = useState(0);
+  const [modalTipoMaquinaAberto, setModalTipoMaquinaAberto] = useState(false);
+  const [formTipoMaquina, setFormTipoMaquina] = useState({
+    nome: "",
+    capacidadePadrao: "100",
+  });
+  const [salvandoTipoMaquina, setSalvandoTipoMaquina] = useState(false);
+  const [erroTipoMaquina, setErroTipoMaquina] = useState("");
   const [maquinasResumo, setMaquinasResumo] = useState([]);
   const [lojas, setLojas] = useState([]);
   const [busca, setBusca] = useState("");
@@ -139,7 +167,66 @@ export function VisaoMaquinas() {
     };
 
     carregar();
-  }, []);
+  }, [recarregar]);
+
+  // 1º clique desativa; numa máquina já inativa, exclui de vez (backend decide)
+  const handleExcluirMaquina = async (maquina) => {
+    const inativa = maquina.ativo === false;
+    const confirmado = await confirmar({
+      title: inativa ? "Excluir máquina de vez?" : "Desativar máquina?",
+      text: inativa
+        ? `${maquina.codigo || ""} ${maquina.nome || ""} será excluída permanentemente.`
+        : `${maquina.codigo || ""} ${maquina.nome || ""} fica inativa. Para excluir de vez, use o botão de novo depois.`,
+      confirmButtonText: inativa ? "Excluir de vez" : "Desativar",
+    });
+    if (!confirmado) return;
+
+    try {
+      const response = await api.delete(`/maquinas/${maquina.id}`);
+      setSuccess(
+        response.data?.permanentDelete
+          ? "✅ Máquina excluída permanentemente."
+          : "⚠️ Máquina desativada.",
+      );
+      setRecarregar((n) => n + 1);
+    } catch (err) {
+      setError(
+        "Erro ao excluir máquina: " + (err.response?.data?.error || err.message),
+      );
+    }
+  };
+
+  const handleChangeTipoMaquina = (e) => {
+    const { name, value } = e.target;
+    setFormTipoMaquina((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmitTipoMaquina = async (e) => {
+    e.preventDefault();
+    setErroTipoMaquina("");
+
+    if (!formTipoMaquina.nome.trim()) {
+      setErroTipoMaquina("Informe o nome do tipo de máquina.");
+      return;
+    }
+
+    setSalvandoTipoMaquina(true);
+    try {
+      await api.post("/tipos-maquina", {
+        nome: formTipoMaquina.nome.trim(),
+        capacidadePadrao: Number(formTipoMaquina.capacidadePadrao) || 100,
+      });
+      setSuccess("Tipo de máquina cadastrado com sucesso!");
+      setModalTipoMaquinaAberto(false);
+      setFormTipoMaquina({ nome: "", capacidadePadrao: "100" });
+    } catch (err) {
+      setErroTipoMaquina(
+        err.response?.data?.error || "Erro ao cadastrar tipo de máquina.",
+      );
+    } finally {
+      setSalvandoTipoMaquina(false);
+    }
+  };
 
   const totais = useMemo(
     () =>
@@ -153,6 +240,16 @@ export function VisaoMaquinas() {
         },
         { total: 0, alertas: 0, manutencoes: 0 },
       ),
+    [maquinasResumo],
+  );
+
+  // Mesmo cálculo da antiga página de máquinas: soma da capacidade padrão
+  // das máquinas ativas
+  const capacidadeTotal = useMemo(
+    () =>
+      maquinasResumo
+        .filter((item) => item.maquina.ativo !== false)
+        .reduce((soma, item) => soma + numero(item.maquina.capacidadePadrao), 0),
     [maquinasResumo],
   );
 
@@ -190,27 +287,43 @@ export function VisaoMaquinas() {
               Situação operacional, estoque, loja atual e pontos de atenção.
             </p>
           </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => navigate("/relatorios/transferencias-maquinas")}
-            >
-              🔁 Transferências
-            </button>
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => navigate("/maquinas/nova")}
-            >
-              Nova máquina
-            </button>
+          <div className="flex flex-wrap gap-2">
+            {podeVerTransferencias && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => navigate("/relatorios/transferencias-maquinas")}
+              >
+                🔁 Transferências
+              </button>
+            )}
+            {podeCriarTipoMaquina && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setModalTipoMaquinaAberto(true)}
+              >
+                Cadastrar tipo de máquina
+              </button>
+            )}
+            {podeCriarMaquina && (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => navigate("/maquinas/nova")}
+              >
+                Nova máquina
+              </button>
+            )}
           </div>
         </div>
 
         {error && <AlertBox type="error" message={error} onClose={() => setError("")} />}
+        {success && (
+          <AlertBox type="success" message={success} onClose={() => setSuccess("")} />
+        )}
 
-        <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-lg bg-linear-to-br from-zinc-800 to-zinc-950 p-5 text-white shadow-md">
             <p className="text-sm font-semibold opacity-80">Total</p>
             <p className="mt-2 text-3xl font-bold">{totais.total}</p>
@@ -235,6 +348,11 @@ export function VisaoMaquinas() {
                 (totais.SEM_LOJA || 0)}
             </p>
             <p className="mt-1 text-xs opacity-75">saída ou no depósito</p>
+          </div>
+          <div className="rounded-lg bg-linear-to-br from-blue-500 to-blue-700 p-5 text-white shadow-md">
+            <p className="text-sm font-semibold opacity-80">Capacidade Total</p>
+            <p className="mt-2 text-3xl font-bold">{capacidadeTotal}</p>
+            <p className="mt-1 text-xs opacity-75">pelúcias nas máquinas ativas</p>
           </div>
         </section>
 
@@ -412,13 +530,24 @@ export function VisaoMaquinas() {
                 >
                   Ver histórico
                 </button>
-                <button
-                  type="button"
-                  className="btn-primary text-sm"
-                  onClick={() => navigate(`/maquinas/${item.maquina.id}/editar`)}
-                >
-                  Editar
-                </button>
+                {podeExcluirMaquina && (
+                  <button
+                    type="button"
+                    className="btn-secondary text-sm text-red-600"
+                    onClick={() => handleExcluirMaquina(item.maquina)}
+                  >
+                    {item.maquina.ativo === false ? "Excluir de vez" : "Desativar"}
+                  </button>
+                )}
+                {podeEditarMaquina && (
+                  <button
+                    type="button"
+                    className="btn-primary text-sm"
+                    onClick={() => navigate(`/maquinas/${item.maquina.id}/editar`)}
+                  >
+                    Editar
+                  </button>
+                )}
               </div>
             </article>
           ))}
@@ -430,6 +559,67 @@ export function VisaoMaquinas() {
           </div>
         )}
       </main>
+
+      <Modal
+        isOpen={modalTipoMaquinaAberto}
+        onClose={() => setModalTipoMaquinaAberto(false)}
+        title="🎰 Cadastrar tipo de máquina"
+        size="sm"
+      >
+        <form onSubmit={handleSubmitTipoMaquina} className="space-y-4">
+          {erroTipoMaquina && <AlertBox type="error" message={erroTipoMaquina} />}
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Nome do tipo *
+            </label>
+            <input
+              type="text"
+              name="nome"
+              value={formTipoMaquina.nome}
+              onChange={handleChangeTipoMaquina}
+              className="input-field"
+              placeholder="Ex: Garra, Poltrona, Takeball..."
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Capacidade padrão *
+            </label>
+            <input
+              type="number"
+              name="capacidadePadrao"
+              value={formTipoMaquina.capacidadePadrao}
+              onChange={handleChangeTipoMaquina}
+              className="input-field"
+              min="0"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Vai preencher automaticamente a Capacidade Padrão quando esse
+              tipo for escolhido no cadastro/edição de máquina (ainda dá pra
+              ajustar depois, por máquina).
+            </p>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => setModalTipoMaquinaAberto(false)}
+              className="btn-secondary"
+              disabled={salvandoTipoMaquina}
+            >
+              Cancelar
+            </button>
+            <button type="submit" className="btn-primary" disabled={salvandoTipoMaquina}>
+              {salvandoTipoMaquina ? "Salvando..." : "Cadastrar"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
       <Footer />
     </div>
   );

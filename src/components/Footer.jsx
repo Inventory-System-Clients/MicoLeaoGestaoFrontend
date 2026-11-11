@@ -51,7 +51,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="/maquinas"
+                  href="/visao-maquinas"
                   className="text-gray-400 hover:text-primary transition-colors flex items-center gap-2"
                 >
                   <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>

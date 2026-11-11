@@ -131,7 +131,7 @@ export function Navbar() {
       itens: [
         { to: "/lojas", label: "Lojas", icon: "🏪", roles: CADASTRO_ROLES },
         {
-          to: "/maquinas",
+          to: "/visao-maquinas",
           label: "Máquinas",
           icon: "🎮",
           roles: CADASTRO_ROLES,

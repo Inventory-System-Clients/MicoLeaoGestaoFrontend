@@ -15,7 +15,6 @@ import { ProjetoLojaForm } from "./pages/ProjetoLojaForm";
 import { LojaDetalhes } from "./pages/LojaDetalhes";
 import { VisaoLojas } from "./pages/VisaoLojas";
 import { VisaoMaquinas } from "./pages/VisaoMaquinas";
-import { Maquinas } from "./pages/Maquinas";
 import { MaquinaForm } from "./pages/MaquinaForm";
 import { MaquinaDetalhes } from "./pages/MaquinaDetalhes";
 import { Produtos } from "./pages/Produtos";
@@ -206,9 +205,8 @@ function App() {
           <Route
             path="/maquinas"
             element={
-              <PrivateRoute>
-                <Maquinas />
-              </PrivateRoute>
+              // A antiga lista de máquinas foi substituída pela Visão das Máquinas
+              <Navigate to="/visao-maquinas" replace />
             }
           />
           <Route

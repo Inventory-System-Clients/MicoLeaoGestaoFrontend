@@ -355,7 +355,7 @@ export function MaquinaForm() {
         setSuccess("Máquina criada com sucesso!");
       }
 
-      setTimeout(() => navigate("/maquinas"), 1500);
+      setTimeout(() => navigate("/visao-maquinas"), 1500);
     } catch (error) {
       setError(error.response?.data?.error || "Erro ao salvar máquina");
     } finally {
@@ -872,7 +872,7 @@ export function MaquinaForm() {
             <div className="flex gap-4 justify-end pt-6 border-t border-gray-200">
               <button
                 type="button"
-                onClick={() => navigate("/maquinas")}
+                onClick={() => navigate("/visao-maquinas")}
                 className="btn-secondary"
                 disabled={loading}
               >
