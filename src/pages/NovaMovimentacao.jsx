@@ -20,6 +20,7 @@ const FORM_VAZIO = {
   produtoId: "",
   totalPre: "",
   retirada: "",
+  movimentacaoConferida: false,
   limpezaVidro: false,
   fichas: "",
   notas: "",
@@ -144,20 +145,33 @@ export function NovaMovimentacao() {
   const mudar = (campo) => (valor) => setForm((f) => ({ ...f, [campo]: valor }));
   const ultima = contexto?.ultima;
   const inAnterior = ultima?.contadorIn != null ? Number(ultima.contadorIn) : null;
+  const outAnterior = ultima?.contadorOut != null ? Number(ultima.contadorOut) : null;
+  const diferenca = (atual, anterior) =>
+    anterior !== null && atual !== "" && Number(atual) >= anterior ? Number(atual) - anterior : null;
 
-  // Fichas sugeridas pelo relógio: IN de agora - IN da última visita
-  const fichasPeloRelogio =
-    inAnterior !== null && form.contadorIn !== "" && Number(form.contadorIn) >= inAnterior
-      ? Number(form.contadorIn) - inAnterior
-      : null;
+  // Cálculo automático com o relógio e a contagem (aparece na Foto do relógio)
+  const fichasPeloRelogio = diferenca(form.contadorIn, inAnterior);
+  const premiosPeloRelogio = diferenca(form.contadorOut, outAnterior);
+  const totalPreNumero = inteiro(form.totalPre);
+  const saiuPelaContagem =
+    totalPreNumero !== null && ultima?.totalPos != null ? Math.max(0, Number(ultima.totalPos) - totalPreNumero) : null;
+  const relogioNaoBate =
+    premiosPeloRelogio !== null && saiuPelaContagem !== null && premiosPeloRelogio !== saiuPelaContagem;
+
+  // Contador IN preenche as fichas sozinho (dá pra corrigir no Recolhimento)
+  const mudarContadorIn = (valor) =>
+    setForm((f) => {
+      const fichas = diferenca(valor, inAnterior);
+      return { ...f, contadorIn: valor, fichas: f.fichasEditadas || fichas === null ? f.fichas : String(fichas) };
+    });
 
   const produtoEscolhido = contexto?.estoque.find((e) => e.produtoId === form.produtoId);
   const abastecidas = inteiro(form.abastecidas) ?? 0;
 
   const feito = {
-    F: form.contadorIn !== "" && form.contadorOut !== "" && Boolean(form.fotoUrl),
+    F: form.contadorIn !== "" && form.contadorOut !== "" && form.totalPre !== "" && Boolean(form.fotoUrl),
     A: form.abastecidas !== "" && (abastecidas === 0 || (Boolean(form.produtoId) && abastecidas <= (produtoEscolhido?.quantidade ?? 0))),
-    M: form.totalPre !== "",
+    M: form.movimentacaoConferida && form.totalPre !== "",
     Lv: form.limpezaVidro,
     Rf: form.fichas !== "",
     Lp: form.limpezaPiso,
@@ -250,9 +264,42 @@ export function NovaMovimentacao() {
 
         <Passo sigla="F" titulo="Foto do relógio" feito={feito.F} aberto={aberto === "F"} aoAbrir={() => setAberto(aberto === "F" ? "" : "F")}>
           <div className="grid grid-cols-2 gap-3">
-            <CampoNumero rotulo="Contador IN" valor={form.contadorIn} aoMudar={mudar("contadorIn")} dica={inAnterior !== null ? `Última: ${inAnterior}` : null} />
-            <CampoNumero rotulo="Contador OUT" valor={form.contadorOut} aoMudar={mudar("contadorOut")} dica={ultima?.contadorOut != null ? `Última: ${ultima.contadorOut}` : null} />
+            <CampoNumero rotulo="Contador IN" valor={form.contadorIn} aoMudar={mudarContadorIn} dica={inAnterior !== null ? `Última: ${inAnterior}` : null} />
+            <CampoNumero rotulo="Contador OUT" valor={form.contadorOut} aoMudar={mudar("contadorOut")} dica={outAnterior !== null ? `Última: ${outAnterior}` : null} />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <CampoNumero
+              rotulo="Pelúcias na máquina agora"
+              valor={form.totalPre}
+              aoMudar={mudar("totalPre")}
+              dica={ultima?.totalPos != null ? `Ficaram ${ultima.totalPos} na última` : "Antes de abastecer"}
+            />
+            <CampoNumero rotulo="Retirada (opcional)" valor={form.retirada} aoMudar={mudar("retirada")} dica="Pelúcias tiradas" />
+          </div>
+          {(fichasPeloRelogio !== null || premiosPeloRelogio !== null || saiuPelaContagem !== null) && (
+            <div className="rounded-xl bg-gray-900 p-3 text-white">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">Cálculo automático</p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="text-2xl font-black">{fichasPeloRelogio ?? "-"}</p>
+                  <p className="text-[11px] text-gray-300">fichas (IN)</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-black">{premiosPeloRelogio ?? "-"}</p>
+                  <p className="text-[11px] text-gray-300">prêmios (OUT)</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-black">{saiuPelaContagem ?? "-"}</p>
+                  <p className="text-[11px] text-gray-300">saíram (contagem)</p>
+                </div>
+              </div>
+              {relogioNaoBate && (
+                <p className="mt-2 rounded-lg bg-amber-400/20 p-2 text-xs text-amber-200">
+                  ⚠️ O relógio diz {premiosPeloRelogio} prêmio(s), mas pela contagem saíram {saiuPelaContagem}. Confira a quantidade na máquina.
+                </p>
+              )}
+            </div>
+          )}
           <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed p-3 ${form.fotoUrl ? "border-emerald-300 bg-emerald-50" : "border-gray-300 bg-gray-50"}`}>
             {form.fotoUrl ? (
               <img src={form.fotoUrl} alt="Relógio" className="h-16 w-16 rounded-lg object-cover" />
@@ -293,20 +340,37 @@ export function NovaMovimentacao() {
         </Passo>
 
         <Passo sigla="M" titulo="Movimentação" feito={feito.M} aberto={aberto === "M"} aoAbrir={() => setAberto(aberto === "M" ? "" : "M")}>
-          <CampoNumero
-            rotulo="Quantas pelúcias tinha na máquina (antes de abastecer)"
-            valor={form.totalPre}
-            aoMudar={mudar("totalPre")}
-            dica={ultima?.totalPos != null ? `Na última visita ficaram ${ultima.totalPos}` : null}
-          />
-          <CampoNumero rotulo="Retirada de pelúcias (opcional)" valor={form.retirada} aoMudar={mudar("retirada")} />
+          {form.totalPre === "" ? (
+            <p className="text-sm text-gray-500">Preencha as pelúcias na máquina na Foto do relógio.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+              {[
+                ["Tinha", totalPreNumero],
+                ["Saíram", saiuPelaContagem ?? "-"],
+                ["Abasteceu", `+${abastecidas}`],
+                ["Retirou", `-${inteiro(form.retirada) ?? 0}`],
+              ].map(([rotulo, valor]) => (
+                <div key={rotulo} className="rounded-lg bg-gray-50 p-2 text-center">
+                  <p className="text-lg font-black text-gray-900">{valor}</p>
+                  <p className="text-xs text-gray-500">{rotulo}</p>
+                </div>
+              ))}
+            </div>
+          )}
           {form.totalPre !== "" && (
-            <p className="rounded-lg bg-gray-50 p-2 text-sm text-gray-600">
-              Vai ficar com <b>{Math.max(0, (inteiro(form.totalPre) ?? 0) + abastecidas - (inteiro(form.retirada) ?? 0))}</b> pelúcias
+            <p className="rounded-lg bg-emerald-50 p-2 text-center text-sm text-emerald-800">
+              A máquina vai ficar com <b>{Math.max(0, (totalPreNumero ?? 0) + abastecidas - (inteiro(form.retirada) ?? 0))}</b> pelúcias
               {contexto.maquina?.capacidadePadrao ? ` de ${contexto.maquina.capacidadePadrao}` : ""}.
             </p>
           )}
-          <button type="button" onClick={() => concluirPasso("M")} disabled={!feito.M} className="btn-primary w-full disabled:opacity-40">Próximo</button>
+          <Marcar
+            rotulo="Conferi a movimentação"
+            marcado={form.movimentacaoConferida}
+            aoMudar={(v) => {
+              mudar("movimentacaoConferida")(v);
+              if (v && form.totalPre !== "") setAberto("Lv");
+            }}
+          />
         </Passo>
 
         <Passo sigla="Lv" titulo="Limpeza do vidro" feito={feito.Lv} aberto={aberto === "Lv"} aoAbrir={() => setAberto(aberto === "Lv" ? "" : "Lv")}>
@@ -317,7 +381,7 @@ export function NovaMovimentacao() {
           <CampoNumero
             rotulo="Fichas recolhidas"
             valor={form.fichas}
-            aoMudar={mudar("fichas")}
+            aoMudar={(valor) => setForm((f) => ({ ...f, fichas: valor, fichasEditadas: true }))}
             dica={fichasPeloRelogio !== null ? `Pelo relógio: ${fichasPeloRelogio}` : null}
           />
           {fichasPeloRelogio !== null && form.fichas === "" && (
