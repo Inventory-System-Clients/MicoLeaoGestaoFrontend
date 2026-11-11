@@ -102,11 +102,12 @@ const TIPOS_DESCONTO = [
   ["FIXO", "Valor fixo"],
 ];
 
-const SECOES_FUNCIONARIO_ESTOQUE = [
-  "statusCompra",
-  "pendencias",
-  "solicitacoesCompra",
-];
+// Chefe de Expedição só vê estas seções (a primeira é a que abre)
+const SECOES_FUNCIONARIO_ESTOQUE = ["pendencias", "solicitacoesCompra"];
+
+// Seções sem botão, a pedido do cliente (2026-11-11). O conteúdo continua no
+// arquivo: para voltar, é só tirar daqui.
+const SECOES_OCULTAS = ["pesquisa", "sugestoes"];
 
 const formInicial = {
   fornecedorId: "",
@@ -427,7 +428,9 @@ export default function Compras() {
   useEffect(() => {
     if (authLoading) return;
     if (usuario?.role === "FUNCIONARIO_ESTOQUE" && !SECOES_FUNCIONARIO_ESTOQUE.includes(secaoAtiva)) {
-      setSecaoAtiva("statusCompra");
+      setSecaoAtiva(SECOES_FUNCIONARIO_ESTOQUE[0]);
+    } else if (SECOES_OCULTAS.includes(secaoAtiva)) {
+      setSecaoAtiva("novaCompra");
     }
   }, [authLoading, usuario, secaoAtiva]);
 
@@ -1550,8 +1553,9 @@ export default function Compras() {
             ]
               .filter(
                 (opcao) =>
-                  usuario?.role !== "FUNCIONARIO_ESTOQUE" ||
-                  SECOES_FUNCIONARIO_ESTOQUE.includes(opcao.key),
+                  !SECOES_OCULTAS.includes(opcao.key) &&
+                  (usuario?.role !== "FUNCIONARIO_ESTOQUE" ||
+                    SECOES_FUNCIONARIO_ESTOQUE.includes(opcao.key)),
               )
               .map((opcao) => {
               const ativo = secaoAtiva === opcao.key;
