@@ -241,6 +241,10 @@ export function Estoque() {
   const [maquinas, setMaquinas] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [expandidos, setExpandidos] = useState({});
+  // Alertas mostram só os primeiros; "Ver mais" abre a lista toda
+  const [alertasAbertos, setAlertasAbertos] = useState({ depositos: false, maquinas: false });
+  // Filtro de loja (embaixo da IA Mico): vale pra alertas, totais, estoques e máquinas
+  const [filtroLoja, setFiltroLoja] = useState("");
   const [estoqueEditando, setEstoqueEditando] = useState(null);
   const [salvandoEstoque, setSalvandoEstoque] = useState(false);
   const [modalMovimentacao, setModalMovimentacao] = useState(false);
@@ -323,23 +327,34 @@ export function Estoque() {
     carregarDados();
   }, [carregarDados]);
 
-  const garagem = useMemo(() => lojas.find(ehGaragem), [lojas]);
+  const lojasVisiveis = useMemo(
+    () => (filtroLoja ? lojas.filter((loja) => String(loja.id) === String(filtroLoja)) : lojas),
+    [lojas, filtroLoja],
+  );
+  const maquinasVisiveis = useMemo(
+    () =>
+      filtroLoja
+        ? maquinas.filter((maquina) => String(maquina.lojaId) === String(filtroLoja))
+        : maquinas,
+    [maquinas, filtroLoja],
+  );
+  const garagem = useMemo(() => lojasVisiveis.find(ehGaragem), [lojasVisiveis]);
   const lojasOperacionais = useMemo(
-    () => lojas.filter((loja) => !ehGaragem(loja)),
-    [lojas],
+    () => lojasVisiveis.filter((loja) => !ehGaragem(loja)),
+    [lojasVisiveis],
   );
 
-  const totalDepositos = lojas.reduce(
+  const totalDepositos = lojasVisiveis.reduce(
     (total, loja) => total + loja.totalUnidades,
     0,
   );
-  const totalMaquinas = maquinas.reduce(
+  const totalMaquinas = maquinasVisiveis.reduce(
     (total, maquina) => total + Number(maquina.estoqueAtual || 0),
     0,
   );
   const alertasDepositos = useMemo(
     () =>
-      lojas.flatMap((loja) =>
+      lojasVisiveis.flatMap((loja) =>
         (loja.estoque || [])
           .filter((item) => {
             const minimo = Number(item.estoqueMinimo || item.produto?.estoqueMinimo || 0);
@@ -353,11 +368,11 @@ export function Estoque() {
             minimo: Number(item.estoqueMinimo || item.produto?.estoqueMinimo || 0),
           })),
       ),
-    [lojas],
+    [lojasVisiveis],
   );
   const alertasMaquinas = useMemo(
     () =>
-      maquinas
+      maquinasVisiveis
         .filter(
           (maquina) =>
             Number(maquina.capacidadePadrao || 0) > 0 &&
@@ -369,9 +384,12 @@ export function Estoque() {
             lojas.find((loja) => String(loja.id) === String(maquina.lojaId))
               ?.nome || "Loja não informada",
         })),
-    [lojas, maquinas],
+    [lojas, maquinasVisiveis],
   );
   const possuiAlertas = alertasDepositos.length > 0 || alertasMaquinas.length > 0;
+  const LIMITE_ALERTAS = 5;
+  const alternarAlertas = (lista) =>
+    setAlertasAbertos((atual) => ({ ...atual, [lista]: !atual[lista] }));
 
   const alternarExpandido = (lojaId) => {
     setExpandidos((atual) => ({ ...atual, [lojaId]: !atual[lojaId] }));
@@ -527,7 +545,20 @@ export function Estoque() {
           icon="📦"
         />
 
-        <div className="mb-6 flex flex-wrap justify-end gap-3">
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="w-full md:w-96">
+            <SelectBusca
+              opcoes={lojas.map((loja) => ({
+                valor: loja.id,
+                rotulo: ehGaragem(loja) ? "Depósito Principal" : loja.nome,
+              }))}
+              valor={filtroLoja}
+              aoMudar={setFiltroLoja}
+              opcaoVazia="Todas as lojas"
+              placeholder="🏪 Buscar loja..."
+            />
+          </div>
+          <div className="flex flex-wrap justify-end gap-3">
           <button
             type="button"
             onClick={abrirMovimentacao}
@@ -536,6 +567,7 @@ export function Estoque() {
             <span className="text-xl">🔄</span>
             Movimentação de Estoque
           </button>
+          </div>
         </div>
 
         {error && (
@@ -578,7 +610,10 @@ export function Estoque() {
                     📦 Estoques abaixo do mínimo
                   </h3>
                   <div className="space-y-2">
-                    {alertasDepositos.map((alerta) => (
+                    {(alertasAbertos.depositos
+                      ? alertasDepositos
+                      : alertasDepositos.slice(0, LIMITE_ALERTAS)
+                    ).map((alerta) => (
                       <div
                         key={alerta.id}
                         className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3"
@@ -596,6 +631,17 @@ export function Estoque() {
                       </div>
                     ))}
                   </div>
+                  {alertasDepositos.length > LIMITE_ALERTAS && (
+                    <button
+                      type="button"
+                      onClick={() => alternarAlertas("depositos")}
+                      className="mt-2 w-full rounded-lg border border-red-200 bg-white py-2 text-sm font-bold text-red-700 transition hover:bg-red-50"
+                    >
+                      {alertasAbertos.depositos
+                        ? "Ver menos"
+                        : `Ver mais (${alertasDepositos.length - LIMITE_ALERTAS})`}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -605,7 +651,10 @@ export function Estoque() {
                     🎰 Máquinas abaixo da capacidade
                   </h3>
                   <div className="space-y-2">
-                    {alertasMaquinas.map((maquina) => (
+                    {(alertasAbertos.maquinas
+                      ? alertasMaquinas
+                      : alertasMaquinas.slice(0, LIMITE_ALERTAS)
+                    ).map((maquina) => (
                       <Link
                         key={maquina.id}
                         to={`/maquinas/${maquina.id}`}
@@ -629,6 +678,17 @@ export function Estoque() {
                       </Link>
                     ))}
                   </div>
+                  {alertasMaquinas.length > LIMITE_ALERTAS && (
+                    <button
+                      type="button"
+                      onClick={() => alternarAlertas("maquinas")}
+                      className="mt-2 w-full rounded-lg border border-orange-200 bg-white py-2 text-sm font-bold text-orange-700 transition hover:bg-orange-50"
+                    >
+                      {alertasAbertos.maquinas
+                        ? "Ver menos"
+                        : `Ver mais (${alertasMaquinas.length - LIMITE_ALERTAS})`}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -639,12 +699,12 @@ export function Estoque() {
           <div className="stat-card bg-gradient-to-br from-orange-500 to-red-600">
             <p className="text-sm opacity-90">Estoque das lojas</p>
             <p className="text-3xl font-bold">{totalDepositos}</p>
-            <p className="mt-1 text-xs opacity-75">{lojas.length} estoque(s)</p>
+            <p className="mt-1 text-xs opacity-75">{lojasVisiveis.length} estoque(s)</p>
           </div>
           <div className="stat-card bg-gradient-to-br from-blue-500 to-blue-700">
             <p className="text-sm opacity-90">Estoque nas máquinas</p>
             <p className="text-3xl font-bold">{totalMaquinas}</p>
-            <p className="mt-1 text-xs opacity-75">{maquinas.length} máquina(s)</p>
+            <p className="mt-1 text-xs opacity-75">{maquinasVisiveis.length} máquina(s)</p>
           </div>
           <div className="stat-card bg-gradient-to-br from-red-500 to-red-700">
             <p className="text-sm opacity-90">Alertas</p>
@@ -687,11 +747,11 @@ export function Estoque() {
                 Acompanhe capacidade e estoque atual de cada máquina.
               </p>
             </div>
-            <Badge variant="info">{maquinas.length} máquina(s)</Badge>
+            <Badge variant="info">{maquinasVisiveis.length} máquina(s)</Badge>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {maquinas.map((maquina) => (
+            {maquinasVisiveis.map((maquina) => (
               <MaquinaCard key={maquina.id} maquina={maquina} />
             ))}
           </div>
