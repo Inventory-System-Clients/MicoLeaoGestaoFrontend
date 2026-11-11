@@ -273,6 +273,17 @@ export function NovaMovimentacao() {
         </div>
 
         <Passo sigla="F" titulo="Foto do relógio" feito={feito.F} aberto={aberto === "F"} aoAbrir={() => setAberto(aberto === "F" ? "" : "F")}>
+          <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed p-3 ${form.fotoUrl ? "border-emerald-300 bg-emerald-50" : "border-gray-300 bg-gray-50"}`}>
+            {form.fotoUrl ? (
+              <img src={form.fotoUrl} alt="Relógio" className="h-16 w-16 rounded-lg object-cover" />
+            ) : (
+              <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-white text-3xl">📷</span>
+            )}
+            <span className="text-sm font-bold text-gray-700">
+              {enviandoFoto ? "Enviando foto..." : form.fotoUrl ? "Foto enviada ✓ (toque para trocar)" : "Tirar foto do relógio"}
+            </span>
+            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => enviarFoto(e.target.files?.[0])} />
+          </label>
           <div className="grid grid-cols-2 gap-3">
             <CampoNumero rotulo="Contador IN" valor={form.contadorIn} aoMudar={mudarContadorIn} dica={inAnterior !== null ? `Última: ${inAnterior}` : null} />
             <CampoNumero rotulo="Contador OUT" valor={form.contadorOut} aoMudar={mudar("contadorOut")} dica={outAnterior !== null ? `Última: ${outAnterior}` : null} />
@@ -310,17 +321,6 @@ export function NovaMovimentacao() {
               )}
             </div>
           )}
-          <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed p-3 ${form.fotoUrl ? "border-emerald-300 bg-emerald-50" : "border-gray-300 bg-gray-50"}`}>
-            {form.fotoUrl ? (
-              <img src={form.fotoUrl} alt="Relógio" className="h-16 w-16 rounded-lg object-cover" />
-            ) : (
-              <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-white text-3xl">📷</span>
-            )}
-            <span className="text-sm font-bold text-gray-700">
-              {enviandoFoto ? "Enviando foto..." : form.fotoUrl ? "Foto enviada ✓ (toque para trocar)" : "Tirar foto do relógio"}
-            </span>
-            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => enviarFoto(e.target.files?.[0])} />
-          </label>
           <button type="button" onClick={() => concluirPasso("F")} disabled={!feito.F} className="btn-primary w-full disabled:opacity-40">Próximo</button>
         </Passo>
 
