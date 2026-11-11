@@ -6,6 +6,9 @@ import { AcessosUsuario } from "../components/AcessosUsuario";
 import api from "../services/api";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 
+// Perfis que trabalham só nas lojas marcadas aqui
+const ESCOLHE_LOJAS = ["FUNCIONARIO", "CONSULTOR_VENDAS"];
+
 export function UsuarioForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -118,10 +121,10 @@ export function UsuarioForm() {
     }
 
     if (
-      formData.role === "FUNCIONARIO" &&
+      ESCOLHE_LOJAS.includes(formData.role) &&
       formData.lojasPermitidas.length === 0
     ) {
-      setError("Funcionários devem ter acesso a pelo menos uma loja");
+      setError("Escolha pelo menos uma loja para este usuário");
       return;
     }
 
@@ -133,7 +136,7 @@ export function UsuarioForm() {
         email: formData.email,
         telefone: formData.telefone,
         role: formData.role,
-        lojasPermitidas: formData.role === "FUNCIONARIO"
+        lojasPermitidas: ESCOLHE_LOJAS.includes(formData.role)
           ? formData.lojasPermitidas
           : [],
       };
@@ -338,8 +341,8 @@ export function UsuarioForm() {
               </div>
             )}
 
-            {/* Lojas Permitidas (para Funcionários) */}
-            {formData.role === "FUNCIONARIO" && (
+            {/* Lojas Permitidas (Funcionário e Consultor de Vendas) */}
+            {ESCOLHE_LOJAS.includes(formData.role) && (
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
                   Lojas Autorizadas *

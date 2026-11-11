@@ -32,7 +32,7 @@ export const PERFIS = [
     curto: "Consultor",
     cor: "bg-pink-100 text-pink-800",
     descricao:
-      "Começa sem acesso: libere o que a pessoa precisa em Acessos, logo abaixo.",
+      "Trabalha nas lojas marcadas abaixo: ao entrar bate o ponto e faz a movimentação em passos (foto do relógio, abastecimento, limpeza, conferência). Outros acessos: libere em Acessos.",
   },
   {
     valor: "MOTORISTA",

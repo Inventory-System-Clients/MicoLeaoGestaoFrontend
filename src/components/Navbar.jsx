@@ -46,6 +46,8 @@ export function Navbar() {
         "FUNCIONARIO_CADASTRO",
       ],
     },
+    // Movimentação em passos (Consultor de Vendas; os outros perfis só se liberado)
+    { to: "/nova-movimentacao", label: "Movimentação", icon: "✅", roles: [] },
     // Admin não bate ponto: acompanha a equipe em Cadastros > Controle de Ponto
     {
       to: "/ponto",

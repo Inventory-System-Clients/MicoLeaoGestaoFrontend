@@ -42,6 +42,7 @@ import { Sangrias } from "./pages/Sangrias";
 import { MeuPonto } from "./pages/MeuPonto";
 import { ControlePonto } from "./pages/ControlePonto";
 import { Metas } from "./pages/Metas";
+import { NovaMovimentacao } from "./pages/NovaMovimentacao";
 import { GastosVariaveis } from "./pages/GastosVariaveis";
 import { RegistroDinheiro } from "./pages/RegistroDinheiro";
 import { StyleGuide } from "./pages/StyleGuide";
@@ -52,6 +53,14 @@ import "./App.css";
 
 function HomeRoute() {
   const { usuario } = useAuth();
+  // Consultor de Vendas (e quem tiver a movimentação em passos liberada sem
+  // Dashboard) cai direto na movimentação, com o ponto logo no topo
+  if (
+    !acessoATela(usuario, "/", true) &&
+    acessoATela(usuario, "/nova-movimentacao", false)
+  ) {
+    return <Navigate to="/nova-movimentacao" replace />;
+  }
   // Quem não tem o Dashboard (perfis restritos ou acesso tirado) vê só o
   // que foi liberado
   if (!acessoATela(usuario, "/", true)) {
@@ -464,6 +473,14 @@ function App() {
             element={
               <PrivateRoute roles={["FUNCIONARIO", "FUNCIONARIO_ESTOQUE", "FUNCIONARIO_CADASTRO"]}>
                 <MeuPonto />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/nova-movimentacao"
+            element={
+              <PrivateRoute adminOnly>
+                <NovaMovimentacao />
               </PrivateRoute>
             }
           />
