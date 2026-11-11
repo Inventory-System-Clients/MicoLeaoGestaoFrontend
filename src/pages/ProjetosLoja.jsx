@@ -69,9 +69,23 @@ export function ProjetosLoja() {
   const headers = [
     { label: "Projeto", key: "nome" },
     {
-      label: "Loja vinculada",
+      label: "Loja",
       key: "loja",
-      render: (projeto) => projeto.loja?.nome || "—",
+      render: (projeto) => {
+        if (!projeto.loja) return "—";
+        // Loja nova ainda escondida (só vira real ao concluir o projeto)
+        const emImplantacao =
+          projeto.loja.statusOperacao === "EM_IMPLANTACAO" &&
+          projeto.loja.ativo === false;
+        return emImplantacao ? (
+          <span>
+            🆕 {projeto.loja.nome}{" "}
+            <span className="text-xs text-gray-500">(loja nova)</span>
+          </span>
+        ) : (
+          projeto.loja.nome
+        );
+      },
     },
     {
       label: "Status",
@@ -84,6 +98,7 @@ export function ProjetosLoja() {
     {
       label: "Máquinas",
       key: "maquinas",
+      // Gravadas no projeto: as que estão na loja + as reservadas
       render: (projeto) => `${projeto.maquinas?.length || 0} máquina(s)`,
     },
     {
@@ -152,7 +167,7 @@ export function ProjetosLoja() {
         onClose={() => setDeleteDialog({ open: false, id: null })}
         onConfirm={() => handleDelete(deleteDialog.id)}
         title="Excluir Projeto"
-        message="Tem certeza que deseja excluir este projeto? As máquinas e custos cadastrados nele também serão removidos. Esta ação não pode ser desfeita."
+        message="Tem certeza que deseja excluir este projeto? As máquinas, custos e fotos cadastrados nele também serão removidos — e, se a loja nova ainda não foi concluída, o cadastro dela (com gastos fixos e extintores) também. Esta ação não pode ser desfeita."
         confirmText="Sim, excluir"
         cancelText="Cancelar"
         type="danger"

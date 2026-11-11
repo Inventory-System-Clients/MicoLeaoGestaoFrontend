@@ -143,7 +143,7 @@ export function Maquinas() {
     setErroTransferencia("");
 
     if (!formTransferencia.lojaDestinoId) {
-      setErroTransferencia("Selecione a loja de destino ou o galpão.");
+      setErroTransferencia("Selecione a loja de destino ou o depósito.");
       return;
     }
     if (!formTransferencia.dataTransferencia) {
@@ -267,7 +267,7 @@ export function Maquinas() {
       label: "Loja",
       render: (maquina) => {
         console.log("Buscando loja para máquina:", maquina.lojaId, "em", lojas);
-        if (!maquina.lojaId) return "Sem loja";
+        if (!maquina.lojaId) return "Depósito";
         const loja = lojas.find((l) => l.id === maquina.lojaId);
         return loja ? loja.nome : `N/A (ID: ${maquina.lojaId})`;
       },
@@ -501,7 +501,7 @@ export function Maquinas() {
                 {maquinaTransferindo.lojaId
                   ? lojas.find((l) => l.id === maquinaTransferindo.lojaId)
                       ?.nome || "Loja não encontrada"
-                  : "Galpão (sem loja)"}
+                  : "Depósito"}
               </p>
             </div>
 
@@ -522,7 +522,7 @@ export function Maquinas() {
               >
                 <option value="">Selecione o destino...</option>
                 {maquinaTransferindo.lojaId && (
-                  <option value={GALPAO_VALUE}>🏭 Galpão (sem loja)</option>
+                  <option value={GALPAO_VALUE}>🏭 Depósito</option>
                 )}
                 {lojas
                   .filter(

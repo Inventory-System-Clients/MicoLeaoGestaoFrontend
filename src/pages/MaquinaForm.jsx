@@ -261,7 +261,7 @@ export function MaquinaForm() {
       ); // Debug
 
       if (!formData.loja_id && formData.statusOperacao === "EM_OPERACAO") {
-        setError("Máquina sem loja não pode ficar em operação.");
+        setError("Máquina no depósito não pode ficar em operação.");
         setLoading(false);
         return;
       }
@@ -511,7 +511,7 @@ export function MaquinaForm() {
                     onChange={handleChange}
                     className="select-field"
                   >
-                    <option value="">Sem loja</option>
+                    <option value="">Depósito (sem loja)</option>
                     {lojas.map((loja) => (
                       <option key={loja.id} value={loja.id}>
                         {loja.nome}

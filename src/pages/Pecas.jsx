@@ -216,7 +216,7 @@ export default function Pecas() {
 
       const payload = {
         codigo: formPeca.codigo.trim() || null,
-        nome: formPeca.nome.trim(),
+        nome: formPeca.nome.trim().toLocaleUpperCase("pt-BR"),
         descricao: formPeca.descricao.trim() || null,
         unidade: "un",
         quantidadeEstoque: Number(formPeca.quantidadeEstoque || 0),
@@ -496,7 +496,7 @@ export default function Pecas() {
                   onChange={(e) =>
                     setFormPeca((prev) => ({ ...prev, nome: e.target.value }))
                   }
-                  className="input-field"
+                  className="input-field uppercase"
                   placeholder="Ex: Bobina fina"
                 />
               </div>

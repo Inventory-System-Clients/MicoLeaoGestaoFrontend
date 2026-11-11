@@ -23,6 +23,7 @@ import { ProdutoForm } from "./pages/ProdutoForm";
 import { Estoque } from "./pages/Estoque";
 import { Movimentacoes } from "./pages/Movimentacoes";
 import { Roteiros } from "./pages/Roteiros";
+// import { AuditoriaMaquinas } from "./pages/AuditoriaMaquinas"; // desativada por enquanto
 import { RoteiroExecucao } from "./pages/RoteiroExecucao";
 import { Treinamentos } from "./pages/Treinamentos";
 import { Desenvolvimento } from "./pages/Desenvolvimento";
@@ -367,6 +368,18 @@ function App() {
               </PrivateRoute>
             }
           />
+          {/* Auditoria de Máquinas: desativada por enquanto (página em pages/AuditoriaMaquinas.jsx)
+          <Route
+            path="/auditoria-maquinas"
+            element={
+              <PrivateRoute
+                roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"]}
+              >
+                <AuditoriaMaquinas />
+              </PrivateRoute>
+            }
+          />
+          */}
           <Route
             path="/roteiros/:id/executar"
             element={

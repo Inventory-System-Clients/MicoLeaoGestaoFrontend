@@ -33,7 +33,7 @@ const statusMaquina = {
     card: "border-red-200 bg-red-50",
   },
   SEM_LOJA: {
-    label: "Sem loja",
+    label: "Depósito",
     dot: "bg-slate-500",
     chip: "bg-slate-100 text-slate-700 border-slate-200",
     card: "border-slate-200 bg-slate-50",
@@ -234,7 +234,7 @@ export function VisaoMaquinas() {
               {(totais.PRONTA_PARA_SAIDA || 0) +
                 (totais.SEM_LOJA || 0)}
             </p>
-            <p className="mt-1 text-xs opacity-75">saída ou sem loja</p>
+            <p className="mt-1 text-xs opacity-75">saída ou no depósito</p>
           </div>
         </section>
 
@@ -278,7 +278,7 @@ export function VisaoMaquinas() {
                 onChange={(e) => setFiltroLoja(e.target.value)}
               >
                 <option value="todas">Todas</option>
-                <option value="sem-loja">Sem loja</option>
+                <option value="sem-loja">Depósito</option>
                 {lojas.map((loja) => (
                   <option key={loja.id} value={loja.id}>
                     {loja.nome}
@@ -325,7 +325,7 @@ export function VisaoMaquinas() {
                   {item.maquina.nome || "Máquina sem nome"}
                 </h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  {item.maquina.loja?.nome || "Sem loja definida"}
+                  {item.maquina.loja?.nome || "Depósito"}
                 </p>
               </div>
 

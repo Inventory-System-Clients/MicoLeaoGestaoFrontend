@@ -171,7 +171,7 @@ export function ProdutoForm() {
 
       const data = {
         codigo: formData.codigo.trim(),
-        nome: formData.nome.trim(),
+        nome: formData.nome.trim().toLocaleUpperCase("pt-BR"),
         categoria: formData.categoria.trim(),
         emoji: formData.emoji,
         descricao: formData.descricao?.trim() || null,
@@ -301,7 +301,7 @@ export function ProdutoForm() {
                     name="nome"
                     value={formData.nome}
                     onChange={handleChange}
-                    className="input-field"
+                    className="input-field uppercase"
                     placeholder="Ex: Urso de Pelúcia Grande"
                     required
                   />

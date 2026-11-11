@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../services/api";
 import { Navbar } from "../components/Navbar";
@@ -6,8 +6,15 @@ import { Footer } from "../components/Footer";
 import { PageHeader, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 
-export function LojaForm() {
-  const { id } = useParams();
+// embutido: usado dentro do Projeto Loja (loja nova). Sem navbar, cabeçalho
+// e botões; o projeto chama ref.salvar() e recebe o id da loja, que nasce
+// escondida (em implantação) até o projeto ser concluído.
+export const LojaForm = forwardRef(function LojaForm(
+  { embutido = false, lojaIdEmbutido = null },
+  ref,
+) {
+  const params = useParams();
+  const id = embutido ? lojaIdEmbutido : params.id;
   const navigate = useNavigate();
   const isEdit = !!id;
 
@@ -125,7 +132,7 @@ export function LojaForm() {
       carregarGastosFixos();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEdit]);
+  }, [id]);
 
   // Carregar extintores da loja ao editar
   useEffect(() => {
@@ -133,7 +140,7 @@ export function LojaForm() {
       carregarExtintores();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEdit]);
+  }, [id]);
 
   const carregarExtintores = async () => {
     try {
@@ -290,8 +297,8 @@ export function LojaForm() {
     );
   };
 
-  // Valida nomes duplicados e devolve só os gastos preenchidos. Retorna
-  // null (e já seta o erro na tela) se achar nomes repetidos.
+  // Valida nomes duplicados e devolve só os gastos preenchidos. Lança erro
+  // se achar nomes repetidos.
   const validarGastosFixos = () => {
     const gastosValidos = gastosFixos.filter(
       (g) => g.nome && g.nome.trim() !== "",
@@ -301,10 +308,9 @@ export function LojaForm() {
     for (const g of gastosValidos) {
       const chave = normalizarNomeGasto(g.nome);
       if (nomesVistos.has(chave)) {
-        setError(
+        throw new Error(
           `Há mais de um gasto fixo chamado "${g.nome.trim()}". Dê um nome diferente pra cada um.`,
         );
-        return null;
       }
       nomesVistos.add(chave);
     }
@@ -339,6 +345,59 @@ export function LojaForm() {
     });
   };
 
+  // Salva loja, gastos fixos e extintores e devolve o id da loja. Lança erro
+  // se algo não passar na validação ou na API.
+  const salvarLoja = async () => {
+    if (!formData.nome || formData.nome.trim() === "") {
+      throw new Error("Por favor, informe o nome da loja");
+    }
+
+    const gastosValidos = validarGastosFixos();
+
+    const data = {
+      nome: formData.nome.trim(),
+      endereco: formData.endereco.trim(),
+      cidade: formData.cidade.trim(),
+      estado: formData.estado,
+      cep: formData.cep?.trim() || null,
+      telefone: formData.telefone.trim(),
+      responsavel: formData.responsavel?.trim() || null,
+      statusOperacao: formData.statusOperacao || "ATIVA",
+      dataInicio: formData.dataInicio || null,
+      observacoes: formData.observacoes?.trim() || null,
+      dataFimContrato: formData.dataFimContrato || null,
+      diasAvisoContrato: formData.diasAvisoContrato
+        ? parseInt(formData.diasAvisoContrato, 10)
+        : 60,
+      valorFichaPadrao: parseDecimalInput(formData.valorFichaPadrao, 2.5),
+      ativo: formData.statusOperacao
+        ? formData.statusOperacao !== "INATIVA"
+        : formData.ativo,
+      ...(embutido ? { projetoEmImplantacao: true } : {}),
+    };
+
+    const extintoresValidosLista = extintoresValidos();
+
+    if (isEdit) {
+      await api.put(`/lojas/${id}`, data);
+      await salvarGastosFixos(id, gastosValidos);
+      await salvarExtintores(id, extintoresValidosLista);
+      return id;
+    }
+
+    const response = await api.post("/lojas", data);
+    const novaLojaId = response.data?.id;
+    if (novaLojaId && gastosValidos.length > 0) {
+      await salvarGastosFixos(novaLojaId, gastosValidos);
+    }
+    if (novaLojaId && extintoresValidosLista.length > 0) {
+      await salvarExtintores(novaLojaId, extintoresValidosLista);
+    }
+    return novaLojaId;
+  };
+
+  useImperativeHandle(ref, () => ({ salvar: salvarLoja }));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -346,91 +405,64 @@ export function LojaForm() {
     setLoading(true);
 
     try {
-      // Validação
-      if (!formData.nome || formData.nome.trim() === "") {
-        setError("Por favor, informe o nome da loja");
-        setLoading(false);
-        return;
-      }
-
-      const gastosValidos = validarGastosFixos();
-      if (gastosValidos === null) {
-        setLoading(false);
-        return;
-      }
-
-      const data = {
-        nome: formData.nome.trim(),
-        endereco: formData.endereco.trim(),
-        cidade: formData.cidade.trim(),
-        estado: formData.estado,
-        cep: formData.cep?.trim() || null,
-        telefone: formData.telefone.trim(),
-        responsavel: formData.responsavel?.trim() || null,
-        statusOperacao: formData.statusOperacao || "ATIVA",
-        dataInicio: formData.dataInicio || null,
-        observacoes: formData.observacoes?.trim() || null,
-        dataFimContrato: formData.dataFimContrato || null,
-        diasAvisoContrato: formData.diasAvisoContrato
-          ? parseInt(formData.diasAvisoContrato, 10)
-          : 60,
-        valorFichaPadrao: parseDecimalInput(formData.valorFichaPadrao, 2.5),
-        ativo: formData.statusOperacao
-          ? formData.statusOperacao !== "INATIVA"
-          : formData.ativo,
-      };
-
-      const extintoresValidosLista = extintoresValidos();
-
-      if (isEdit) {
-        await api.put(`/lojas/${id}`, data);
-        await salvarGastosFixos(id, gastosValidos);
-        await salvarExtintores(id, extintoresValidosLista);
-        setSuccess("Loja atualizada com sucesso!");
-      } else {
-        const response = await api.post("/lojas", data);
-        const novaLojaId = response.data?.id;
-        if (novaLojaId && gastosValidos.length > 0) {
-          await salvarGastosFixos(novaLojaId, gastosValidos);
-        }
-        if (novaLojaId && extintoresValidosLista.length > 0) {
-          await salvarExtintores(novaLojaId, extintoresValidosLista);
-        }
-        setSuccess("Loja criada com sucesso!");
-      }
-
+      await salvarLoja();
+      setSuccess(
+        isEdit ? "Loja atualizada com sucesso!" : "Loja criada com sucesso!",
+      );
       setTimeout(() => navigate("/lojas"), 1500);
     } catch (error) {
-      setError(error.response?.data?.error || "Erro ao salvar loja");
+      setError(
+        error.response
+          ? error.response.data?.error || "Erro ao salvar loja"
+          : error.message || "Erro ao salvar loja",
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  if (loadingData) return <PageLoader />;
+  if (loadingData) {
+    return embutido ? (
+      <p className="text-sm text-gray-500">Carregando dados da loja...</p>
+    ) : (
+      <PageLoader />
+    );
+  }
+
+  // Embutido, quem envia é o formulário do projeto: aqui vira só um bloco
+  const Container = embutido ? "div" : "form";
+  const containerProps = embutido ? {} : { onSubmit: handleSubmit };
 
   return (
-    <div className="min-h-screen bg-background-light bg-pattern teddy-pattern">
-      <Navbar />
+    <div
+      className={
+        embutido ? "" : "min-h-screen bg-background-light bg-pattern teddy-pattern"
+      }
+    >
+      {!embutido && <Navbar />}
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <PageHeader
-          title={isEdit ? "Editar Loja" : "Nova Loja"}
-          subtitle={
-            isEdit
-              ? "Atualize as informações da loja"
-              : "Cadastre uma nova loja no sistema"
-          }
-          icon="🏪"
-        />
+      <div
+        className={embutido ? "" : "max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8"}
+      >
+        {!embutido && (
+          <PageHeader
+            title={isEdit ? "Editar Loja" : "Nova Loja"}
+            subtitle={
+              isEdit
+                ? "Atualize as informações da loja"
+                : "Cadastre uma nova loja no sistema"
+            }
+            icon="🏪"
+          />
+        )}
 
         {error && (
           <AlertBox type="error" message={error} onClose={() => setError("")} />
         )}
         {success && <AlertBox type="success" message={success} />}
 
-        <div className="card-gradient">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <div className={embutido ? "" : "card-gradient"}>
+          <Container {...containerProps} className="space-y-6">
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <svg
@@ -703,22 +735,24 @@ export function LojaForm() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Status da loja *
-                  </label>
-                  <select
-                    name="statusOperacao"
-                    value={formData.statusOperacao || "ATIVA"}
-                    onChange={handleChange}
-                    className="select-field"
-                    required
-                  >
-                    <option value="ATIVA">Ativa / em operação</option>
-                    <option value="EM_IMPLANTACAO">Em implantação</option>
-                    <option value="INATIVA">Inativa / pausada</option>
-                  </select>
-                </div>
+                {!embutido && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Status da loja *
+                    </label>
+                    <select
+                      name="statusOperacao"
+                      value={formData.statusOperacao || "ATIVA"}
+                      onChange={handleChange}
+                      className="select-field"
+                      required
+                    >
+                      <option value="ATIVA">Ativa / em operação</option>
+                      <option value="EM_IMPLANTACAO">Em implantação</option>
+                      <option value="INATIVA">Inativa / pausada</option>
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -888,64 +922,66 @@ export function LojaForm() {
             </div>
 
             {/* Botões */}
-            <div className="flex gap-4 justify-end pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={() => navigate("/lojas")}
-                className="btn-secondary"
-                disabled={loading}
-              >
-                Cancelar
-              </button>
-              <button type="submit" className="btn-primary" disabled={loading}>
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <svg
-                      className="animate-spin h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
+            {!embutido && (
+              <div className="flex gap-4 justify-end pt-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => navigate("/lojas")}
+                  className="btn-secondary"
+                  disabled={loading}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" disabled={loading}>
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <svg
+                        className="animate-spin h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Salvando...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
                         stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Salvando...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    {isEdit ? "Atualizar Loja" : "Criar Loja"}
-                  </span>
-                )}
-              </button>
-            </div>
-          </form>
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      {isEdit ? "Atualizar Loja" : "Criar Loja"}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
+          </Container>
         </div>
       </div>
 
-      <Footer />
+      {!embutido && <Footer />}
     </div>
   );
-}
+});

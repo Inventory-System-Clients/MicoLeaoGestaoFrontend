@@ -191,7 +191,7 @@ export default function FabricacaoPelucia() {
       setSubmitting(true);
       setError("");
       await api.post("/insumos", {
-        nome: formInsumo.nome.trim(),
+        nome: formInsumo.nome.trim().toLocaleUpperCase("pt-BR"),
         unidade: formInsumo.unidade.trim() || null,
         estoqueMinimo: formInsumo.estoqueMinimo || 0,
       });
@@ -262,7 +262,7 @@ export default function FabricacaoPelucia() {
       setError("");
       setSuccess("");
       await api.put(`/insumos/${insumoId}`, {
-        nome: formEditarInsumo.nome.trim(),
+        nome: formEditarInsumo.nome.trim().toLocaleUpperCase("pt-BR"),
         unidade: formEditarInsumo.unidade.trim() || null,
         quantidadeEstoque: formEditarInsumo.quantidadeEstoque,
         estoqueMinimo: formEditarInsumo.estoqueMinimo,
@@ -649,7 +649,7 @@ export default function FabricacaoPelucia() {
                 onChange={(e) =>
                   setFormInsumo((prev) => ({ ...prev, nome: e.target.value }))
                 }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 uppercase outline-none focus:border-blue-500"
                 placeholder="Ex: Manta sintética"
               />
             </div>
@@ -983,7 +983,7 @@ export default function FabricacaoPelucia() {
                                           nome: e.target.value,
                                         }))
                                       }
-                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm uppercase outline-none focus:border-blue-500"
                                     />
                                   </div>
                                   <div>

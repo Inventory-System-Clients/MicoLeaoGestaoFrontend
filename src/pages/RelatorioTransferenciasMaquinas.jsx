@@ -93,12 +93,12 @@ export function RelatorioTransferenciasMaquinas() {
       {
         key: "origem",
         label: "De",
-        render: (item) => item.lojaOrigem?.nome || "Galpão (sem loja)",
+        render: (item) => item.lojaOrigem?.nome || "Depósito",
       },
       {
         key: "destino",
         label: "Para",
-        render: (item) => item.lojaDestino?.nome || "Galpão (sem loja)",
+        render: (item) => item.lojaDestino?.nome || "Depósito",
       },
       {
         key: "usuario",

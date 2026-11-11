@@ -13,7 +13,7 @@ const statusMapa = {
   EM_MANUTENCAO: { label: "Em manutenção", variant: "warning" },
   PRONTA_PARA_SAIDA: { label: "Pronta para saída", variant: "info" },
   PARADA: { label: "Parada", variant: "danger" },
-  SEM_LOJA: { label: "Sem loja", variant: "info" },
+  SEM_LOJA: { label: "Depósito", variant: "info" },
   INATIVA: { label: "Inativa", variant: "danger" },
 };
 
@@ -214,7 +214,7 @@ export function MaquinaDetalhes() {
     setErroTransferencia("");
 
     if (!formTransferencia.lojaDestinoId) {
-      setErroTransferencia("Selecione a loja de destino ou o galpão.");
+      setErroTransferencia("Selecione a loja de destino ou o depósito.");
       return;
     }
     if (!formTransferencia.dataTransferencia) {
@@ -371,7 +371,7 @@ export function MaquinaDetalhes() {
             </button>
             <span className="text-gray-400">/</span>
             <span className="font-semibold text-gray-700">
-              {maquina.loja?.nome || "Sem loja"}
+              {maquina.loja?.nome || "Depósito"}
             </span>
             <span className="text-gray-400">/</span>
             <span className="font-semibold text-gray-700">
@@ -574,8 +574,8 @@ export function MaquinaDetalhes() {
                   className="rounded-lg border border-gray-200 p-4 text-sm"
                 >
                   <p className="font-semibold text-gray-900">
-                    {item.lojaOrigem?.nome || "Galpão (sem loja)"} →{" "}
-                    {item.lojaDestino?.nome || "Galpão (sem loja)"}
+                    {item.lojaOrigem?.nome || "Depósito"} →{" "}
+                    {item.lojaDestino?.nome || "Depósito"}
                   </p>
                   <div className="mt-1 space-y-1 text-xs text-gray-600">
                     <p>Data: {formatarDataOnly(item.dataTransferencia)}</p>
@@ -730,7 +730,7 @@ export function MaquinaDetalhes() {
                 {maquina.lojaId
                   ? lojas.find((l) => l.id === maquina.lojaId)?.nome ||
                     "Loja não encontrada"
-                  : "Galpão (sem loja)"}
+                  : "Depósito"}
               </p>
             </div>
 
@@ -751,7 +751,7 @@ export function MaquinaDetalhes() {
               >
                 <option value="">Selecione o destino...</option>
                 {maquina.lojaId && (
-                  <option value={GALPAO_VALUE}>🏭 Galpão (sem loja)</option>
+                  <option value={GALPAO_VALUE}>🏭 Depósito</option>
                 )}
                 {lojas
                   .filter((l) => l.ativo && l.id !== maquina.lojaId)
