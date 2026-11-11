@@ -8,7 +8,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { enviarImagemParaCloudinary } from "../utils/cloudinary";
 
 // Movimentação em passos (Consultor de Vendas): loja → máquina → checklist
-// F Foto do relógio (IN/OUT) · A Abastecimento · M Movimentação ·
+// F Foto do relógio (IN/OUT, contagem e cálculo automático) · A Abastecimento ·
 // Lv Limpeza do vidro · Rf Recolhimento de fichas · Lp Limpeza do piso ·
 // C Conferência final (portas, cadeados, chaves). Salva quando tudo está ✓.
 
@@ -20,7 +20,6 @@ const FORM_VAZIO = {
   produtoId: "",
   totalPre: "",
   retirada: "",
-  movimentacaoConferida: false,
   limpezaVidro: false,
   fichas: "",
   notas: "",
@@ -168,16 +167,26 @@ export function NovaMovimentacao() {
   const produtoEscolhido = contexto?.estoque.find((e) => e.produtoId === form.produtoId);
   const abastecidas = inteiro(form.abastecidas) ?? 0;
 
+  // Sugestão de abastecimento: completar até a capacidade padrão da máquina,
+  // com o que tem nela agora (menos a retirada). Limitada ao estoque da loja.
+  const capacidadePadrao = Number(contexto?.maquina?.capacidadePadrao) || 0;
+  const sugestaoAbastecer =
+    capacidadePadrao > 0 && totalPreNumero !== null
+      ? Math.min(
+          Math.max(0, capacidadePadrao - (totalPreNumero - (inteiro(form.retirada) ?? 0))),
+          produtoEscolhido ? produtoEscolhido.quantidade : Infinity,
+        )
+      : null;
+
   const feito = {
     F: form.contadorIn !== "" && form.contadorOut !== "" && form.totalPre !== "" && Boolean(form.fotoUrl),
     A: form.abastecidas !== "" && (abastecidas === 0 || (Boolean(form.produtoId) && abastecidas <= (produtoEscolhido?.quantidade ?? 0))),
-    M: form.movimentacaoConferida && form.totalPre !== "",
     Lv: form.limpezaVidro,
     Rf: form.fichas !== "",
     Lp: form.limpezaPiso,
     C: form.portas && form.cadeados && form.chaves,
   };
-  const ordem = ["F", "A", "M", "Lv", "Rf", "Lp", "C"];
+  const ordem = ["F", "A", "Lv", "Rf", "Lp", "C"];
   const feitos = ordem.filter((p) => feito[p]).length;
   const tudoPronto = feitos === ordem.length;
 
@@ -317,7 +326,30 @@ export function NovaMovimentacao() {
         <Passo sigla="A" titulo="Abastecimento" feito={feito.A} aberto={aberto === "A"} aoAbrir={() => setAberto(aberto === "A" ? "" : "A")}>
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-1">
-              <CampoNumero rotulo="Quantidade" valor={form.abastecidas} aoMudar={mudar("abastecidas")} dica="0 se não abasteceu" />
+              <CampoNumero
+                rotulo="Quantidade"
+                valor={form.abastecidas}
+                aoMudar={mudar("abastecidas")}
+                dica={
+                  <>
+                    {capacidadePadrao > 0 && <span className="block">Padrão: {capacidadePadrao}</span>}
+                    {sugestaoAbastecer !== null ? (
+                      <button
+                        type="button"
+                        onClick={() => mudar("abastecidas")(String(sugestaoAbastecer))}
+                        className="block font-bold text-blue-600"
+                      >
+                        Sugestão: {sugestaoAbastecer}
+                        {produtoEscolhido && sugestaoAbastecer === produtoEscolhido.quantidade && sugestaoAbastecer > 0 && (
+                          <span className="font-normal text-gray-500"> (tudo que tem na loja)</span>
+                        )}
+                      </button>
+                    ) : (
+                      <span className="block">0 se não abasteceu</span>
+                    )}
+                  </>
+                }
+              />
             </div>
             <div className="col-span-2 text-sm font-semibold text-gray-700">
               Produto (SKU)
@@ -336,41 +368,13 @@ export function NovaMovimentacao() {
             <p className="text-sm text-rose-600">A loja só tem {produtoEscolhido.quantidade} desse produto.</p>
           )}
           {(contexto.estoque || []).length === 0 && <p className="text-xs text-amber-700">A loja está sem estoque de produtos.</p>}
-          <button type="button" onClick={() => concluirPasso("A")} disabled={!feito.A} className="btn-primary w-full disabled:opacity-40">Próximo</button>
-        </Passo>
-
-        <Passo sigla="M" titulo="Movimentação" feito={feito.M} aberto={aberto === "M"} aoAbrir={() => setAberto(aberto === "M" ? "" : "M")}>
-          {form.totalPre === "" ? (
-            <p className="text-sm text-gray-500">Preencha as pelúcias na máquina na Foto do relógio.</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-              {[
-                ["Tinha", totalPreNumero],
-                ["Saíram", saiuPelaContagem ?? "-"],
-                ["Abasteceu", `+${abastecidas}`],
-                ["Retirou", `-${inteiro(form.retirada) ?? 0}`],
-              ].map(([rotulo, valor]) => (
-                <div key={rotulo} className="rounded-lg bg-gray-50 p-2 text-center">
-                  <p className="text-lg font-black text-gray-900">{valor}</p>
-                  <p className="text-xs text-gray-500">{rotulo}</p>
-                </div>
-              ))}
-            </div>
-          )}
           {form.totalPre !== "" && (
             <p className="rounded-lg bg-emerald-50 p-2 text-center text-sm text-emerald-800">
               A máquina vai ficar com <b>{Math.max(0, (totalPreNumero ?? 0) + abastecidas - (inteiro(form.retirada) ?? 0))}</b> pelúcias
-              {contexto.maquina?.capacidadePadrao ? ` de ${contexto.maquina.capacidadePadrao}` : ""}.
+              {capacidadePadrao ? ` de ${capacidadePadrao}` : ""}.
             </p>
           )}
-          <Marcar
-            rotulo="Conferi a movimentação"
-            marcado={form.movimentacaoConferida}
-            aoMudar={(v) => {
-              mudar("movimentacaoConferida")(v);
-              if (v && form.totalPre !== "") setAberto("Lv");
-            }}
-          />
+          <button type="button" onClick={() => concluirPasso("A")} disabled={!feito.A} className="btn-primary w-full disabled:opacity-40">Próximo</button>
         </Passo>
 
         <Passo sigla="Lv" titulo="Limpeza do vidro" feito={feito.Lv} aberto={aberto === "Lv"} aoAbrir={() => setAberto(aberto === "Lv" ? "" : "Lv")}>
