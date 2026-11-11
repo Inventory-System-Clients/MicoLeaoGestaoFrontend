@@ -259,7 +259,12 @@ export function VisaoMaquinas() {
       const lojaNome = item.maquina.loja?.nome || "";
       const bateBusca =
         !texto ||
-        [item.maquina.codigo, item.maquina.nome, item.maquina.tipo, lojaNome]
+        [
+          item.maquina.codigo,
+          item.maquina.nome,
+          item.maquina.tipo,
+          lojaNome,
+        ]
           .join(" ")
           .toLowerCase()
           .includes(texto);
@@ -440,7 +445,7 @@ export function VisaoMaquinas() {
                   {item.maquina.codigo}
                 </p>
                 <h2 className="mt-1 text-xl font-bold text-gray-900">
-                  {item.maquina.nome || "Máquina sem nome"}
+                  {item.maquina.tipo || item.maquina.nome || "Máquina sem tipo"}
                 </h2>
                 <p className="mt-1 text-sm text-gray-600">
                   {item.maquina.loja?.nome || "Depósito"}
@@ -492,9 +497,10 @@ export function VisaoMaquinas() {
                   </p>
                 </div>
                 <div className="rounded-lg bg-white/80 p-3">
-                  <p className="text-xs font-bold uppercase text-gray-500">Modelo</p>
+                  <p className="text-xs font-bold uppercase text-gray-500">Produto</p>
                   <p className="mt-1 font-bold text-gray-900">
-                    {item.maquina.tipo || "-"}
+                    {/* Produto da máquina (campo nome; muda a cada abastecimento) */}
+                    {item.maquina.nome || "-"}
                   </p>
                 </div>
                 <div className="rounded-lg bg-white/80 p-3">
