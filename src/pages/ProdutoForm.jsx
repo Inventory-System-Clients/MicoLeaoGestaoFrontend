@@ -77,7 +77,6 @@ export function ProdutoForm() {
 
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(isEdit);
-  const [gerandoCodigo, setGerandoCodigo] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -124,30 +123,6 @@ export function ProdutoForm() {
     });
   };
 
-  const gerarCodigoProduto = async () => {
-    setGerandoCodigo(true);
-    setError("");
-    try {
-      const response = await api.get("/produtos?incluirInativos=true");
-      const codigosExistentes = new Set(
-        response.data.map((p) => (p.codigo || "").trim().toUpperCase())
-      );
-      let numero = 1;
-      let novoCodigo;
-      do {
-        novoCodigo = `PROD-${String(numero).padStart(3, "0")}`;
-        numero += 1;
-      } while (codigosExistentes.has(novoCodigo));
-      setFormData((prev) => ({ ...prev, codigo: novoCodigo }));
-    } catch (error) {
-      setError(
-        "Erro ao gerar código: " +
-          (error.response?.data?.error || error.message)
-      );
-    } finally {
-      setGerandoCodigo(false);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -156,13 +131,7 @@ export function ProdutoForm() {
     setLoading(true);
 
     try {
-      // Validação
-      if (!formData.codigo || formData.codigo.trim() === "") {
-        setError("Por favor, informe o código do produto");
-        setLoading(false);
-        return;
-      }
-
+      // Validação (o SKU é gerado pelo sistema ao salvar)
       if (!formData.nome || formData.nome.trim() === "") {
         setError("Por favor, informe o nome do produto");
         setLoading(false);
@@ -170,7 +139,6 @@ export function ProdutoForm() {
       }
 
       const data = {
-        codigo: formData.codigo.trim(),
         nome: formData.nome.trim().toLocaleUpperCase("pt-BR"),
         categoria: formData.categoria.trim(),
         emoji: formData.emoji,
@@ -268,28 +236,12 @@ export function ProdutoForm() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Código do Produto *
+                    SKU
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      name="codigo"
-                      value={formData.codigo}
-                      onChange={handleChange}
-                      className="input-field"
-                      placeholder="Ex: PROD-001"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={gerarCodigoProduto}
-                      className="btn-secondary whitespace-nowrap"
-                      disabled={gerandoCodigo}
-                      title="Gera automaticamente um código sequencial (Ex: PROD-001) que ainda não está em uso"
-                    >
-                      {gerandoCodigo ? "Gerando..." : "Gerar código"}
-                    </button>
-                  </div>
+                  {/* SKU é gerado pelo sistema (001, 002...) e não muda */}
+                  <p className="input-field bg-gray-50 font-semibold text-gray-700">
+                    {formData.codigo || "Gerado automaticamente ao salvar"}
+                  </p>
                 </div>
 
                 <div>

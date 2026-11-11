@@ -2180,18 +2180,30 @@ export default function Compras() {
                 </div>
               )}
 
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
-                  SKU (opcional)
-                </label>
-                <input
-                  value={itemEmEdicao.sku}
-                  onChange={(e) =>
-                    setItemEmEdicao((prev) => ({ ...prev, sku: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                />
-              </div>
+              {/* SKU de produto é gerado pelo sistema; insumo e peça seguem digitados */}
+              {itemEmEdicao.tipoItem === "produto" ? (
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    SKU
+                  </label>
+                  <p className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                    Automático (do cadastro do produto)
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+                    SKU (opcional)
+                  </label>
+                  <input
+                    value={itemEmEdicao.sku}
+                    onChange={(e) =>
+                      setItemEmEdicao((prev) => ({ ...prev, sku: e.target.value }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
