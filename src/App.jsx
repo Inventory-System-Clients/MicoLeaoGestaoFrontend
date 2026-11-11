@@ -1,7 +1,7 @@
 import Veiculos from "./pages/Veiculos";
 import Alertas from "./pages/Alertas";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { AlertasProvider } from "./contexts/AlertasContext";
 import { PrivateRoute } from "./components/PrivateRoute";
 import { Login } from "./pages/Login";
@@ -44,9 +44,17 @@ import { GastosVariaveis } from "./pages/GastosVariaveis";
 import { RegistroDinheiro } from "./pages/RegistroDinheiro";
 import { StyleGuide } from "./pages/StyleGuide";
 import { AnaliseEstoque } from "./pages/AnaliseEstoque";
+import { InicioPerfilRestrito } from "./pages/InicioPerfilRestrito";
+import { acessoATela } from "./utils/perfis";
 import "./App.css";
 
 function HomeRoute() {
+  const { usuario } = useAuth();
+  // Quem não tem o Dashboard (perfis restritos ou acesso tirado) vê só o
+  // que foi liberado
+  if (!acessoATela(usuario, "/", true)) {
+    return <InicioPerfilRestrito />;
+  }
   return <Dashboard />;
 }
 

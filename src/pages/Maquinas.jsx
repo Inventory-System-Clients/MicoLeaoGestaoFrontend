@@ -15,6 +15,7 @@ import {
 } from "../components/UIComponents";
 import { PageLoader, EmptyState } from "../components/Loading";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { pode } from "../utils/perfis";
 
 const GALPAO_VALUE = "GALPAO";
 
@@ -37,6 +38,12 @@ const obterStatusMaquina = (maquina) => {
 export function Maquinas() {
   const navigate = useNavigate();
   const { usuario } = useAuth();
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
+  const regraCadastroMaquinas = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
+    usuario?.role,
+  );
+  const podeCriarMaquina = pode(usuario, "maquinas.criar", regraCadastroMaquinas);
+  const podeCriarTipoMaquina = pode(usuario, "tiposMaquina.criar", regraCadastroMaquinas);
   const [maquinas, setMaquinas] = useState([]);
   const [lojas, setLojas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -354,10 +361,9 @@ export function Maquinas() {
           subtitle="Gerencie as máquinas de pelúcia das lojas"
           icon="🎰"
           action={
-            ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
-              usuario?.role,
-            ) ? (
+            podeCriarTipoMaquina || podeCriarMaquina ? (
               <div className="flex flex-wrap gap-2">
+                {podeCriarTipoMaquina && (
                 <button
                   type="button"
                   onClick={() => setModalTipoMaquinaAberto(true)}
@@ -365,6 +371,8 @@ export function Maquinas() {
                 >
                   Cadastrar tipo de máquina
                 </button>
+                )}
+                {podeCriarMaquina && (
                 <button
                   type="button"
                   onClick={() => navigate("/maquinas/nova")}
@@ -372,6 +380,7 @@ export function Maquinas() {
                 >
                   Nova Máquina
                 </button>
+                )}
               </div>
             ) : undefined
           }

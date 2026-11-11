@@ -2,11 +2,15 @@ import { useEffect, useState } from "react";
 import { AlertBox } from "../components/UIComponents";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../services/api";
+import { pode } from "../utils/perfis";
 
 export function ModoSeguranca() {
   const { usuario, logout } = useAuth();
-  const podeAtivar = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
-    usuario?.role,
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
+  const podeAtivar = pode(
+    usuario,
+    "modoSeguranca.ativar",
+    ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role),
   );
   const [status, setStatus] = useState(null);
   const [senha, setSenha] = useState("");

@@ -12,6 +12,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 
 import Swal from "sweetalert2";
+import { pode } from "../utils/perfis";
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -258,6 +259,25 @@ export function Dashboard() {
     );
   }
   const { usuario } = useAuth();
+  // Acessos (permissoes) dos blocos do painel: sem ajuste vale a regra de
+  // perfil de antes
+  const papel = usuario?.role;
+  const regraAdmin = papel === "ADMIN";
+  const regraAdminDev = ["ADMIN", "DESENVOLVEDOR"].includes(papel);
+  const painel = {
+    compras: pode(usuario, "compras.ver", ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"].includes(papel)),
+    relatorio: pode(usuario, "relatorios.ver", regraAdminDev),
+    registrarDinheiro: pode(usuario, "dinheiro.ver", regraAdminDev),
+    gastoVariavel: pode(usuario, "gastosVariaveis.criar", regraAdminDev),
+    cardsFaturamento: pode(usuario, "relatorios.ver", regraAdmin),
+    visaoGeral:
+      pode(usuario, "lojas.visaoGeral", regraAdminDev) ||
+      pode(usuario, "maquinas.visaoGeral", regraAdminDev),
+    estoque: pode(usuario, "estoque.tela", ["FUNCIONARIO_ESTOQUE", "FUNCIONARIO_CADASTRO"].includes(papel)),
+    veiculos: pode(usuario, "veiculos.tela", papel !== "FUNCIONARIO_ESTOQUE"),
+    alertas: pode(usuario, "alertas.ver", regraAdmin),
+    roteiro: pode(usuario, "roteiros.ver", true),
+  };
   const [stats, setStats] = useState({
     alertas: [],
     balanco: null,
@@ -741,7 +761,14 @@ export function Dashboard() {
 
   const carregarDados = useCallback(async () => {
     try {
+      // Acessos (permissoes): cada parte do painel segue sua ação; sem
+      // ajuste vale a regra de antes (só Admin via esses dados)
       const isAdmin = usuario?.role === "ADMIN";
+      const veFaturamento = pode(usuario, "relatorios.ver", isAdmin);
+      const veGastosVariaveis = pode(usuario, "gastosVariaveis.ver", isAdmin);
+      const veAlertasPainel = pode(usuario, "alertas.ver", isAdmin);
+      const veDadosGestao = veFaturamento || veGastosVariaveis || veAlertasPainel;
+      const semAcesso = (valor) => Promise.resolve({ data: valor });
       const formatarDataParametro = (data) => {
         const ano = data.getFullYear();
         const mes = String(data.getMonth() + 1).padStart(2, "0");
@@ -766,8 +793,8 @@ export function Dashboard() {
         }),
       ];
 
-      // Adicionar requisições de relatórios apenas para ADMIN
-      if (isAdmin) {
+      // Requisições de gestão: cada uma só com o acesso correspondente
+      if (veDadosGestao) {
         const hoje = new Date();
         const inicioMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
         const fimMesAtual = new Date(
@@ -808,7 +835,7 @@ export function Dashboard() {
         };
 
         requisicoes.unshift(
-          api
+          !veFaturamento ? semAcesso(null) : api
             .get("/relatorios/dashboard", {
               params: {
                 dataInicio: periodoComparacaoMensal.inicioMesAtual,
@@ -822,7 +849,7 @@ export function Dashboard() {
               );
               return { data: null };
             }),
-          api
+          !veFaturamento ? semAcesso(null) : api
             .get("/relatorios/dashboard", {
               params: {
                 dataInicio: periodoComparacaoMensal.inicioMesAnterior,
@@ -836,22 +863,22 @@ export function Dashboard() {
               );
               return { data: null };
             }),
-          api.get("/relatorios/alertas-estoque").catch((err) => {
+          !veAlertasPainel ? semAcesso({ alertas: [] }) : api.get("/relatorios/alertas-estoque").catch((err) => {
             console.error("Erro ao carregar alertas de máquinas:", err.message);
             return { data: { alertas: [] } };
           }),
-          api.get("/relatorios/alertas-bom-desempenho").catch((err) => {
+          !veAlertasPainel ? semAcesso({ alertas: [] }) : api.get("/relatorios/alertas-bom-desempenho").catch((err) => {
             console.error(
               "Erro ao carregar alertas de jogadas fora da meta:",
               err.message,
             );
             return { data: { alertas: [] } };
           }),
-          api.get("/relatorios/balanco-semanal").catch((err) => {
+          !veFaturamento ? semAcesso(null) : api.get("/relatorios/balanco-semanal").catch((err) => {
             console.error("Erro ao carregar balanço:", err.message);
             return { data: null };
           }),
-          api
+          !veGastosVariaveis ? semAcesso([]) : api
             .get("/gastos-variaveis", {
               params: {
                 dataInicio: periodoComparacaoMensal.inicioMesAtual,
@@ -883,7 +910,7 @@ export function Dashboard() {
       let comparativoLucroMensal = null;
       let gastoVariavelMes = 0;
 
-      if (isAdmin) {
+      if (veDadosGestao) {
         [
           faturamentoMesAtualRes,
           faturamentoMesAnteriorRes,
@@ -914,7 +941,7 @@ export function Dashboard() {
             ? (diferencaFaturamento / Math.abs(faturamentoMesAnterior)) * 100
             : null;
 
-        comparativoLucroMensal = {
+        comparativoLucroMensal = !veFaturamento ? null : {
           valorMesAtual: faturamentoMesAtual,
           valorMesAnterior: faturamentoMesAnterior,
           diferenca: diferencaFaturamento,
@@ -932,7 +959,7 @@ export function Dashboard() {
       console.log("Lojas carregadas:", lojasRes.data);
       console.log("Máquinas carregadas:", maquinasRes.data);
       console.log("Produtos carregados:", produtosRes.data);
-      if (isAdmin) {
+      if (veFaturamento) {
         console.log("Balanço Mensal:", balancoRes.data);
         console.log("Estrutura completa de totais:", balancoRes.data?.totais);
         console.log("Total de Fichas:", balancoRes.data?.totais?.totalFichas);
@@ -2197,9 +2224,7 @@ export function Dashboard() {
               <h1 className="text-4xl font-bold">
                 <span className="text-gradient">Dashboard</span> 🧸
               </h1>
-              {["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"].includes(
-                usuario?.role,
-              ) && (
+              {painel.compras && (
                 <button
                   onClick={() => navigate("/compras")}
                   className="btn-primary flex items-center gap-2"
@@ -2215,7 +2240,7 @@ export function Dashboard() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role) && (
+            {painel.relatorio && (
               <button
                 type="button"
                 onClick={() => navigate("/relatorios")}
@@ -2225,7 +2250,7 @@ export function Dashboard() {
                 📄 Ver relatório
               </button>
             )}
-            {["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role) && (
+            {painel.registrarDinheiro && (
               <button
                 type="button"
                 onClick={() => navigate("/registrar-dinheiro")}
@@ -2235,7 +2260,7 @@ export function Dashboard() {
                 💵 Registrar dinheiro
               </button>
             )}
-            {["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role) && (
+            {painel.gastoVariavel && (
               <button
                 type="button"
                 onClick={() => navigate("/gastos-variaveis")}
@@ -2275,7 +2300,7 @@ export function Dashboard() {
         {/* Cards de Resumo com design moderno - Apenas para ADMIN */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6 mb-8">
           {/* Faturamento Mensal, Fichas Inseridas, Prêmios Saídos, Alertas de Estoque: só para ADMIN */}
-          {usuario?.role === "ADMIN" && (
+          {painel.cardsFaturamento && (
             <>
               {/* Faturamento Mensal */}
               <div className="stat-card bg-linear-to-br from-yellow-500 to-orange-500 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30">
@@ -2496,7 +2521,7 @@ export function Dashboard() {
               </div>
             </>
           )}
-          {["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role) ? (
+          {painel.visaoGeral ? (
             <>
               {/* Visão das Lojas */}
               <div
@@ -2535,7 +2560,7 @@ export function Dashboard() {
                 </div>
               </div>
             </>
-          ) : (
+          ) : painel.roteiro ? (
             /* Olhar roteiro */
             <div
               className="stat-card bg-linear-to-br from-sky-600 to-indigo-700 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
@@ -2553,10 +2578,8 @@ export function Dashboard() {
                 </p>
               </div>
             </div>
-          )}
-          {["FUNCIONARIO_ESTOQUE", "FUNCIONARIO_CADASTRO"].includes(
-            usuario?.role,
-          ) && (
+          ) : null}
+          {painel.estoque && (
             <>
               {/* Estoque */}
               <div
@@ -2627,7 +2650,7 @@ export function Dashboard() {
             </>
           )}
           {/* Veículos */}
-          {usuario?.role !== "FUNCIONARIO_ESTOQUE" && (
+          {painel.veiculos && (
           <div
             className="stat-card bg-linear-to-br from-gray-700 to-gray-900 p-4 sm:p-6 rounded-xl shadow-md flex flex-col justify-between min-h-30 cursor-pointer"
             onClick={() => navigate("/veiculos")}
@@ -2706,7 +2729,7 @@ export function Dashboard() {
           )}
         </div>
 
-        {usuario?.role === "ADMIN" && alertasBomDesempenho.length > 0 && (
+        {painel.alertas && alertasBomDesempenho.length > 0 && (
           <div
             className="card mb-8 border-l-4 border-red-500"
             id="alertas-bom-desempenho"
@@ -2834,7 +2857,7 @@ export function Dashboard() {
         )}
 
         {/* Alertas de Estoque - Apenas para ADMIN */}
-        {usuario?.role === "ADMIN" && stats.alertas.length > 0 && (
+        {painel.alertas && stats.alertas.length > 0 && (
           <div
             className="card mb-8 border-l-4 border-red-500"
             id="alertas-estoque-maquinas"
@@ -3002,7 +3025,7 @@ export function Dashboard() {
         )}
 
         {/* Alertas de Estoque de Lojas - Apenas para ADMIN */}
-        {usuario?.role === "ADMIN" && alertasEstoqueLoja.length > 0 && (
+        {painel.alertas && alertasEstoqueLoja.length > 0 && (
           <div className="card mb-8 border-l-4 border-orange-500">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

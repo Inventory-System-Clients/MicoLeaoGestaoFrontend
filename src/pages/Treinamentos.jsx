@@ -6,6 +6,7 @@ import { PageLoader } from "../components/Loading";
 import { useAuth } from "../contexts/AuthContext";
 import api from "../services/api";
 import { confirmar } from "../utils/alerts";
+import { pode } from "../utils/perfis";
 
 const videoInicial = {
   titulo: "",
@@ -25,9 +26,15 @@ const extrairYoutubeId = (link) => {
 
 export function Treinamentos() {
   const { usuario } = useAuth();
-  const isAdmin = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
+  const regraGestaoTreinamentos = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
     usuario?.role,
   );
+  const veFeedbacks = pode(usuario, "treinamentos.verFeedbacks", regraGestaoTreinamentos);
+  const podeCriarVideo = pode(usuario, "treinamentos.criarVideo", regraGestaoTreinamentos);
+  const podeEditarVideo = pode(usuario, "treinamentos.editarVideo", regraGestaoTreinamentos);
+  const podeExcluirVideo = pode(usuario, "treinamentos.excluirVideo", regraGestaoTreinamentos);
+  const isAdmin = veFeedbacks || podeCriarVideo;
   const [loading, setLoading] = useState(true);
   const [videos, setVideos] = useState([]);
   const [feedbacks, setFeedbacks] = useState([]);
@@ -45,7 +52,7 @@ export function Treinamentos() {
       setLoading(true);
       const videosRes = await api.get("/treinamentos/videos");
       setVideos(videosRes.data || []);
-      if (isAdmin) {
+      if (veFeedbacks) {
         const feedbacksRes = await api.get("/treinamentos/feedbacks");
         setFeedbacks(feedbacksRes.data || []);
       }
@@ -117,7 +124,7 @@ export function Treinamentos() {
       await api.post("/treinamentos/feedbacks", feedback);
       setFeedback({ tipo: "OBSERVACAO", mensagem: "" });
       setSuccess("Mensagem enviada para o administrador.");
-      if (isAdmin) await carregarDados();
+      if (veFeedbacks) await carregarDados();
     } catch (err) {
       setError(err.response?.data?.error || "Erro ao enviar mensagem.");
     }
@@ -156,6 +163,7 @@ export function Treinamentos() {
           </div>
           {isAdmin && (
             <div className="flex flex-wrap gap-2">
+              {veFeedbacks && (
               <button
                 type="button"
                 className="btn-secondary"
@@ -163,6 +171,8 @@ export function Treinamentos() {
               >
                 Ver mensagens
               </button>
+              )}
+              {podeCriarVideo && (
               <button
                 type="button"
                 className="btn-primary"
@@ -174,6 +184,7 @@ export function Treinamentos() {
               >
                 Cadastrar video
               </button>
+              )}
             </div>
           )}
         </div>
@@ -183,7 +194,7 @@ export function Treinamentos() {
           <AlertBox type="success" message={success} onClose={() => setSuccess("")} />
         )}
 
-        {isAdmin && mostrarMensagens && (
+        {veFeedbacks && mostrarMensagens && (
           <section className="mb-6 rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-bold text-gray-900">Mensagens recebidas</h2>
             <div className="mt-4 space-y-3">
@@ -294,14 +305,18 @@ export function Treinamentos() {
                       Para: {video.tipoUsuario} {video.ativo ? "" : "- Inativo"}
                     </p>
                   </div>
-                  {isAdmin && (
+                  {(podeEditarVideo || podeExcluirVideo) && (
                     <div className="flex gap-2">
+                      {podeEditarVideo && (
                       <button className="btn-secondary text-sm" onClick={() => editarVideo(video)}>
                         Editar
                       </button>
+                      )}
+                      {podeExcluirVideo && (
                       <button className="btn-danger text-sm" onClick={() => excluirVideo(video.id)}>
                         Excluir
                       </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -340,7 +355,7 @@ export function Treinamentos() {
           </div>
         )}
 
-        {isAdmin && mostrarFormVideo && (
+        {(podeCriarVideo || podeEditarVideo) && mostrarFormVideo && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
             <form
               onSubmit={salvarVideo}

@@ -9,6 +9,7 @@ import { AlertBox, Badge, Modal, PageHeader } from "../components/UIComponents";
 import { enviarImagemParaCloudinary } from "../utils/cloudinary";
 import { confirmar } from "../utils/alerts";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { pode } from "../utils/perfis";
 
 const STATUS_OPCOES = [
   { value: "PESQUISANDO", label: "Em pesquisa", variant: "info" },
@@ -220,7 +221,17 @@ const limparPayloadFornecedor = (form) => ({
 export default function Compras() {
   const { usuario, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const podeVerValores = usuario?.role !== "FUNCIONARIO_ESTOQUE";
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
+  const podeVerValores = pode(
+    usuario,
+    "compras.verValores",
+    usuario?.role !== "FUNCIONARIO_ESTOQUE",
+  );
+  const regraSoAdmin = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
+  const podeDesfazerRecebimento = pode(usuario, "compras.desfazerRecebimento", regraSoAdmin);
+  const podeResponderSugestao =
+    pode(usuario, "sugestoesCompra.recusar", regraSoAdmin) ||
+    pode(usuario, "compras.aceitarSugestao", regraSoAdmin);
 
   const [compras, setCompras] = useState([]);
   const [comprasNaoConfirmadas, setComprasNaoConfirmadas] = useState([]);
@@ -3020,7 +3031,7 @@ export default function Compras() {
                         </>
                       )}
                       {statusAtual === "RECEBIDO" &&
-                        ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role) && (
+                        podeDesfazerRecebimento && (
                           <button
                             type="button"
                             onClick={() => handleDesfazerRecebimento(compra)}
@@ -3383,7 +3394,7 @@ export default function Compras() {
                 <div className="space-y-3">
                   {solicitacoesCompra.map((solicitacao) => {
                     const podeResponder =
-                      ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role) &&
+                      podeResponderSugestao &&
                       solicitacao.status === "PENDENTE";
                     const corBorda =
                       solicitacao.status === "ACEITA"

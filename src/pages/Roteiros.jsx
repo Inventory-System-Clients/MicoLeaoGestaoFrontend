@@ -9,6 +9,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { confirmar } from "../utils/alerts";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 import { obterEntradaMaquinaConcluida } from "../utils/roteiroMaquinas";
+import { pode } from "../utils/perfis";
 
 const DIAS = [
   { value: 0, label: "Dom" },
@@ -109,9 +110,15 @@ export function Roteiros() {
   const navigate = useNavigate();
   const location = useLocation();
   const { usuario } = useAuth();
-  const isAdmin = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
+  const regraGestaoRoteiros = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
     usuario?.role,
   );
+  const veTodosRoteiros = pode(usuario, "roteiros.verTodos", regraGestaoRoteiros);
+  const podeCriarRoteiro = pode(usuario, "roteiros.criar", regraGestaoRoteiros);
+  const podeEditarRoteiro = pode(usuario, "roteiros.editar", regraGestaoRoteiros);
+  const podeExcluirRoteiro = pode(usuario, "roteiros.excluir", regraGestaoRoteiros);
+  const podeEditarItens = pode(usuario, "roteiros.editarItens", regraGestaoRoteiros);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [roteiros, setRoteiros] = useState([]);
@@ -166,7 +173,7 @@ export function Roteiros() {
       setVeiculos(veiculosRes.data || []);
       setUltimasMovVeiculos(ultimasVeiculosRes.data || {});
 
-      if (isAdmin) {
+      if (veTodosRoteiros || podeCriarRoteiro || podeEditarRoteiro) {
         const usuariosRes = await api
           .get("/usuarios")
           .catch(() => ({ data: [] }));
@@ -182,7 +189,7 @@ export function Roteiros() {
   useEffect(() => {
     carregarDados();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin]);
+  }, [usuario]);
 
   useEffect(() => {
     if (loading || !roteiros.length) return;
@@ -339,7 +346,7 @@ export function Roteiros() {
   };
 
   const moverItem = async (destinoRoteiroId, indiceDestino) => {
-    if (!dragInfo || !isAdmin) return;
+    if (!dragInfo || !podeEditarItens) return;
 
     const proximos = roteiros.map((roteiro) => ({
       ...roteiro,
@@ -709,7 +716,7 @@ export function Roteiros() {
           </section>
         )}
 
-        {isAdmin && (
+        {(veTodosRoteiros || podeCriarRoteiro) && (
           <section className="mb-6 rounded-lg border border-orange-100 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -718,6 +725,7 @@ export function Roteiros() {
                   Encontre roteiros por nome, funcionario, veiculo, dias e lojas.
                 </p>
               </div>
+              {podeCriarRoteiro && (
               <button
                 type="button"
                 className="btn-primary"
@@ -725,6 +733,7 @@ export function Roteiros() {
               >
                 {mostrarFormularioCriacao ? "Fechar" : "Criar roteiro"}
               </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
@@ -842,7 +851,7 @@ export function Roteiros() {
           </section>
         )}
 
-        {isAdmin && mostrarFormularioCriacao && (
+        {podeCriarRoteiro && mostrarFormularioCriacao && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
             <form
               onSubmit={criarRoteiro}
@@ -1065,8 +1074,9 @@ export function Roteiros() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    {isAdmin && (
+                    {(podeEditarRoteiro || podeExcluirRoteiro) && (
                       <>
+                      {podeEditarRoteiro && (
                       <button
                         type="button"
                         className="btn-secondary text-sm"
@@ -1093,6 +1103,8 @@ export function Roteiros() {
                       >
                         Editar
                       </button>
+                      )}
+                      {podeExcluirRoteiro && (
                       <button
                         type="button"
                         className="btn-danger text-sm"
@@ -1100,6 +1112,7 @@ export function Roteiros() {
                       >
                         Excluir
                       </button>
+                      )}
                       </>
                     )}
                   </div>
@@ -1264,7 +1277,7 @@ export function Roteiros() {
                   </div>
                 )}
 
-                {isAdmin && (
+                {podeEditarItens && (
                   <div className="mb-4 rounded-lg border border-slate-200 p-3">
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-[150px_1fr_auto]">
                       <select
@@ -1321,7 +1334,7 @@ export function Roteiros() {
                   {(roteiro.itens || []).map((item, index) => (
                     <div
                       key={item.id}
-                      draggable={isAdmin}
+                      draggable={podeEditarItens}
                       onDragStart={() =>
                         setDragInfo({ itemId: item.id, roteiroId: roteiro.id })
                       }
@@ -1331,7 +1344,7 @@ export function Roteiros() {
                         item.tipo === "ANOTACAO"
                           ? "border-blue-200 bg-blue-50"
                           : "border-slate-200 bg-slate-50"
-                      } ${isAdmin ? "cursor-move" : ""}`}
+                      } ${podeEditarItens ? "cursor-move" : ""}`}
                     >
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-gray-700">
                         {index + 1}
@@ -1352,7 +1365,7 @@ export function Roteiros() {
                               : "Esta loja não está mais disponível"}
                         </p>
                       </div>
-                      {isAdmin && (
+                      {podeEditarItens && (
                         <button
                           type="button"
                           onClick={() => excluirItem(item.id)}

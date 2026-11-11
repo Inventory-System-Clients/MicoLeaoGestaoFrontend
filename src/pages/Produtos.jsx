@@ -13,10 +13,16 @@ import {
 } from "../components/UIComponents";
 import { PageLoader, EmptyState } from "../components/Loading";
 import { useAuth } from "../contexts/AuthContext";
+import { pode } from "../utils/perfis";
 
 export function Produtos() {
   const navigate = useNavigate();
   const { usuario } = useAuth();
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
+  const regraCadastro = ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role);
+  const podeCriarProduto = pode(usuario, "produtos.criar", regraCadastro);
+  const podeEditarProduto = pode(usuario, "produtos.editar", regraCadastro);
+  const podeExcluirProduto = pode(usuario, "produtos.excluir", regraCadastro);
   const [produtos, setProdutos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState(null);
@@ -134,8 +140,7 @@ export function Produtos() {
       label: "Ações",
       render: (produto) => (
         <div className="flex gap-2">
-          {["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role) && (
-            <>
+          {podeEditarProduto && (
               <button
                 onClick={() => navigate(`/produtos/${produto.id}/editar`)}
                 className="text-blue-600 hover:text-blue-800 font-semibold"
@@ -143,6 +148,8 @@ export function Produtos() {
               >
                 ✏️
               </button>
+          )}
+          {podeExcluirProduto && (
               <button
                 onClick={() => handleAbrirDialogDeletar(produto)}
                 className="text-red-600 hover:text-red-800 font-semibold"
@@ -150,9 +157,8 @@ export function Produtos() {
               >
                 {produto.ativo ? "⚠️" : "🗑️"}
               </button>
-            </>
           )}
-          {!["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role) && (
+          {!podeEditarProduto && !podeExcluirProduto && (
             <span className="text-gray-400 text-sm">Somente visualização</span>
           )}
         </div>
@@ -172,7 +178,7 @@ export function Produtos() {
           subtitle="Gerencie os produtos (pelúcias) disponíveis no sistema"
           icon="🧸"
           action={
-            ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role)
+            podeCriarProduto
               ? {
                   label: "Novo Produto",
                   onClick: () => navigate("/produtos/novo"),

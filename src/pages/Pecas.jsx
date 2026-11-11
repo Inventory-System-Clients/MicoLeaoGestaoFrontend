@@ -6,6 +6,7 @@ import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
 import { confirmar } from "../utils/alerts";
+import { pode } from "../utils/perfis";
 
 const formPecaInicial = {
   codigo: "",
@@ -36,9 +37,14 @@ const normalizarTexto = (valor) =>
 
 export default function Pecas() {
   const { usuario, loading: authLoading } = useAuth();
-  const isAdmin = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes.
+  // "Modo gestão" (estoque, carrinhos, envios) segue "ver envios de peças";
+  // os botões dentro dele, o servidor confere ação por ação.
+  const regraGestaoPecas = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
     usuario?.role,
   );
+  const isAdmin = pode(usuario, "pecas.verEnvios", regraGestaoPecas);
+  const podeCriarPeca = pode(usuario, "pecas.criar", regraGestaoPecas);
   const isFuncionario = usuario?.role === "FUNCIONARIO";
 
   const [pecas, setPecas] = useState([]);
@@ -375,7 +381,7 @@ export default function Pecas() {
           subtitle={`Usuario: ${usuario?.nome || "-"} (${usuario?.role || "-"})`}
           icon="🧰"
           action={
-            isAdmin
+            podeCriarPeca
               ? {
                   label: "+ Nova Peca",
                   onClick: abrirNovaPeca,
@@ -457,7 +463,7 @@ export default function Pecas() {
           </div>
         </section>
 
-        {isAdmin && mostrarFormulario && (
+        {podeCriarPeca && mostrarFormulario && (
           <section className="card-gradient">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>

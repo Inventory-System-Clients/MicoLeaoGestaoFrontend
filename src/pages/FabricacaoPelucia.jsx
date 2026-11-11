@@ -6,6 +6,7 @@ import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
 import { confirmar } from "../utils/alerts";
+import { pode } from "../utils/perfis";
 
 const formatarDataHora = (dataIso) => {
   if (!dataIso) return "-";
@@ -45,7 +46,12 @@ const filtrosConcluidosPadrao = () => {
 
 export default function FabricacaoPelucia() {
   const { usuario, loading: authLoading } = useAuth();
-  const podeVerValores = usuario?.role !== "FUNCIONARIO_ESTOQUE";
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
+  const podeVerValores = pode(
+    usuario,
+    "compras.verValores",
+    usuario?.role !== "FUNCIONARIO_ESTOQUE",
+  );
 
   const [insumos, setInsumos] = useState([]);
   const [compras, setCompras] = useState([]);

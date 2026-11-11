@@ -7,6 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { AlertBox, Badge, Modal } from "../components/UIComponents";
 import api from "../services/api";
 import { confirmar } from "../utils/alerts";
+import { pode } from "../utils/perfis";
 
 const statusMapa = {
   EM_OPERACAO: { label: "Em operação", variant: "success" },
@@ -162,11 +163,16 @@ export function MaquinaDetalhes() {
     });
   }, [movimentacoes, dataInicio, dataFim]);
 
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
   const adminOuDev = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(
     usuario?.role,
   );
+  const podeTransferir = pode(usuario, "maquinas.transferir", adminOuDev);
+  const podeExcluirMovimentacao = pode(usuario, "movimentacoes.excluir", adminOuDev);
   const usuarioPodeEditar = (movimentacao) =>
-    adminOuDev || movimentacao.usuarioId === usuario?.id;
+    pode(usuario, "movimentacoes.editar", true) &&
+    (pode(usuario, "movimentacoes.editarDeOutros", adminOuDev) ||
+      movimentacao.usuarioId === usuario?.id);
 
   const abrirEdicaoMovimentacao = (movimentacao) => {
     setActionError("");
@@ -410,7 +416,7 @@ export function MaquinaDetalhes() {
               </p>
             </div>
             <div className="flex gap-2">
-              {adminOuDev && (
+              {podeTransferir && (
                 <button
                   type="button"
                   className="btn-secondary text-sm"
@@ -641,7 +647,7 @@ export function MaquinaDetalhes() {
                         Editar
                       </button>
                     )}
-                    {adminOuDev && (
+                    {podeExcluirMovimentacao && (
                       <button
                         type="button"
                         className="rounded-md bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"

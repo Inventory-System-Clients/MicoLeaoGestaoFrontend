@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { PERFIS, obterPerfil } from "../utils/perfis";
 import { Navbar } from "../components/Navbar";
+import { AcessosUsuario } from "../components/AcessosUsuario";
 import api from "../services/api";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 
@@ -17,6 +19,13 @@ export function UsuarioForm() {
     telefone: "",
     role: "FUNCIONARIO",
     lojasPermitidas: [],
+  });
+
+  // Ajustes de acesso sobre o padrão do perfil (dar/tirar ações)
+  const [ajustesAcesso, setAjustesAcesso] = useState({
+    adicionadas: [],
+    removidas: [],
+    limites: {},
   });
 
   const [lojas, setLojas] = useState([]);
@@ -53,6 +62,11 @@ export function UsuarioForm() {
         telefone: usuario.telefone || "",
         role: usuario.role,
         lojasPermitidas: usuario.permissoesLojas?.map((p) => p.lojaId) || [],
+      });
+      setAjustesAcesso({
+        adicionadas: usuario.acessosPersonalizados?.adicionadas || [],
+        removidas: usuario.acessosPersonalizados?.removidas || [],
+        limites: usuario.acessosPersonalizados?.limites || {},
       });
     } catch (error) {
       setError("Erro ao carregar usuário");
@@ -129,10 +143,17 @@ export function UsuarioForm() {
         data.senha = formData.senha;
       }
 
+      let usuarioId = id;
       if (isEdit) {
         await api.put(`/usuarios/${id}`, data);
       } else {
-        await api.post("/usuarios", data);
+        const response = await api.post("/usuarios", data);
+        usuarioId = response.data?.id;
+      }
+
+      // Admin e Desenvolvedor têm acesso total: não guardam ajustes
+      if (usuarioId && !["ADMIN", "DESENVOLVEDOR"].includes(formData.role)) {
+        await api.put(`/usuarios/${usuarioId}/acessos`, ajustesAcesso);
       }
 
       navigate("/usuarios");
@@ -289,26 +310,14 @@ export function UsuarioForm() {
                   className="input-field"
                   required
                 >
-                  <option value="FUNCIONARIO">Funcionário</option>
-                  <option value="FUNCIONARIO_ESTOQUE">
-                    Funcionário de Estoque
-                  </option>
-                  <option value="FUNCIONARIO_CADASTRO">
-                    Funcionário de Cadastro
-                  </option>
-                  <option value="ADMIN">Administrador</option>
-                  <option value="DESENVOLVEDOR">Desenvolvedor</option>
+                  {PERFIS.map((perfil) => (
+                    <option key={perfil.valor} value={perfil.valor}>
+                      {perfil.nome}
+                    </option>
+                  ))}
                 </select>
                 <p className="mt-2 text-sm text-gray-500">
-                  {formData.role === "ADMIN"
-                    ? "Administradores têm acesso total ao sistema"
-                    : formData.role === "DESENVOLVEDOR"
-                      ? "Desenvolvedores têm acesso de admin e controle do desenvolvimento"
-                      : formData.role === "FUNCIONARIO_ESTOQUE"
-                        ? "Além do acesso de funcionário, também vê estoque, monta envios/carrinhos, vê a lista de compras, cuida da Fabricação de Pelúcia (insumos, receitas, pedidos) e acessa todas as lojas — sem acesso a financeiro ou edição de usuários/lojas"
-                        : formData.role === "FUNCIONARIO_CADASTRO"
-                          ? "Acesso quase total ao sistema (lojas, máquinas, produtos, estoque, roteiros, manutenção etc) — sem acesso a financeiro, gráficos, relatórios ou gestão de usuários"
-                        : "Funcionários têm acesso limitado às lojas autorizadas"}
+                  {obterPerfil(formData.role).descricao}
                 </p>
               </div>
             </div>
@@ -363,6 +372,18 @@ export function UsuarioForm() {
                 )}
               </div>
             )}
+
+            {/* Acessos (padrão do perfil + ajustes deste usuário) */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Acessos
+              </h2>
+              <AcessosUsuario
+                role={formData.role}
+                ajustes={ajustesAcesso}
+                onChange={setAjustesAcesso}
+              />
+            </div>
 
             {/* Botões */}
             <div className="flex justify-end space-x-4 pt-6 border-t">

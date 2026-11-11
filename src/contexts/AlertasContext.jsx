@@ -8,6 +8,7 @@ import {
 } from "react";
 import api from "../services/api";
 import { useAuth } from "./AuthContext";
+import { pode } from "../utils/perfis";
 
 const AlertasContext = createContext(null);
 
@@ -125,7 +126,11 @@ export function AlertasProvider({ children }) {
   const emAndamentoRef = useRef(false);
 
   const carregar = useCallback(async () => {
-    const podeVerAlertas = ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role);
+    const podeVerAlertas = pode(
+      usuario,
+      "alertas.ver",
+      ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role),
+    );
     if (!podeVerAlertas || emAndamentoRef.current) return;
 
     emAndamentoRef.current = true;
@@ -366,10 +371,16 @@ export function AlertasProvider({ children }) {
       emAndamentoRef.current = false;
       setCarregando(false);
     }
-  }, [usuario?.role]);
+  }, [usuario]);
 
   useEffect(() => {
-    if (!["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role)) {
+    if (
+      !pode(
+        usuario,
+        "alertas.ver",
+        ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role),
+      )
+    ) {
       setTipos(tiposVazios());
       return;
     }
@@ -377,7 +388,7 @@ export function AlertasProvider({ children }) {
     carregar();
     const intervalo = setInterval(carregar, INTERVALO_ATUALIZACAO_MS);
     return () => clearInterval(intervalo);
-  }, [usuario?.role, carregar]);
+  }, [usuario, carregar]);
 
   const totalGeral = tipos.reduce((soma, tipo) => soma + tipo.total, 0);
 

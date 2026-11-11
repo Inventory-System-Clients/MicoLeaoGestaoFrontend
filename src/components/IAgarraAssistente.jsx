@@ -3,8 +3,17 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import mascoteMicoLeao from "../assets/MascoteMicoLeao.png";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { useAuth } from "../contexts/AuthContext";
+import { ehAcessoRestrito } from "../utils/perfis";
 
+// Perfis novos (sem acesso a lojas/máquinas) não veem o assistente
 export function IAgarraAssistente() {
+  const { usuario } = useAuth();
+  if (ehAcessoRestrito(usuario)) return null;
+  return <IAgarraAssistenteConteudo />;
+}
+
+function IAgarraAssistenteConteudo() {
   const navigate = useNavigate();
   const recognitionRef = useRef(null);
   const [status, setStatus] = useState("idle");

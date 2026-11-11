@@ -4,6 +4,7 @@ import api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { AlertBox } from "./UIComponents";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { pode } from "../utils/perfis";
 
 const formatarDataHora = (valor) => {
   if (!valor) return "-";
@@ -273,6 +274,12 @@ const alertaEValido = (alerta, estoqueAtualMaquina) => {
 
 export default function AlertAdmin() {
   const { usuario } = useAuth();
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
+  const podeVerAlertas = pode(
+    usuario,
+    "alertas.ver",
+    ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role),
+  );
   const navigate = useNavigate();
   const [alertas, setAlertas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -295,7 +302,7 @@ export default function AlertAdmin() {
   const [loadingUsuarios, setLoadingUsuarios] = useState(false);
 
   useEffect(() => {
-    if (["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role)) {
+    if (podeVerAlertas) {
       carregarAlertas();
       carregarLojasEUsuarios();
     } else {
@@ -628,7 +635,7 @@ export default function AlertAdmin() {
     return <div className="p-8 text-center">Carregando alertas...</div>;
   }
 
-  if (!["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role)) {
+  if (!podeVerAlertas) {
     return null;
   }
 

@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { PERFIS, obterPerfil } from "../utils/perfis";
 import { Navbar } from "../components/Navbar";
 import { IAgarraAssistente } from "../components/IAgarraAssistente";
 import api from "../services/api";
@@ -133,15 +134,11 @@ export function Usuarios() {
                 onChange={(e) => setFiltro({ ...filtro, role: e.target.value })}
               >
                 <option value="">Todos</option>
-                <option value="ADMIN">Administrador</option>
-                <option value="DESENVOLVEDOR">Desenvolvedor</option>
-                <option value="FUNCIONARIO">Funcionário</option>
-                <option value="FUNCIONARIO_ESTOQUE">
-                  Funcionário de Estoque
-                </option>
-                <option value="FUNCIONARIO_CADASTRO">
-                  Funcionário de Cadastro
-                </option>
+                {PERFIS.map((perfil) => (
+                  <option key={perfil.valor} value={perfil.valor}>
+                    {perfil.nome}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -207,26 +204,10 @@ export function Usuarios() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          usuario.role === "ADMIN"
-                            ? "bg-primary/20 text-primary"
-                            : usuario.role === "DESENVOLVEDOR"
-                              ? "bg-purple-100 text-purple-800"
-                            : usuario.role === "FUNCIONARIO_ESTOQUE"
-                              ? "bg-orange-100 text-orange-800"
-                              : usuario.role === "FUNCIONARIO_CADASTRO"
-                                ? "bg-teal-100 text-teal-800"
-                                : "bg-blue-100 text-blue-800"
+                          obterPerfil(usuario.role).cor
                         }`}
                       >
-                        {usuario.role === "ADMIN"
-                          ? "Admin"
-                          : usuario.role === "DESENVOLVEDOR"
-                            ? "Dev"
-                            : usuario.role === "FUNCIONARIO_ESTOQUE"
-                              ? "Func. Estoque"
-                              : usuario.role === "FUNCIONARIO_CADASTRO"
-                                ? "Func. Cadastro"
-                              : "Funcionário"}
+                        {obterPerfil(usuario.role).curto}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-600">

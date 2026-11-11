@@ -6,6 +6,7 @@ import {
   useEffect,
 } from "react";
 import api from "../services/api";
+import { ehAcessoRestrito } from "../utils/perfis";
 
 export const AuthContext = createContext({});
 
@@ -23,6 +24,26 @@ export function AuthProvider({ children }) {
     if (token && usuarioSalvo) {
       setUsuario(JSON.parse(usuarioSalvo));
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+      // Atualiza o perfil (inclusive os acessos) toda vez que o app abre,
+      // pra valer o que o admin mudou desde o último login
+      api
+        .get("/auth/perfil")
+        .then(({ data }) => {
+          const atualizado = {
+            id: data.id,
+            nome: data.nome,
+            email: data.email,
+            role: data.role,
+            telefone: data.telefone,
+            acessos: data.acessos,
+          };
+          localStorage.setItem("usuario", JSON.stringify(atualizado));
+          setUsuario(atualizado);
+        })
+        .catch(() => {
+          // Sem rede ou token vencido: o interceptor da API cuida do 401
+        });
     }
 
     setLoading(false);
@@ -62,7 +83,12 @@ export function AuthProvider({ children }) {
   // na lista de quem pode visualizar/resolver) — o backend já filtra
   // /manutencoes assim para quem não é ADMIN/DESENVOLVEDOR.
   const atualizarMinhasManutencoesPendentesCount = useCallback(async () => {
-    if (!usuario || ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario.role)) return;
+    if (
+      !usuario ||
+      ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario.role) ||
+      ehAcessoRestrito(usuario)
+    )
+      return;
     try {
       const response = await api.get("/manutencoes");
       const dados = response.data;
@@ -75,7 +101,12 @@ export function AuthProvider({ children }) {
   }, [usuario]);
 
   useEffect(() => {
-    if (!usuario || ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario.role)) return;
+    if (
+      !usuario ||
+      ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario.role) ||
+      ehAcessoRestrito(usuario)
+    )
+      return;
 
     const buscar = async () => {
       try {

@@ -6,6 +6,7 @@ import { PageHeader } from "../components/UIComponents";
 import { useAuth } from "../contexts/AuthContext";
 import { confirmar } from "../utils/alerts";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { pode } from "../utils/perfis";
 
 const NOTE_VALUES = [2, 5, 10, 20, 50, 100, 200];
 
@@ -136,8 +137,12 @@ export function Sangrias() {
     [formData.notas],
   );
 
-  const isAdmin = usuario?.role === "ADMIN";
-  const podeVerHistorico = usuario?.role === "ADMIN";
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes (só Admin)
+  const regraSoAdmin = usuario?.role === "ADMIN";
+  const isAdmin = pode(usuario, "sangrias.definirDataHora", regraSoAdmin);
+  const podeVerHistorico =
+    pode(usuario, "sangrias.historico", regraSoAdmin) &&
+    pode(usuario, "sangrias.ver", true);
 
   useEffect(() => {
     if (didInitRef.current) return;

@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { obterPerfil, acessoATela } from "../utils/perfis";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useAlertas } from "../contexts/AlertasContext";
@@ -23,16 +24,7 @@ export function Navbar() {
     : minhasManutencoesPendentesCount;
   const temAlertaManutencao = contadorManutencao > 0;
   const isActive = (path) => location.pathname === path;
-  const perfilLabel =
-    usuario?.role === "DESENVOLVEDOR"
-      ? "Desenvolvedor"
-      : usuario?.role === "ADMIN"
-        ? "Administrador"
-        : usuario?.role === "FUNCIONARIO_ESTOQUE"
-          ? "Funcionário de Estoque"
-          : usuario?.role === "FUNCIONARIO_CADASTRO"
-            ? "Funcionário de Cadastro"
-          : "Funcionário";
+  const perfilLabel = obterPerfil(usuario?.role).nome;
 
   const handleLogout = () => {
     logout();
@@ -63,7 +55,7 @@ export function Navbar() {
   const ESTOQUE_ROLES = [...CADASTRO_ROLES, "FUNCIONARIO_ESTOQUE"];
   const ENVIO_ROLES = ESTOQUE_ROLES;
   const COMPRAS_ROLES = ESTOQUE_ROLES;
-  // Fabricação de Pelúcia também é responsabilidade do Funcionário de Estoque.
+  // Fabricação de Pelúcia também é responsabilidade do Chefe de Expedição.
   const FABRICA_ROLES = [...CADASTRO_ROLES, "FUNCIONARIO_ESTOQUE"];
 
   const grupos = [
@@ -206,7 +198,12 @@ export function Navbar() {
     .map((grupo) => ({
       ...grupo,
       itens: grupo.itens.filter(
-        (item) => !item.roles || item.roles.includes(usuario?.role),
+        (item) =>
+          acessoATela(
+            usuario,
+            item.to,
+            !item.roles || item.roles.includes(usuario?.role),
+          ),
       ),
     }))
     .filter((grupo) => grupo.itens.length > 0);
@@ -320,7 +317,14 @@ export function Navbar() {
           <div className="mx-auto max-w-7xl space-y-3 px-4 py-3 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {itensSoltos
-                .filter((item) => !item.roles || item.roles.includes(usuario?.role))
+                .filter(
+                  (item) =>
+                    acessoATela(
+                      usuario,
+                      item.to,
+                      !item.roles || item.roles.includes(usuario?.role),
+                    ),
+                )
                 .map((item) => {
                 const active = isActive(item.to);
                 return (

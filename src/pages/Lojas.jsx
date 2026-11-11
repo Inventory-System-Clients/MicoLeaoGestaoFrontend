@@ -12,6 +12,7 @@ import {
 } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { useAuth } from "../contexts/AuthContext";
+import { pode } from "../utils/perfis";
 
 const normalizarTexto = (valor) =>
   String(valor || "")
@@ -36,6 +37,11 @@ const obterStatusLoja = (loja) => {
 
 export function Lojas() {
   const { usuario } = useAuth();
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
+  const regraCadastro = ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role);
+  const podeCriarLoja = pode(usuario, "lojas.criar", regraCadastro);
+  const podeEditarLoja = pode(usuario, "lojas.editar", regraCadastro);
+  const podeExcluirLoja = pode(usuario, "lojas.excluir", regraCadastro);
   const [lojas, setLojas] = useState([]);
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
@@ -187,8 +193,9 @@ export function Lojas() {
             </svg>
             Ver
           </Link>
-          {["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role) && (
+          {(podeEditarLoja || podeExcluirLoja) && (
             <>
+              {podeEditarLoja && (
               <Link
                 to={`/lojas/${loja.id}/editar`}
                 className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
@@ -208,6 +215,8 @@ export function Lojas() {
                 </svg>
                 Editar
               </Link>
+              )}
+              {podeExcluirLoja && (
               <button
                 onClick={() => setDeleteDialog({ open: true, lojaId: loja.id })}
                 className="text-red-600 hover:text-red-800 font-medium flex items-center gap-1"
@@ -227,6 +236,7 @@ export function Lojas() {
                 </svg>
                 Excluir
               </button>
+              )}
             </>
           )}
         </div>
@@ -257,7 +267,7 @@ export function Lojas() {
           subtitle="Gerencie as lojas do sistema"
           icon="🏪"
           action={
-            ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role) ? (
+            podeCriarLoja ? (
               <Link
                 to="/lojas/nova"
                 className="btn-primary flex items-center gap-2"

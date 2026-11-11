@@ -6,6 +6,7 @@ import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { pode } from "../utils/perfis";
 
 const TIPOS_PROBLEMA = [
   { value: "MECANICO", label: "Mecânico" },
@@ -135,12 +136,17 @@ export default function ManutencaoPage() {
     usuarioId: "",
   });
 
-  const isAdmin = ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role);
-  // Custo da manutenção (gera gasto variável automático) fica restrito ao
-  // ADMIN — diferente de `isAdmin` acima, que também libera o Funcionário
-  // de Cadastro pra criar/gerenciar manutenção, mas não pra mexer com
-  // gasto/financeiro.
-  const podeDefinirCusto = ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role);
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
+  // (Admin e Funcionário de Cadastro gerenciam; custo só Admin).
+  const regraGestao = ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role);
+  const veTodasManutencoes = pode(usuario, "manutencao.gerenciarTodas", regraGestao);
+  const podeCriarManutencao = pode(usuario, "manutencao.criar", regraGestao);
+  const veAlertasMovimentacao = pode(usuario, "alertas.ver", regraGestao);
+  const podeDefinirCusto = pode(
+    usuario,
+    "manutencao.lancarCusto",
+    ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role),
+  );
 
   const manutencoesOrdenadas = useMemo(
     () =>
@@ -151,16 +157,16 @@ export default function ManutencaoPage() {
   );
 
   const manutencoesVisiveis = useMemo(() => {
-    if (isAdmin) return manutencoesOrdenadas;
+    if (veTodasManutencoes) return manutencoesOrdenadas;
     return manutencoesOrdenadas.filter((item) => item.status !== "CONCLUIDA");
-  }, [isAdmin, manutencoesOrdenadas]);
+  }, [veTodasManutencoes, manutencoesOrdenadas]);
 
   const carregarDados = useCallback(async () => {
     try {
       setError("");
 
       const params = {};
-      if (isAdmin) {
+      if (veTodasManutencoes) {
         if (filtros.status !== "TODAS") params.status = filtros.status;
         if (filtros.dataInicio) params.dataInicio = filtros.dataInicio;
         if (filtros.dataFim) params.dataFim = filtros.dataFim;
@@ -187,7 +193,9 @@ export default function ManutencaoPage() {
         setMeuEstoquePecas([]);
       }
 
-      if (isAdmin) {
+      if (podeCriarManutencao || veTodasManutencoes || veAlertasMovimentacao) {
+        // Cada busca pode ser recusada sozinha (acessos separados): vira lista vazia
+        const semAcesso = () => ({ data: [] });
         const [
           funcionariosResponse,
           lojasResponse,
@@ -195,11 +203,13 @@ export default function ManutencaoPage() {
           usuariosResponse,
           alertasResponse,
         ] = await Promise.all([
-          api.get("/manutencoes/funcionarios"),
-          api.get("/lojas"),
-          api.get("/maquinas"),
-          api.get("/usuarios").catch(() => ({ data: [] })),
-          api.get("/alertas-movimentacao"),
+          api.get("/manutencoes/funcionarios").catch(semAcesso),
+          api.get("/lojas").catch(semAcesso),
+          api.get("/maquinas").catch(semAcesso),
+          api.get("/usuarios").catch(semAcesso),
+          veAlertasMovimentacao
+            ? api.get("/alertas-movimentacao").catch(semAcesso)
+            : semAcesso(),
         ]);
         const funcionariosData = funcionariosResponse.data;
         const lojasData = lojasResponse.data;
@@ -225,7 +235,8 @@ export default function ManutencaoPage() {
     } finally {
       setLoading(false);
     }
-  }, [filtros, usuario?.role]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtros, usuario]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -351,7 +362,7 @@ export default function ManutencaoPage() {
 
   const handleCriar = async (event) => {
     event.preventDefault();
-    if (!isAdmin) return;
+    if (!podeCriarManutencao) return;
 
     if (
       !form.titulo.trim() ||
@@ -615,7 +626,7 @@ export default function ManutencaoPage() {
           </div>
         )}
 
-        {isAdmin && (
+        {veAlertasMovimentacao && (
           <div className="card border-l-4 border-amber-500">
             <h2 className="mb-3 text-lg font-semibold text-gray-900">
               ⚠️ Alertas de Movimentação ({alertasMovimentacao.length})
@@ -670,7 +681,7 @@ export default function ManutencaoPage() {
           </div>
         )}
 
-        {isAdmin && (
+        {podeCriarManutencao && (
           <form onSubmit={handleCriar} className="card-gradient space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
@@ -1162,7 +1173,7 @@ export default function ManutencaoPage() {
           </form>
         )}
 
-        {isAdmin && (
+        {veTodasManutencoes && (
           <div className="card">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
@@ -1331,7 +1342,7 @@ export default function ManutencaoPage() {
             <div className="space-y-4">
               {manutencoesVisiveis.map((item) => {
                 const podePermitido =
-                  isAdmin ||
+                  veTodasManutencoes ||
                   item.responsavel?.id === usuario?.id ||
                   (item.funcionariosPermitidos || []).some(
                     (f) => f.id === usuario?.id,
@@ -1402,7 +1413,7 @@ export default function ManutencaoPage() {
                             : "-"}
                         </p>
                       )}
-                      {isAdmin && (
+                      {veTodasManutencoes && (
                         <p className="sm:col-span-2">
                           👥{" "}
                           <span className="font-semibold">
@@ -1413,7 +1424,7 @@ export default function ManutencaoPage() {
                             .join(", ") || "-"}
                         </p>
                       )}
-                      {isAdmin && item.status === "CONCLUIDA" && (
+                      {veTodasManutencoes && item.status === "CONCLUIDA" && (
                         <>
                           <p>
                             ✅{" "}
