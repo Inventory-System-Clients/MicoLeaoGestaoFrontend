@@ -41,6 +41,7 @@ import { RelatorioTransferenciasMaquinas } from "./pages/RelatorioTransferencias
 import { Sangrias } from "./pages/Sangrias";
 import { MeuPonto } from "./pages/MeuPonto";
 import { ControlePonto } from "./pages/ControlePonto";
+import { Metas } from "./pages/Metas";
 import { GastosVariaveis } from "./pages/GastosVariaveis";
 import { RegistroDinheiro } from "./pages/RegistroDinheiro";
 import { StyleGuide } from "./pages/StyleGuide";
@@ -463,6 +464,14 @@ function App() {
             element={
               <PrivateRoute roles={["FUNCIONARIO", "FUNCIONARIO_ESTOQUE", "FUNCIONARIO_CADASTRO"]}>
                 <MeuPonto />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/metas"
+            element={
+              <PrivateRoute adminOnly>
+                <Metas />
               </PrivateRoute>
             }
           />

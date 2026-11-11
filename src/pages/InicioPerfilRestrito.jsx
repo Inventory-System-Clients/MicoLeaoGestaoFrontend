@@ -4,6 +4,7 @@ import { Footer } from "../components/Footer";
 import { PageHeader } from "../components/UIComponents";
 import { useAuth } from "../contexts/AuthContext";
 import { obterPerfil } from "../utils/perfis";
+import { MinhasMetas } from "../components/MinhasMetas";
 
 // Início de quem não tem o Dashboard (perfis restritos ou acesso tirado):
 // mostra só as telas liberadas por ajuste de acesso.
@@ -21,6 +22,8 @@ export function InicioPerfilRestrito() {
           subtitle={`Perfil: ${obterPerfil(usuario?.role).nome}`}
           icon="👋"
         />
+
+        <MinhasMetas className="mb-6" />
 
         <div className="card space-y-3">
           {telas.length === 0 ? (

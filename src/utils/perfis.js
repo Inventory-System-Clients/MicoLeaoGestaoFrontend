@@ -53,6 +53,15 @@ export const PERFIS = [
       "Começa sem acesso: libere o que a pessoa precisa em Acessos, logo abaixo.",
   },
   {
+    valor: "FINANCEIRO",
+    restrito: true,
+    nome: "Financeiro",
+    curto: "Financeiro",
+    cor: "bg-emerald-100 text-emerald-800",
+    descricao:
+      "Começa com Metas por Loja (lança o dinheiro que entrou e cadastra metas e comissões). Outros acessos: libere em Acessos, logo abaixo.",
+  },
+  {
     valor: "ADMIN",
     nome: "Administrador",
     curto: "Admin",

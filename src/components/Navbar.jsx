@@ -88,6 +88,7 @@ export function Navbar() {
       icon: "💰",
       itens: [
         { to: "/sangrias", label: "Sangria", icon: "💰", roles: ADMIN_ROLES },
+        { to: "/metas", label: "Metas por Loja", icon: "🎯", roles: ADMIN_ROLES },
         {
           to: "/registrar-dinheiro",
           label: "Registrar Dinheiro",
