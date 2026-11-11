@@ -39,6 +39,8 @@ import { Graficos } from "./pages/Graficos";
 import { Relatorios } from "./pages/Relatorios";
 import { RelatorioTransferenciasMaquinas } from "./pages/RelatorioTransferenciasMaquinas";
 import { Sangrias } from "./pages/Sangrias";
+import { MeuPonto } from "./pages/MeuPonto";
+import { ControlePonto } from "./pages/ControlePonto";
 import { GastosVariaveis } from "./pages/GastosVariaveis";
 import { RegistroDinheiro } from "./pages/RegistroDinheiro";
 import { StyleGuide } from "./pages/StyleGuide";
@@ -453,6 +455,22 @@ function App() {
                 roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"]}
               >
                 <RelatorioTransferenciasMaquinas />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/ponto"
+            element={
+              <PrivateRoute roles={["FUNCIONARIO", "FUNCIONARIO_ESTOQUE", "FUNCIONARIO_CADASTRO"]}>
+                <MeuPonto />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/controle-ponto"
+            element={
+              <PrivateRoute adminOnly>
+                <ControlePonto />
               </PrivateRoute>
             }
           />

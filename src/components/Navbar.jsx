@@ -46,6 +46,13 @@ export function Navbar() {
         "FUNCIONARIO_CADASTRO",
       ],
     },
+    // Admin não bate ponto: acompanha a equipe em Cadastros > Controle de Ponto
+    {
+      to: "/ponto",
+      label: "Meu Ponto",
+      icon: "⏱️",
+      roles: ["FUNCIONARIO", "FUNCIONARIO_ESTOQUE", "FUNCIONARIO_CADASTRO"],
+    },
   ];
 
   const ADMIN_ROLES = ["ADMIN", "DESENVOLVEDOR"];
@@ -143,6 +150,12 @@ export function Navbar() {
           roles: CADASTRO_ROLES,
         },
         { to: "/usuarios", label: "Usuários", icon: "👥", roles: ADMIN_ROLES },
+        {
+          to: "/controle-ponto",
+          label: "Controle de Ponto",
+          icon: "⏱️",
+          roles: ADMIN_ROLES,
+        },
       ],
     },
     {
