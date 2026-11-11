@@ -126,6 +126,10 @@ export function NovaMovimentacao() {
     setErro("");
     setSucesso("");
     if (!id) return;
+    // No celular, leva a máquina escolhida pro topo da tela
+    requestAnimationFrame(() =>
+      document.getElementById(`maquina-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
     try {
       const { data } = await api.get(`/visitas/maquinas/${id}`);
       setContexto(data);
@@ -234,6 +238,136 @@ export function NovaMovimentacao() {
 
   const feitasNaLoja = loja?.maquinas.filter((m) => m.feitaHoje).length || 0;
 
+  // Formulário da máquina escolhida: abre embaixo dela (fica bom no celular)
+  const formularioDaMaquina = contexto ? (
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
+            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(feitos / ordem.length) * 100}%` }} />
+          </div>
+          <span className="text-xs font-bold text-gray-500">{feitos}/{ordem.length}</span>
+        </div>
+
+        <Passo sigla="F" titulo="Foto do relógio" feito={feito.F} aberto={aberto === "F"} aoAbrir={() => setAberto(aberto === "F" ? "" : "F")}>
+          <div className="grid grid-cols-2 gap-3">
+            <CampoNumero rotulo="Contador IN" valor={form.contadorIn} aoMudar={mudar("contadorIn")} dica={inAnterior !== null ? `Última: ${inAnterior}` : null} />
+            <CampoNumero rotulo="Contador OUT" valor={form.contadorOut} aoMudar={mudar("contadorOut")} dica={ultima?.contadorOut != null ? `Última: ${ultima.contadorOut}` : null} />
+          </div>
+          <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed p-3 ${form.fotoUrl ? "border-emerald-300 bg-emerald-50" : "border-gray-300 bg-gray-50"}`}>
+            {form.fotoUrl ? (
+              <img src={form.fotoUrl} alt="Relógio" className="h-16 w-16 rounded-lg object-cover" />
+            ) : (
+              <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-white text-3xl">📷</span>
+            )}
+            <span className="text-sm font-bold text-gray-700">
+              {enviandoFoto ? "Enviando foto..." : form.fotoUrl ? "Foto enviada ✓ (toque para trocar)" : "Tirar foto do relógio"}
+            </span>
+            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => enviarFoto(e.target.files?.[0])} />
+          </label>
+          <button type="button" onClick={() => concluirPasso("F")} disabled={!feito.F} className="btn-primary w-full disabled:opacity-40">Próximo</button>
+        </Passo>
+
+        <Passo sigla="A" titulo="Abastecimento" feito={feito.A} aberto={aberto === "A"} aoAbrir={() => setAberto(aberto === "A" ? "" : "A")}>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-1">
+              <CampoNumero rotulo="Quantidade" valor={form.abastecidas} aoMudar={mudar("abastecidas")} dica="0 se não abasteceu" />
+            </div>
+            <div className="col-span-2 text-sm font-semibold text-gray-700">
+              Produto (SKU)
+              <div className="mt-1">
+                <SelectBusca
+                  opcoes={(contexto.estoque || []).map((e) => ({ valor: e.produtoId, rotulo: e.nome, detalhe: `${e.codigo ? `SKU ${e.codigo} · ` : ""}${e.quantidade} na loja` }))}
+                  valor={form.produtoId}
+                  aoMudar={mudar("produtoId")}
+                  placeholder="Buscar produto ou SKU"
+                  className="py-3"
+                />
+              </div>
+            </div>
+          </div>
+          {produtoEscolhido && abastecidas > produtoEscolhido.quantidade && (
+            <p className="text-sm text-rose-600">A loja só tem {produtoEscolhido.quantidade} desse produto.</p>
+          )}
+          {(contexto.estoque || []).length === 0 && <p className="text-xs text-amber-700">A loja está sem estoque de produtos.</p>}
+          <button type="button" onClick={() => concluirPasso("A")} disabled={!feito.A} className="btn-primary w-full disabled:opacity-40">Próximo</button>
+        </Passo>
+
+        <Passo sigla="M" titulo="Movimentação" feito={feito.M} aberto={aberto === "M"} aoAbrir={() => setAberto(aberto === "M" ? "" : "M")}>
+          <CampoNumero
+            rotulo="Quantas pelúcias tinha na máquina (antes de abastecer)"
+            valor={form.totalPre}
+            aoMudar={mudar("totalPre")}
+            dica={ultima?.totalPos != null ? `Na última visita ficaram ${ultima.totalPos}` : null}
+          />
+          <CampoNumero rotulo="Retirada de pelúcias (opcional)" valor={form.retirada} aoMudar={mudar("retirada")} />
+          {form.totalPre !== "" && (
+            <p className="rounded-lg bg-gray-50 p-2 text-sm text-gray-600">
+              Vai ficar com <b>{Math.max(0, (inteiro(form.totalPre) ?? 0) + abastecidas - (inteiro(form.retirada) ?? 0))}</b> pelúcias
+              {contexto.maquina?.capacidadePadrao ? ` de ${contexto.maquina.capacidadePadrao}` : ""}.
+            </p>
+          )}
+          <button type="button" onClick={() => concluirPasso("M")} disabled={!feito.M} className="btn-primary w-full disabled:opacity-40">Próximo</button>
+        </Passo>
+
+        <Passo sigla="Lv" titulo="Limpeza do vidro" feito={feito.Lv} aberto={aberto === "Lv"} aoAbrir={() => setAberto(aberto === "Lv" ? "" : "Lv")}>
+          <Marcar rotulo="Vidro limpo" marcado={form.limpezaVidro} aoMudar={(v) => { mudar("limpezaVidro")(v); if (v) setAberto("Rf"); }} />
+        </Passo>
+
+        <Passo sigla="Rf" titulo="Recolhimento de fichas" feito={feito.Rf} aberto={aberto === "Rf"} aoAbrir={() => setAberto(aberto === "Rf" ? "" : "Rf")}>
+          <CampoNumero
+            rotulo="Fichas recolhidas"
+            valor={form.fichas}
+            aoMudar={mudar("fichas")}
+            dica={fichasPeloRelogio !== null ? `Pelo relógio: ${fichasPeloRelogio}` : null}
+          />
+          {fichasPeloRelogio !== null && form.fichas === "" && (
+            <button type="button" onClick={() => mudar("fichas")(String(fichasPeloRelogio))} className="text-sm font-bold text-blue-600">
+              Usar {fichasPeloRelogio} (pelo relógio)
+            </button>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <CampoNumero rotulo="Notas (opcional)" valor={form.notas} aoMudar={mudar("notas")} />
+            <label className="block text-sm font-semibold text-gray-700">
+              PIX / cartão (R$, opcional)
+              <input type="number" step="0.01" inputMode="decimal" value={form.pix} onChange={(e) => mudar("pix")(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-3 text-lg font-bold" />
+            </label>
+          </div>
+          <button type="button" onClick={() => concluirPasso("Rf")} disabled={!feito.Rf} className="btn-primary w-full disabled:opacity-40">Próximo</button>
+        </Passo>
+
+        <Passo sigla="Lp" titulo="Limpeza do piso" feito={feito.Lp} aberto={aberto === "Lp"} aoAbrir={() => setAberto(aberto === "Lp" ? "" : "Lp")}>
+          <Marcar rotulo="Piso limpo" marcado={form.limpezaPiso} aoMudar={(v) => { mudar("limpezaPiso")(v); if (v) setAberto("C"); }} />
+        </Passo>
+
+        <Passo sigla="C" titulo="Conferência final" feito={feito.C} aberto={aberto === "C"} aoAbrir={() => setAberto(aberto === "C" ? "" : "C")}>
+          <Marcar rotulo="🚪 Portas" marcado={form.portas} aoMudar={mudar("portas")} />
+          <Marcar rotulo="🔒 Cadeados" marcado={form.cadeados} aoMudar={mudar("cadeados")} />
+          <Marcar rotulo="🔑 Chaves" marcado={form.chaves} aoMudar={mudar("chaves")} />
+        </Passo>
+
+        <textarea
+          value={form.observacoes}
+          onChange={(e) => mudar("observacoes")(e.target.value)}
+          rows={2}
+          placeholder="Observação (opcional)"
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+
+        <button
+          type="button"
+          onClick={salvar}
+          disabled={!tudoPronto || salvando}
+          className="w-full rounded-2xl bg-gradient-to-r from-orange-500 to-red-500 py-4 text-lg font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {salvando ? "Salvando..." : tudoPronto ? "Salvar movimentação" : `Faltam ${ordem.length - feitos} passo(s)`}
+        </button>
+      </div>
+  ) : (
+    <div className="flex justify-center py-8">
+      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background-light bg-pattern teddy-pattern pb-24">
       <Navbar />
@@ -275,160 +409,48 @@ export function NovaMovimentacao() {
               <p className="text-sm font-black text-gray-700">🎰 Máquinas</p>
               <p className="text-xs text-gray-500">{feitasNaLoja} de {loja.maquinas.length} feitas hoje</p>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {loja.maquinas.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => escolherMaquina(m.id)}
-                  className={`rounded-xl border-2 p-3 text-left transition ${
-                    maquinaId === m.id
-                      ? "border-orange-500 bg-orange-50"
-                      : m.feitaHoje
-                        ? "border-emerald-200 bg-emerald-50"
-                        : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  <p className="flex items-center justify-between font-black text-gray-900">
-                    {m.codigo}
-                    {m.feitaHoje && <span className="text-emerald-600">✓</span>}
-                  </p>
-                  <p className="truncate text-xs text-gray-500">{m.tipo || m.nome || "Máquina"}</p>
-                </button>
-              ))}
+            <div className="space-y-2">
+              {loja.maquinas.map((m) => {
+                const escolhida = maquinaId === m.id;
+                return (
+                  <div
+                    key={m.id}
+                    id={`maquina-${m.id}`}
+                    className={`scroll-mt-20 rounded-2xl border-2 transition ${
+                      escolhida
+                        ? "border-orange-500 bg-orange-50/40"
+                        : m.feitaHoje
+                          ? "border-emerald-200 bg-emerald-50"
+                          : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => escolherMaquina(escolhida ? "" : m.id)}
+                      className="flex w-full items-center gap-3 p-3 text-left"
+                    >
+                      <span
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg ${
+                          m.feitaHoje ? "bg-emerald-500 text-white" : "bg-gray-100"
+                        }`}
+                      >
+                        {m.feitaHoje ? "✓" : "🎰"}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-black text-gray-900">{m.codigo}</span>
+                        <span className="block truncate text-xs text-gray-500">
+                          {m.tipo || m.nome || "Máquina"}
+                          {m.feitaHoje && " · feita hoje"}
+                        </span>
+                      </span>
+                      <span className="text-gray-400">{escolhida ? "▲" : "▼"}</span>
+                    </button>
+                    {escolhida && <div className="border-t border-orange-200 p-3">{formularioDaMaquina}</div>}
+                  </div>
+                );
+              })}
             </div>
             {loja.maquinas.length === 0 && <p className="text-sm text-gray-500">Essa loja não tem máquinas.</p>}
-          </div>
-        )}
-
-        {/* Checklist */}
-        {maquinaId && !contexto && !erro && (
-          <div className="flex justify-center py-10">
-            <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary" />
-          </div>
-        )}
-        {contexto && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
-                <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(feitos / ordem.length) * 100}%` }} />
-              </div>
-              <span className="text-xs font-bold text-gray-500">{feitos}/{ordem.length}</span>
-            </div>
-
-            <Passo sigla="F" titulo="Foto do relógio" feito={feito.F} aberto={aberto === "F"} aoAbrir={() => setAberto(aberto === "F" ? "" : "F")}>
-              <div className="grid grid-cols-2 gap-3">
-                <CampoNumero rotulo="Contador IN" valor={form.contadorIn} aoMudar={mudar("contadorIn")} dica={inAnterior !== null ? `Última: ${inAnterior}` : null} />
-                <CampoNumero rotulo="Contador OUT" valor={form.contadorOut} aoMudar={mudar("contadorOut")} dica={ultima?.contadorOut != null ? `Última: ${ultima.contadorOut}` : null} />
-              </div>
-              <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed p-3 ${form.fotoUrl ? "border-emerald-300 bg-emerald-50" : "border-gray-300 bg-gray-50"}`}>
-                {form.fotoUrl ? (
-                  <img src={form.fotoUrl} alt="Relógio" className="h-16 w-16 rounded-lg object-cover" />
-                ) : (
-                  <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-white text-3xl">📷</span>
-                )}
-                <span className="text-sm font-bold text-gray-700">
-                  {enviandoFoto ? "Enviando foto..." : form.fotoUrl ? "Foto enviada ✓ (toque para trocar)" : "Tirar foto do relógio"}
-                </span>
-                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => enviarFoto(e.target.files?.[0])} />
-              </label>
-              <button type="button" onClick={() => concluirPasso("F")} disabled={!feito.F} className="btn-primary w-full disabled:opacity-40">Próximo</button>
-            </Passo>
-
-            <Passo sigla="A" titulo="Abastecimento" feito={feito.A} aberto={aberto === "A"} aoAbrir={() => setAberto(aberto === "A" ? "" : "A")}>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-1">
-                  <CampoNumero rotulo="Quantidade" valor={form.abastecidas} aoMudar={mudar("abastecidas")} dica="0 se não abasteceu" />
-                </div>
-                <div className="col-span-2 text-sm font-semibold text-gray-700">
-                  Produto (SKU)
-                  <div className="mt-1">
-                    <SelectBusca
-                      opcoes={(contexto.estoque || []).map((e) => ({ valor: e.produtoId, rotulo: e.nome, detalhe: `${e.codigo ? `SKU ${e.codigo} · ` : ""}${e.quantidade} na loja` }))}
-                      valor={form.produtoId}
-                      aoMudar={mudar("produtoId")}
-                      placeholder="Buscar produto ou SKU"
-                      className="py-3"
-                    />
-                  </div>
-                </div>
-              </div>
-              {produtoEscolhido && abastecidas > produtoEscolhido.quantidade && (
-                <p className="text-sm text-rose-600">A loja só tem {produtoEscolhido.quantidade} desse produto.</p>
-              )}
-              {(contexto.estoque || []).length === 0 && <p className="text-xs text-amber-700">A loja está sem estoque de produtos.</p>}
-              <button type="button" onClick={() => concluirPasso("A")} disabled={!feito.A} className="btn-primary w-full disabled:opacity-40">Próximo</button>
-            </Passo>
-
-            <Passo sigla="M" titulo="Movimentação" feito={feito.M} aberto={aberto === "M"} aoAbrir={() => setAberto(aberto === "M" ? "" : "M")}>
-              <CampoNumero
-                rotulo="Quantas pelúcias tinha na máquina (antes de abastecer)"
-                valor={form.totalPre}
-                aoMudar={mudar("totalPre")}
-                dica={ultima?.totalPos != null ? `Na última visita ficaram ${ultima.totalPos}` : null}
-              />
-              <CampoNumero rotulo="Retirada de pelúcias (opcional)" valor={form.retirada} aoMudar={mudar("retirada")} />
-              {form.totalPre !== "" && (
-                <p className="rounded-lg bg-gray-50 p-2 text-sm text-gray-600">
-                  Vai ficar com <b>{Math.max(0, (inteiro(form.totalPre) ?? 0) + abastecidas - (inteiro(form.retirada) ?? 0))}</b> pelúcias
-                  {contexto.maquina?.capacidadePadrao ? ` de ${contexto.maquina.capacidadePadrao}` : ""}.
-                </p>
-              )}
-              <button type="button" onClick={() => concluirPasso("M")} disabled={!feito.M} className="btn-primary w-full disabled:opacity-40">Próximo</button>
-            </Passo>
-
-            <Passo sigla="Lv" titulo="Limpeza do vidro" feito={feito.Lv} aberto={aberto === "Lv"} aoAbrir={() => setAberto(aberto === "Lv" ? "" : "Lv")}>
-              <Marcar rotulo="Vidro limpo" marcado={form.limpezaVidro} aoMudar={(v) => { mudar("limpezaVidro")(v); if (v) setAberto("Rf"); }} />
-            </Passo>
-
-            <Passo sigla="Rf" titulo="Recolhimento de fichas" feito={feito.Rf} aberto={aberto === "Rf"} aoAbrir={() => setAberto(aberto === "Rf" ? "" : "Rf")}>
-              <CampoNumero
-                rotulo="Fichas recolhidas"
-                valor={form.fichas}
-                aoMudar={mudar("fichas")}
-                dica={fichasPeloRelogio !== null ? `Pelo relógio: ${fichasPeloRelogio}` : null}
-              />
-              {fichasPeloRelogio !== null && form.fichas === "" && (
-                <button type="button" onClick={() => mudar("fichas")(String(fichasPeloRelogio))} className="text-sm font-bold text-blue-600">
-                  Usar {fichasPeloRelogio} (pelo relógio)
-                </button>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                <CampoNumero rotulo="Notas (opcional)" valor={form.notas} aoMudar={mudar("notas")} />
-                <label className="block text-sm font-semibold text-gray-700">
-                  PIX / cartão (R$, opcional)
-                  <input type="number" step="0.01" inputMode="decimal" value={form.pix} onChange={(e) => mudar("pix")(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-3 text-lg font-bold" />
-                </label>
-              </div>
-              <button type="button" onClick={() => concluirPasso("Rf")} disabled={!feito.Rf} className="btn-primary w-full disabled:opacity-40">Próximo</button>
-            </Passo>
-
-            <Passo sigla="Lp" titulo="Limpeza do piso" feito={feito.Lp} aberto={aberto === "Lp"} aoAbrir={() => setAberto(aberto === "Lp" ? "" : "Lp")}>
-              <Marcar rotulo="Piso limpo" marcado={form.limpezaPiso} aoMudar={(v) => { mudar("limpezaPiso")(v); if (v) setAberto("C"); }} />
-            </Passo>
-
-            <Passo sigla="C" titulo="Conferência final" feito={feito.C} aberto={aberto === "C"} aoAbrir={() => setAberto(aberto === "C" ? "" : "C")}>
-              <Marcar rotulo="🚪 Portas" marcado={form.portas} aoMudar={mudar("portas")} />
-              <Marcar rotulo="🔒 Cadeados" marcado={form.cadeados} aoMudar={mudar("cadeados")} />
-              <Marcar rotulo="🔑 Chaves" marcado={form.chaves} aoMudar={mudar("chaves")} />
-            </Passo>
-
-            <textarea
-              value={form.observacoes}
-              onChange={(e) => mudar("observacoes")(e.target.value)}
-              rows={2}
-              placeholder="Observação (opcional)"
-              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-            />
-
-            <button
-              type="button"
-              onClick={salvar}
-              disabled={!tudoPronto || salvando}
-              className="w-full rounded-2xl bg-gradient-to-r from-orange-500 to-red-500 py-4 text-lg font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {salvando ? "Salvando..." : tudoPronto ? "Salvar movimentação" : `Faltam ${ordem.length - feitos} passo(s)`}
-            </button>
           </div>
         )}
 
