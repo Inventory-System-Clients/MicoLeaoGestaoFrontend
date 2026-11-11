@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { AlertBox } from "./UIComponents";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 import { pode } from "../utils/perfis";
+import { SelectBusca } from "../components/SelectBusca";
 
 const formatarDataHora = (valor) => {
   if (!valor) return "-";
@@ -719,19 +720,15 @@ export default function AlertAdmin() {
                 <span>🏪</span>
                 Loja
               </label>
-              <select
-                value={lojaId}
-                onChange={(e) => setLojaId(e.target.value)}
-                className="w-full rounded-lg border-2 border-yellow-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-sm transition-all focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-200 disabled:opacity-50"
+              <SelectBusca
+                opcoes={lojas.map((loja) => ({ valor: loja.nome, rotulo: loja.nome ?? "" }))}
+                valor={lojaId}
+                aoMudar={(valorEscolhido) => setLojaId(valorEscolhido)}
+                opcaoVazia="Todas as lojas"
+                placeholder="Todas as lojas"
                 disabled={loadingLojas}
-              >
-                <option value="">Todas as lojas</option>
-                {lojas.map((loja) => (
-                  <option key={loja.id} value={loja.nome}>
-                    {loja.nome}
-                  </option>
-                ))}
-              </select>
+                className="text-sm"
+              />
             </div>
 
             <div className="group">
@@ -739,19 +736,15 @@ export default function AlertAdmin() {
                 <span>👤</span>
                 Usuário
               </label>
-              <select
-                value={usuarioId}
-                onChange={(e) => setUsuarioId(e.target.value)}
-                className="w-full rounded-lg border-2 border-yellow-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-sm transition-all focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-200 disabled:opacity-50"
+              <SelectBusca
+                opcoes={usuarios.map((usr) => ({ valor: usr.nome, rotulo: usr.nome ?? "" }))}
+                valor={usuarioId}
+                aoMudar={(valorEscolhido) => setUsuarioId(valorEscolhido)}
+                opcaoVazia="Todos os usuários"
+                placeholder="Todos os usuários"
                 disabled={loadingUsuarios}
-              >
-                <option value="">Todos os usuários</option>
-                {usuarios.map((usr) => (
-                  <option key={usr.id} value={usr.nome}>
-                    {usr.nome}
-                  </option>
-                ))}
-              </select>
+                className="text-sm"
+              />
             </div>
           </div>
         </div>

@@ -7,6 +7,7 @@ import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
 import { confirmar } from "../utils/alerts";
 import { pode } from "../utils/perfis";
+import { SelectBusca } from "../components/SelectBusca";
 
 const formPecaInicial = {
   codigo: "",
@@ -825,23 +826,17 @@ export default function Pecas() {
                                     onSubmit={(e) => handleEnviarPeca(e, peca.id)}
                                     className="grid grid-cols-1 gap-2 p-4 sm:grid-cols-[1fr_100px_1fr_auto]"
                                   >
-                                    <select
-                                      value={formEnvio.funcionarioId}
-                                      onChange={(e) =>
-                                        setFormEnvio((prev) => ({
+                                    <SelectBusca
+                                      opcoes={funcionarios.map((funcionario) => ({ valor: funcionario.id, rotulo: funcionario.nome ?? "" }))}
+                                      valor={formEnvio.funcionarioId}
+                                      aoMudar={(valorEscolhido) => setFormEnvio((prev) => ({
                                           ...prev,
-                                          funcionarioId: e.target.value,
-                                        }))
-                                      }
-                                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-orange-500"
-                                    >
-                                      <option value="">Funcionario...</option>
-                                      {funcionarios.map((funcionario) => (
-                                        <option key={funcionario.id} value={funcionario.id}>
-                                          {funcionario.nome}
-                                        </option>
-                                      ))}
-                                    </select>
+                                          funcionarioId: valorEscolhido,
+                                        }))}
+                                      opcaoVazia="Funcionario..."
+                                      placeholder="Funcionario..."
+                                      className="text-sm"
+                                    />
                                     <input
                                       type="number"
                                       min="1"

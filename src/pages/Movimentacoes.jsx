@@ -6,6 +6,7 @@ import { PageHeader, Badge, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 import TabelaMovimentacoesEstoqueDeLoja from "../components/TabelaMovimentacoesEstoqueDeLoja";
+import { SelectBusca } from "../components/SelectBusca";
 
 const formatarDataHora = (dataIso) => {
   if (!dataIso) return "-";
@@ -368,24 +369,17 @@ export function Movimentacoes() {
                     <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                       Loja
                     </label>
-                    <select
-                      value={filtrosFichas.lojaId}
-                      onChange={(e) =>
-                        setFiltrosFichas((prev) => ({
+                    <SelectBusca
+                      opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                      valor={filtrosFichas.lojaId}
+                      aoMudar={(valorEscolhido) => setFiltrosFichas((prev) => ({
                           ...prev,
-                          lojaId: e.target.value,
+                          lojaId: valorEscolhido,
                           maquinaId: "",
-                        }))
-                      }
-                      className="select-field"
-                    >
-                      <option value="">Todas</option>
-                      {lojas.map((loja) => (
-                        <option key={loja.id} value={loja.id}>
-                          {loja.nome}
-                        </option>
-                      ))}
-                    </select>
+                        }))}
+                      opcaoVazia="Todas"
+                      placeholder="Todas"
+                    />
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
@@ -413,23 +407,13 @@ export function Movimentacoes() {
                     <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                       Usuário
                     </label>
-                    <select
-                      value={filtrosFichas.usuarioId}
-                      onChange={(e) =>
-                        setFiltrosFichas((prev) => ({
-                          ...prev,
-                          usuarioId: e.target.value,
-                        }))
-                      }
-                      className="select-field"
-                    >
-                      <option value="">Todos</option>
-                      {opcoesUsuarioFichas.map(([id, nome]) => (
-                        <option key={id} value={id}>
-                          {nome}
-                        </option>
-                      ))}
-                    </select>
+                    <SelectBusca
+                      opcoes={opcoesUsuarioFichas.map(([id, nome]) => ({ valor: id, rotulo: nome ?? "" }))}
+                      valor={filtrosFichas.usuarioId}
+                      aoMudar={(usuarioId) => setFiltrosFichas((prev) => ({ ...prev, usuarioId }))}
+                      opcaoVazia="Todos"
+                      placeholder="Buscar..."
+                    />
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
@@ -640,45 +624,28 @@ export function Movimentacoes() {
                   <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                     Loja
                   </label>
-                  <select
-                    value={filtrosEstoque.lojaId}
-                    onChange={(e) =>
-                      setFiltrosEstoque((prev) => ({
+                  <SelectBusca
+                    opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                    valor={filtrosEstoque.lojaId}
+                    aoMudar={(valorEscolhido) => setFiltrosEstoque((prev) => ({
                         ...prev,
-                        lojaId: e.target.value,
-                      }))
-                    }
-                    className="select-field"
-                  >
-                    <option value="">Todas</option>
-                    {lojas.map((loja) => (
-                      <option key={loja.id} value={loja.id}>
-                        {loja.nome}
-                      </option>
-                    ))}
-                  </select>
+                        lojaId: valorEscolhido,
+                      }))}
+                    opcaoVazia="Todas"
+                    placeholder="Todas"
+                  />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                     Responsável
                   </label>
-                  <select
-                    value={filtrosEstoque.usuarioId}
-                    onChange={(e) =>
-                      setFiltrosEstoque((prev) => ({
-                        ...prev,
-                        usuarioId: e.target.value,
-                      }))
-                    }
-                    className="select-field"
-                  >
-                    <option value="">Todos</option>
-                    {opcoesUsuarioEstoque.map(([id, nome]) => (
-                      <option key={id} value={id}>
-                        {nome}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectBusca
+                    opcoes={opcoesUsuarioEstoque.map(([id, nome]) => ({ valor: id, rotulo: nome ?? "" }))}
+                    valor={filtrosEstoque.usuarioId}
+                    aoMudar={(usuarioId) => setFiltrosEstoque((prev) => ({ ...prev, usuarioId }))}
+                    opcaoVazia="Todos"
+                    placeholder="Buscar..."
+                  />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold uppercase text-gray-500">

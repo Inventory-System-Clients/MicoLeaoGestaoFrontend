@@ -6,6 +6,7 @@ import { PageHeader, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import RegistrarDinheiro from "../components/RegistrarDinheiro";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { SelectBusca } from "../components/SelectBusca";
 
 const formatCurrency = (value) =>
   Number(value || 0).toLocaleString("pt-BR", {
@@ -201,24 +202,17 @@ export function RegistroDinheiro() {
                 <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                   🏪 Loja
                 </label>
-                <select
-                  value={filtros.lojaId}
-                  onChange={(e) =>
-                    setFiltros((prev) => ({
+                <SelectBusca
+                  opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                  valor={filtros.lojaId}
+                  aoMudar={(valorEscolhido) => setFiltros((prev) => ({
                       ...prev,
-                      lojaId: e.target.value,
+                      lojaId: valorEscolhido,
                       maquinaId: "",
-                    }))
-                  }
-                  className="select-field"
-                >
-                  <option value="">Todas</option>
-                  {lojas.map((loja) => (
-                    <option key={loja.id} value={loja.id}>
-                      {loja.nome}
-                    </option>
-                  ))}
-                </select>
+                    }))}
+                  opcaoVazia="Todas"
+                  placeholder="Todas"
+                />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
@@ -246,23 +240,16 @@ export function RegistroDinheiro() {
                 <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                   👤 Quem conferiu
                 </label>
-                <select
-                  value={filtros.conferidoPorId}
-                  onChange={(e) =>
-                    setFiltros((prev) => ({
+                <SelectBusca
+                  opcoes={usuarios.map((u) => ({ valor: u.id, rotulo: u.nome ?? "" }))}
+                  valor={filtros.conferidoPorId}
+                  aoMudar={(valorEscolhido) => setFiltros((prev) => ({
                       ...prev,
-                      conferidoPorId: e.target.value,
-                    }))
-                  }
-                  className="select-field"
-                >
-                  <option value="">Todos</option>
-                  {usuarios.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.nome}
-                    </option>
-                  ))}
-                </select>
+                      conferidoPorId: valorEscolhido,
+                    }))}
+                  opcaoVazia="Todos"
+                  placeholder="Todos"
+                />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>

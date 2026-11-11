@@ -8,6 +8,7 @@ import { PageLoader } from "../components/Loading";
 import { RelatorioTodasLojas } from "../components/RelatorioTodasLojas";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 import Swal from "sweetalert2";
+import { SelectBusca } from "../components/SelectBusca";
 
 const TODAS_LOJAS_VALUE = "__TODAS_AS_LOJAS__";
 
@@ -1147,39 +1148,26 @@ export function Relatorios() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 🏪 Loja *
               </label>
-              <select
-                value={lojaSelecionada}
-                onChange={(e) => handleLojaSelecionadaChange(e.target.value)}
-                className="input-field w-full"
-              >
-                <option value="">Selecione uma loja</option>
-                <option value={TODAS_LOJAS_VALUE}>Todas as lojas</option>
-                {lojas.map((loja) => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </option>
-                ))}
-              </select>
+              <SelectBusca
+                opcoes={[{ valor: TODAS_LOJAS_VALUE, rotulo: "Todas as lojas" }, ...lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))]}
+                valor={lojaSelecionada}
+                aoMudar={(valorEscolhido) => handleLojaSelecionadaChange(valorEscolhido)}
+                opcaoVazia="Selecione uma loja"
+                placeholder="Selecione uma loja"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 🗺️ Roteiro
               </label>
-              <select
-                value={roteiroSelecionado}
-                onChange={(e) => handleRoteiroChange(e.target.value)}
-                className="input-field w-full"
+              <SelectBusca
+                opcoes={roteiros.map((roteiro) => ({ valor: roteiro.id, rotulo: roteiro.nome ?? "" }))}
+                valor={roteiroSelecionado}
+                aoMudar={handleRoteiroChange}
                 disabled={roteiros.length === 0}
-              >
-                <option value="">
-                  {roteiros.length === 0 ? "Nenhum roteiro cadastrado" : "Nenhum (usar loja acima)"}
-                </option>
-                {roteiros.map((roteiro) => (
-                  <option key={roteiro.id} value={roteiro.id}>
-                    {roteiro.nome}
-                  </option>
-                ))}
-              </select>
+                opcaoVazia={roteiros.length === 0 ? "Nenhum roteiro cadastrado" : "Nenhum (usar loja acima)"}
+                placeholder={roteiros.length === 0 ? "Nenhum roteiro cadastrado" : "Buscar roteiro"}
+              />
               {roteiroSelecionado && (
                 <p className="mt-1 text-xs text-gray-500">
                   {(() => {

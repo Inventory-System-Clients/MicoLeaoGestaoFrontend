@@ -13,6 +13,7 @@ import {
   StatsGrid,
 } from "../components/UIComponents";
 import { confirmar } from "../utils/alerts";
+import { SelectBusca } from "../components/SelectBusca";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const moedaUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -360,20 +361,14 @@ export default function ContasPagar() {
               <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                 Fornecedor
               </label>
-              <select
-                value={filtros.fornecedorId}
-                onChange={(e) =>
-                  setFiltros((prev) => ({ ...prev, fornecedorId: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              >
-                <option value="">Todos</option>
-                {fornecedores.map((fornecedor) => (
-                  <option key={fornecedor.id} value={fornecedor.id}>
-                    {fornecedor.nome}
-                  </option>
-                ))}
-              </select>
+              <SelectBusca
+                opcoes={fornecedores.map((fornecedor) => ({ valor: fornecedor.id, rotulo: fornecedor.nome ?? "" }))}
+                valor={filtros.fornecedorId}
+                aoMudar={(valorEscolhido) => setFiltros((prev) => ({ ...prev, fornecedorId: valorEscolhido }))}
+                opcaoVazia="Todos"
+                placeholder="Todos"
+                className="text-sm"
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
@@ -456,20 +451,13 @@ export default function ContasPagar() {
             <label className="mb-1 block text-sm font-medium text-gray-700">
               Fornecedor (opcional)
             </label>
-            <select
-              value={contaAvulsa.fornecedorId}
-              onChange={(e) =>
-                setContaAvulsa((prev) => ({ ...prev, fornecedorId: e.target.value }))
-              }
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-            >
-              <option value="">Nenhum</option>
-              {fornecedores.map((fornecedor) => (
-                <option key={fornecedor.id} value={fornecedor.id}>
-                  {fornecedor.nome}
-                </option>
-              ))}
-            </select>
+            <SelectBusca
+              opcoes={fornecedores.map((fornecedor) => ({ valor: fornecedor.id, rotulo: fornecedor.nome ?? "" }))}
+              valor={contaAvulsa.fornecedorId}
+              aoMudar={(valorEscolhido) => setContaAvulsa((prev) => ({ ...prev, fornecedorId: valorEscolhido }))}
+              opcaoVazia="Nenhum"
+              placeholder="Nenhum"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

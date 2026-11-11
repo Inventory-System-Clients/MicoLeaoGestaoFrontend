@@ -6,6 +6,7 @@ import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { AlertBox, PageHeader } from "../components/UIComponents";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { SelectBusca } from "../components/SelectBusca";
 
 const formatarDataHora = (dataIso) => {
   if (!dataIso) return "-";
@@ -120,17 +121,12 @@ export default function ConferenciaLacre() {
           <label className="mb-1 block text-sm font-medium text-gray-700">
             Loja
           </label>
-          <select
-            value={lojaId}
-            onChange={(e) => setLojaId(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-          >
-            {lojas.map((loja) => (
-              <option key={loja.id} value={loja.id}>
-                {loja.nome}
-              </option>
-            ))}
-          </select>
+          <SelectBusca
+            opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+            valor={lojaId}
+            aoMudar={(valorEscolhido) => setLojaId(valorEscolhido)}
+            placeholder="Buscar..."
+          />
         </div>
 
         <div className="card">

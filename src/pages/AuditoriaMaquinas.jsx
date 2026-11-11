@@ -7,6 +7,7 @@ import { Footer } from "../components/Footer";
 import { AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { SelectBusca } from "../components/SelectBusca";
 
 export function AuditoriaMaquinas() {
   const [loading, setLoading] = useState(true);
@@ -262,18 +263,13 @@ export function AuditoriaMaquinas() {
               <label className="mb-2 block text-sm font-bold text-gray-700">
                 Loja
               </label>
-              <select
-                value={auditoriaLojaId}
-                onChange={(e) => setAuditoriaLojaId(e.target.value)}
-                className="select-field"
-              >
-                <option value="">Selecione...</option>
-                {lojas.map((loja) => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </option>
-                ))}
-              </select>
+              <SelectBusca
+                opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                valor={auditoriaLojaId}
+                aoMudar={(valorEscolhido) => setAuditoriaLojaId(valorEscolhido)}
+                opcaoVazia="Selecione..."
+                placeholder="Selecione..."
+              />
             </div>
           )}
 
@@ -282,18 +278,13 @@ export function AuditoriaMaquinas() {
               <label className="mb-2 block text-sm font-bold text-gray-700">
                 Rota
               </label>
-              <select
-                value={auditoriaRoteiroId}
-                onChange={(e) => setAuditoriaRoteiroId(e.target.value)}
-                className="select-field"
-              >
-                <option value="">Selecione...</option>
-                {roteiros.map((roteiro) => (
-                  <option key={roteiro.id} value={roteiro.id}>
-                    {roteiro.nome}
-                  </option>
-                ))}
-              </select>
+              <SelectBusca
+                opcoes={roteiros.map((roteiro) => ({ valor: roteiro.id, rotulo: roteiro.nome ?? "" }))}
+                valor={auditoriaRoteiroId}
+                aoMudar={(valorEscolhido) => setAuditoriaRoteiroId(valorEscolhido)}
+                opcaoVazia="Selecione..."
+                placeholder="Selecione..."
+              />
             </div>
           )}
 

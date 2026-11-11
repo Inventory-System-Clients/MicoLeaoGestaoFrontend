@@ -7,6 +7,7 @@ import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
 import { confirmar } from "../utils/alerts";
 import { pode } from "../utils/perfis";
+import { SelectBusca } from "../components/SelectBusca";
 
 const formatarDataHora = (dataIso) => {
   if (!dataIso) return "-";
@@ -919,26 +920,17 @@ export default function FabricacaoPelucia() {
                                     <label className="mb-1 block text-xs font-medium text-gray-700">
                                       Fornecedor
                                     </label>
-                                    <select
-                                      value={formCompra.fornecedorId}
-                                      onChange={(e) =>
-                                        setFormCompra((prev) => ({
+                                    <SelectBusca
+                                      opcoes={fornecedores.map((fornecedor) => ({ valor: fornecedor.id, rotulo: fornecedor.nome ?? "" }))}
+                                      valor={formCompra.fornecedorId}
+                                      aoMudar={(valorEscolhido) => setFormCompra((prev) => ({
                                           ...prev,
-                                          fornecedorId: e.target.value,
-                                        }))
-                                      }
-                                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                                    >
-                                      <option value="">Selecione...</option>
-                                      {fornecedores.map((fornecedor) => (
-                                        <option
-                                          key={fornecedor.id}
-                                          value={fornecedor.id}
-                                        >
-                                          {fornecedor.nome}
-                                        </option>
-                                      ))}
-                                    </select>
+                                          fornecedorId: valorEscolhido,
+                                        }))}
+                                      opcaoVazia="Selecione..."
+                                      placeholder="Selecione..."
+                                      className="text-sm"
+                                    />
                                   </div>
                                   <div>
                                     <label className="mb-1 block text-xs font-medium text-gray-700">
@@ -1163,24 +1155,16 @@ export default function FabricacaoPelucia() {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Pelúcia
               </label>
-              <select
-                value={formPedido.produtoId}
-                onChange={(e) =>
-                  setFormPedido((prev) => ({
+              <SelectBusca
+                opcoes={produtos.map((produto) => ({ valor: produto.id, rotulo: `${(produto.emoji ? `${produto.emoji} ` : "") ?? ""} ${(produto.nome) ?? ""}`, detalhe: produto.codigo || undefined }))}
+                valor={formPedido.produtoId}
+                aoMudar={(valorEscolhido) => setFormPedido((prev) => ({
                     ...prev,
-                    produtoId: e.target.value,
-                  }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              >
-                <option value="">Selecione...</option>
-                {produtos.map((produto) => (
-                  <option key={produto.id} value={produto.id}>
-                    {produto.emoji ? `${produto.emoji} ` : ""}
-                    {produto.nome}
-                  </option>
-                ))}
-              </select>
+                    produtoId: valorEscolhido,
+                  }))}
+                opcaoVazia="Selecione..."
+                placeholder="Selecione..."
+              />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -1339,28 +1323,18 @@ export default function FabricacaoPelucia() {
                                 key={index}
                                 className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px_auto]"
                               >
-                                <select
-                                  value={item.insumoId}
-                                  onChange={(e) =>
-                                    atualizarLinhaBaixa(
+                                <SelectBusca
+                                  opcoes={insumos.map((insumo) => ({ valor: insumo.id, rotulo: `${(insumo.nome) ?? ""} (estoque:  ${(insumo.quantidadeEstoque) ?? ""}  ${(insumo.unidade || "") ?? ""})` }))}
+                                  valor={item.insumoId}
+                                  aoMudar={(valorEscolhido) => atualizarLinhaBaixa(
                                       index,
                                       "insumoId",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                                >
-                                  <option value="">
-                                    Selecione o insumo...
-                                  </option>
-                                  {insumos.map((insumo) => (
-                                    <option key={insumo.id} value={insumo.id}>
-                                      {insumo.nome} (estoque:{" "}
-                                      {insumo.quantidadeEstoque}{" "}
-                                      {insumo.unidade || ""})
-                                    </option>
-                                  ))}
-                                </select>
+                                      valorEscolhido,
+                                    )}
+                                  opcaoVazia="Selecione o insumo..."
+                                  placeholder="Selecione o insumo..."
+                                  className="text-sm"
+                                />
                                 <input
                                   type="number"
                                   min="0"
@@ -1425,68 +1399,41 @@ export default function FabricacaoPelucia() {
                   <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                     Produto
                   </label>
-                  <select
-                    value={filtrosConcluidos.produtoId}
-                    onChange={(e) =>
-                      setFiltrosConcluidos((prev) => ({
+                  <SelectBusca
+                    opcoes={produtos.map((produto) => ({ valor: produto.id, rotulo: `${(produto.emoji ? `${produto.emoji} ` : "") ?? ""} ${(produto.nome) ?? ""}`, detalhe: produto.codigo || undefined }))}
+                    valor={filtrosConcluidos.produtoId}
+                    aoMudar={(valorEscolhido) => setFiltrosConcluidos((prev) => ({
                         ...prev,
-                        produtoId: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                  >
-                    <option value="">Todos</option>
-                    {produtos.map((produto) => (
-                      <option key={produto.id} value={produto.id}>
-                        {produto.emoji ? `${produto.emoji} ` : ""}
-                        {produto.nome}
-                      </option>
-                    ))}
-                  </select>
+                        produtoId: valorEscolhido,
+                      }))}
+                    opcaoVazia="Todos"
+                    placeholder="Todos"
+                    className="text-sm"
+                  />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                     Quem pediu
                   </label>
-                  <select
-                    value={filtrosConcluidos.criadoPorId}
-                    onChange={(e) =>
-                      setFiltrosConcluidos((prev) => ({
-                        ...prev,
-                        criadoPorId: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                  >
-                    <option value="">Todos</option>
-                    {opcoesCriadoPor.map(([id, nome]) => (
-                      <option key={id} value={id}>
-                        {nome}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectBusca
+                    opcoes={opcoesCriadoPor.map(([id, nome]) => ({ valor: id, rotulo: nome ?? "" }))}
+                    valor={filtrosConcluidos.criadoPorId}
+                    aoMudar={(criadoPorId) => setFiltrosConcluidos((prev) => ({ ...prev, criadoPorId }))}
+                    opcaoVazia="Todos"
+                    placeholder="Buscar..." className="text-sm"
+                  />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                     Quem concluiu
                   </label>
-                  <select
-                    value={filtrosConcluidos.concluidoPorId}
-                    onChange={(e) =>
-                      setFiltrosConcluidos((prev) => ({
-                        ...prev,
-                        concluidoPorId: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                  >
-                    <option value="">Todos</option>
-                    {opcoesConcluidoPor.map(([id, nome]) => (
-                      <option key={id} value={id}>
-                        {nome}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectBusca
+                    opcoes={opcoesConcluidoPor.map(([id, nome]) => ({ valor: id, rotulo: nome ?? "" }))}
+                    valor={filtrosConcluidos.concluidoPorId}
+                    aoMudar={(concluidoPorId) => setFiltrosConcluidos((prev) => ({ ...prev, concluidoPorId }))}
+                    opcaoVazia="Todos"
+                    placeholder="Buscar..." className="text-sm"
+                  />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
@@ -1628,19 +1575,13 @@ export default function FabricacaoPelucia() {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Produto
               </label>
-              <select
-                value={produtoReceitaId}
-                onChange={(e) => selecionarProdutoReceita(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-              >
-                <option value="">Selecione...</option>
-                {produtos.map((produto) => (
-                  <option key={produto.id} value={produto.id}>
-                    {produto.emoji ? `${produto.emoji} ` : ""}
-                    {produto.nome}
-                  </option>
-                ))}
-              </select>
+              <SelectBusca
+                opcoes={produtos.map((produto) => ({ valor: produto.id, rotulo: `${(produto.emoji ? `${produto.emoji} ` : "") ?? ""} ${(produto.nome) ?? ""}`, detalhe: produto.codigo || undefined }))}
+                valor={produtoReceitaId}
+                aoMudar={(valorEscolhido) => selecionarProdutoReceita(valorEscolhido)}
+                opcaoVazia="Selecione..."
+                placeholder="Selecione..."
+              />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -1674,21 +1615,14 @@ export default function FabricacaoPelucia() {
                       key={index}
                       className="grid grid-cols-1 items-center gap-2 rounded-lg border border-orange-100 bg-white p-2 sm:grid-cols-[1fr_140px_auto]"
                     >
-                      <select
-                        value={item.insumoId}
-                        onChange={(e) =>
-                          atualizarLinhaReceita(index, "insumoId", e.target.value)
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                      >
-                        <option value="">Selecione o insumo...</option>
-                        {insumos.map((insumo) => (
-                          <option key={insumo.id} value={insumo.id}>
-                            {insumo.nome}
-                            {insumo.unidade ? ` (${insumo.unidade})` : ""}
-                          </option>
-                        ))}
-                      </select>
+                      <SelectBusca
+                        opcoes={insumos.map((insumo) => ({ valor: insumo.id, rotulo: `${(insumo.nome) ?? ""} ${(insumo.unidade ? ` (${insumo.unidade})` : "") ?? ""}` }))}
+                        valor={item.insumoId}
+                        aoMudar={(valorEscolhido) => atualizarLinhaReceita(index, "insumoId", valorEscolhido)}
+                        opcaoVazia="Selecione o insumo..."
+                        placeholder="Selecione o insumo..."
+                        className="text-sm"
+                      />
                       <div className="relative">
                         <input
                           type="number"

@@ -5,6 +5,7 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageHeader, DataTable, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
+import { SelectBusca } from "../components/SelectBusca";
 
 const filtrosIniciais = {
   maquina: "",
@@ -152,20 +153,14 @@ export function RelatorioTransferenciasMaquinas() {
               <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                 Loja (origem ou destino)
               </label>
-              <select
-                value={filtros.lojaId}
-                onChange={(e) =>
-                  setFiltros((prev) => ({ ...prev, lojaId: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              >
-                <option value="">Todas</option>
-                {lojas.map((loja) => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </option>
-                ))}
-              </select>
+              <SelectBusca
+                opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                valor={filtros.lojaId}
+                aoMudar={(valorEscolhido) => setFiltros((prev) => ({ ...prev, lojaId: valorEscolhido }))}
+                opcaoVazia="Todas"
+                placeholder="Todas"
+                className="text-sm"
+              />
             </div>
 
             <div>

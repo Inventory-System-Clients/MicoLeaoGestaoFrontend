@@ -10,6 +10,7 @@ import { enviarImagemParaCloudinary } from "../utils/cloudinary";
 import { confirmar } from "../utils/alerts";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 import { pode } from "../utils/perfis";
+import { SelectBusca } from "../components/SelectBusca";
 
 const STATUS_OPCOES = [
   { value: "PESQUISANDO", label: "Em pesquisa", variant: "info" },
@@ -101,6 +102,14 @@ const TIPOS_DESCONTO = [
   ["PERCENTUAL", "Porcentagem"],
   ["FIXO", "Valor fixo"],
 ];
+
+// Opções para o SelectBusca: nome + SKU (o SKU também entra na busca)
+const opcoesDeCadastro = (lista, valorPor = "id") =>
+  (lista || []).map((item) => ({
+    valor: item[valorPor],
+    rotulo: item.nome,
+    detalhe: item.codigo || undefined,
+  }));
 
 // Chefe de Expedição só vê estas seções (a primeira é a que abre)
 const SECOES_FUNCIONARIO_ESTOQUE = ["pendencias", "solicitacoesCompra"];
@@ -1799,20 +1808,15 @@ export default function Compras() {
               </label>
               {!mostrarNovoFornecedorInline ? (
                 <>
-                  <select
-                    value={form.fornecedorId}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, fornecedorId: e.target.value }))
+                  <SelectBusca
+                    opcoes={opcoesDeCadastro(fornecedores)}
+                    valor={form.fornecedorId}
+                    aoMudar={(fornecedorId) =>
+                      setForm((prev) => ({ ...prev, fornecedorId }))
                     }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                  >
-                    <option value="">Selecione...</option>
-                    {fornecedores.map((fornecedor) => (
-                      <option key={fornecedor.id} value={fornecedor.id}>
-                        {fornecedor.nome}
-                      </option>
-                    ))}
-                  </select>
+                    opcaoVazia="Selecione..."
+                    placeholder="Buscar fornecedor"
+                  />
                   <div className="mt-1 flex flex-wrap items-center gap-3">
                     <button
                       type="button"
@@ -2139,16 +2143,24 @@ export default function Compras() {
                         : "Peça"}{" "}
                     do catálogo
                   </label>
-                  <select
-                    value={
+                  <SelectBusca
+                    opcoes={opcoesDeCadastro(
+                      itemEmEdicao.tipoItem === "produto"
+                        ? produtos
+                        : itemEmEdicao.tipoItem === "insumo"
+                          ? insumos
+                          : pecas,
+                    )}
+                    valor={
                       itemEmEdicao.tipoItem === "produto"
                         ? itemEmEdicao.produtoId
                         : itemEmEdicao.tipoItem === "insumo"
                           ? itemEmEdicao.insumoId
                           : itemEmEdicao.pecaId
                     }
-                    onChange={(e) => {
-                      const id = e.target.value;
+                    opcaoVazia="Selecione..."
+                    placeholder={`Buscar ${rotuloTipoItem(itemEmEdicao.tipoItem)} (nome ou SKU)`}
+                    aoMudar={(id) => {
                       const lista =
                         itemEmEdicao.tipoItem === "produto"
                           ? produtos
@@ -2163,20 +2175,7 @@ export default function Compras() {
                         nomeItem: selecionado?.nome || "",
                       });
                     }}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                  >
-                    <option value="">Selecione...</option>
-                    {(itemEmEdicao.tipoItem === "produto"
-                      ? produtos
-                      : itemEmEdicao.tipoItem === "insumo"
-                        ? insumos
-                        : pecas
-                    ).map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.nome}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               )}
 
@@ -2187,7 +2186,8 @@ export default function Compras() {
                     SKU
                   </label>
                   <p className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
-                    Automático (do cadastro do produto)
+                    {produtos.find((produto) => produto.id === itemEmEdicao.produtoId)
+                      ?.codigo || "Automático (gerado ao salvar)"}
                   </p>
                 </div>
               ) : (
@@ -2276,20 +2276,15 @@ export default function Compras() {
                     <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                       Loja onde será usado (opcional)
                     </label>
-                    <select
-                      value={itemEmEdicao.lojaId}
-                      onChange={(e) =>
-                        setItemEmEdicao((prev) => ({ ...prev, lojaId: e.target.value }))
+                    <SelectBusca
+                      opcoes={opcoesDeCadastro(lojas)}
+                      valor={itemEmEdicao.lojaId}
+                      aoMudar={(lojaId) =>
+                        setItemEmEdicao((prev) => ({ ...prev, lojaId }))
                       }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                    >
-                      <option value="">Nenhuma</option>
-                      {lojas.map((loja) => (
-                        <option key={loja.id} value={loja.id}>
-                          {loja.nome}
-                        </option>
-                      ))}
-                    </select>
+                      opcaoVazia="Nenhuma"
+                      placeholder="Buscar loja"
+                    />
                   </div>
                   <div className="md:col-span-2">
                     <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
@@ -2694,23 +2689,16 @@ export default function Compras() {
                 <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                   Fornecedor
                 </label>
-                <select
-                  value={filtrosCompras.fornecedorId}
-                  onChange={(e) =>
-                    setFiltrosCompras((prev) => ({
-                      ...prev,
-                      fornecedorId: e.target.value,
-                    }))
+                <SelectBusca
+                  opcoes={opcoesDeCadastro(fornecedores)}
+                  valor={filtrosCompras.fornecedorId}
+                  aoMudar={(fornecedorId) =>
+                    setFiltrosCompras((prev) => ({ ...prev, fornecedorId }))
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                >
-                  <option value="">Todos</option>
-                  {fornecedores.map((fornecedor) => (
-                    <option key={fornecedor.id} value={fornecedor.id}>
-                      {fornecedor.nome}
-                    </option>
-                  ))}
-                </select>
+                  opcaoVazia="Todos"
+                  placeholder="Todos os fornecedores"
+                  className="text-sm"
+                />
               </div>
 
               <div>
@@ -3258,16 +3246,24 @@ export default function Compras() {
                     <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
                       Item do catálogo
                     </label>
-                    <select
-                      value={
+                    <SelectBusca
+                      opcoes={opcoesDeCadastro(
+                        itemSolicitacaoEmEdicao.tipoItem === "PRODUTO"
+                          ? produtos
+                          : itemSolicitacaoEmEdicao.tipoItem === "INSUMO"
+                            ? insumos
+                            : pecas,
+                      )}
+                      valor={
                         itemSolicitacaoEmEdicao.tipoItem === "PRODUTO"
                           ? itemSolicitacaoEmEdicao.produtoId
                           : itemSolicitacaoEmEdicao.tipoItem === "INSUMO"
                             ? itemSolicitacaoEmEdicao.insumoId
                             : itemSolicitacaoEmEdicao.pecaId
                       }
-                      onChange={(e) => {
-                        const id = e.target.value;
+                      opcaoVazia="Selecione..."
+                      placeholder="Buscar pelo nome ou SKU"
+                      aoMudar={(id) => {
                         const lista =
                           itemSolicitacaoEmEdicao.tipoItem === "PRODUTO"
                             ? produtos
@@ -3284,20 +3280,7 @@ export default function Compras() {
                           unidade: selecionado?.unidade || prev.unidade,
                         }));
                       }}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                    >
-                      <option value="">Selecione...</option>
-                      {(itemSolicitacaoEmEdicao.tipoItem === "PRODUTO"
-                        ? produtos
-                        : itemSolicitacaoEmEdicao.tipoItem === "INSUMO"
-                          ? insumos
-                          : pecas
-                      ).map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.nome}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 )}
 
@@ -4286,25 +4269,25 @@ export default function Compras() {
                           placeholder={`Nome do ${rotuloTipoItem(produto.tipo)} novo`}
                         />
                       ) : (
-                        <select
-                          className="mb-2 w-full min-w-0 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                          value={produto.produtoNome}
-                          onChange={(e) =>
-                            atualizarProdutoFornecedor(index, "produtoNome", e.target.value)
-                          }
-                        >
-                          <option value="">Selecione...</option>
-                          {(produto.tipo === "insumo"
-                            ? insumos
-                            : produto.tipo === "peca"
-                              ? pecas
-                              : produtos
-                          ).map((item) => (
-                            <option key={item.id} value={item.nome}>
-                              {item.nome}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="mb-2">
+                          <SelectBusca
+                            opcoes={opcoesDeCadastro(
+                              produto.tipo === "insumo"
+                                ? insumos
+                                : produto.tipo === "peca"
+                                  ? pecas
+                                  : produtos,
+                              "nome",
+                            )}
+                            valor={produto.produtoNome}
+                            aoMudar={(nome) =>
+                              atualizarProdutoFornecedor(index, "produtoNome", nome)
+                            }
+                            opcaoVazia="Selecione..."
+                            placeholder="Buscar pelo nome ou SKU"
+                            className="text-sm"
+                          />
+                        </div>
                       )}
 
                       <div className="grid grid-cols-1 gap-2 md:grid-cols-6 lg:grid-cols-12">

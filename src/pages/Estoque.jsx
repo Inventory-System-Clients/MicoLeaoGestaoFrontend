@@ -5,6 +5,7 @@ import { PageLoader } from "../components/Loading";
 import { Navbar } from "../components/Navbar";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
 import api from "../services/api";
+import { SelectBusca } from "../components/SelectBusca";
 
 const ehGaragem = (loja) =>
   ["deposito principal", "depósito principal"].includes(
@@ -838,19 +839,14 @@ export function Estoque() {
 
               <label className="text-sm font-semibold text-gray-700">
                 Loja de destino *
-                <select
-                  value={movimentacaoLojaId}
-                  onChange={(event) => setMovimentacaoLojaId(event.target.value)}
-                  className="select-field mt-2"
+                <SelectBusca
+                  opcoes={lojasOperacionais.map((loja) => ({ valor: loja.id, rotulo: `🏪 ${(loja.nome) ?? ""}` }))}
+                  valor={movimentacaoLojaId}
+                  aoMudar={(valorEscolhido) => setMovimentacaoLojaId(valorEscolhido)}
+                  opcaoVazia="Selecione a loja..."
+                  placeholder="Selecione a loja..."
                   required
-                >
-                  <option value="">Selecione a loja...</option>
-                  {lojasOperacionais.map((loja) => (
-                    <option key={loja.id} value={loja.id}>
-                      🏪 {loja.nome}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
 
               <ProdutosMovimentacaoEditor
@@ -918,19 +914,14 @@ function ProdutosMovimentacaoEditor({
           >
             <label className="text-sm font-semibold text-gray-700">
               Produto
-              <select
-                value={item.produtoId}
-                onChange={(event) => onChange(index, "produtoId", event.target.value)}
-                className="select-field mt-1"
+              <SelectBusca
+                opcoes={produtos.map((produto) => ({ valor: produto.id, rotulo: `${(produto.emoji || "📦") ?? ""} ${(produto.nome) ?? ""}`, detalhe: produto.codigo || undefined }))}
+                valor={item.produtoId}
+                aoMudar={(valorEscolhido) => onChange(index, "produtoId", valorEscolhido)}
+                opcaoVazia="Selecione..."
+                placeholder="Selecione..."
                 required
-              >
-                <option value="">Selecione...</option>
-                {produtos.map((produto) => (
-                  <option key={produto.id} value={produto.id}>
-                    {produto.emoji || "📦"} {produto.nome}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
             <label className="text-sm font-semibold text-gray-700">
               Quantidade

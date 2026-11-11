@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Swal from "sweetalert2";
 import api from "../services/api";
+import { SelectBusca } from "../components/SelectBusca";
 
 const inputClass =
   "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500";
@@ -192,18 +193,13 @@ export default function LancarGastoVariavel({
           </div>
 
           {modoLoja === "unica" && (
-            <select
-              value={lojaId}
-              onChange={(e) => setLojaId(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">Selecione a loja</option>
-              {lojas.map((loja) => (
-                <option key={loja.id} value={loja.id}>
-                  {loja.nome}
-                </option>
-              ))}
-            </select>
+            <SelectBusca
+              opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+              valor={lojaId}
+              aoMudar={(valorEscolhido) => setLojaId(valorEscolhido)}
+              opcaoVazia="Selecione a loja"
+              placeholder="Selecione a loja"
+            />
           )}
 
           {modoLoja === "varias" && (
@@ -233,18 +229,13 @@ export default function LancarGastoVariavel({
 
           {modoLoja === "roteiro" && (
             <>
-              <select
-                value={roteiroId}
-                onChange={(e) => setRoteiroId(e.target.value)}
-                className={inputClass}
-              >
-                <option value="">Selecione o roteiro</option>
-                {roteiros.map((roteiro) => (
-                  <option key={roteiro.id} value={roteiro.id}>
-                    {roteiro.nome}
-                  </option>
-                ))}
-              </select>
+              <SelectBusca
+                opcoes={roteiros.map((roteiro) => ({ valor: roteiro.id, rotulo: roteiro.nome ?? "" }))}
+                valor={roteiroId}
+                aoMudar={(valorEscolhido) => setRoteiroId(valorEscolhido)}
+                opcaoVazia="Selecione o roteiro"
+                placeholder="Selecione o roteiro"
+              />
               <p className="mt-2 text-xs text-slate-500">
                 {roteiroId
                   ? lojaIdsDoRoteiro.length > 0
@@ -293,18 +284,13 @@ export default function LancarGastoVariavel({
 
             <div>
               <label className={labelClass}>Veículo</label>
-              <select
-                value={veiculoId}
-                onChange={(e) => setVeiculoId(e.target.value)}
-                className={inputClass}
-              >
-                <option value="">Selecione o veículo</option>
-                {veiculos.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.nome}
-                  </option>
-                ))}
-              </select>
+              <SelectBusca
+                opcoes={veiculos.map((v) => ({ valor: v.id, rotulo: v.nome ?? "" }))}
+                valor={veiculoId}
+                aoMudar={(valorEscolhido) => setVeiculoId(valorEscolhido)}
+                opcaoVazia="Selecione o veículo"
+                placeholder="Selecione o veículo"
+              />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

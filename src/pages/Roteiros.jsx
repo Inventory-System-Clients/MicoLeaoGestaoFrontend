@@ -10,6 +10,7 @@ import { confirmar } from "../utils/alerts";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 import { obterEntradaMaquinaConcluida } from "../utils/roteiroMaquinas";
 import { pode } from "../utils/perfis";
+import { SelectBusca } from "../components/SelectBusca";
 
 const DIAS = [
   { value: 0, label: "Dom" },
@@ -752,60 +753,38 @@ export function Roteiros() {
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Funcionario
                 </label>
-                <select
-                  value={filtros.usuarioId}
-                  onChange={(e) =>
-                    setFiltros({ ...filtros, usuarioId: e.target.value })
-                  }
-                  className="select-field"
-                >
-                  <option value="">Todos</option>
-                  <option value="__sem_funcionario__">Sem funcionario</option>
-                  {funcionarios.map((funcionario) => (
-                    <option key={funcionario.id} value={funcionario.id}>
-                      {funcionario.nome}
-                    </option>
-                  ))}
-                </select>
+                <SelectBusca
+                  opcoes={[{ valor: "__sem_funcionario__", rotulo: "Sem funcionario" }, ...funcionarios.map((funcionario) => ({ valor: funcionario.id, rotulo: funcionario.nome ?? "" }))]}
+                  valor={filtros.usuarioId}
+                  aoMudar={(valorEscolhido) => setFiltros({ ...filtros, usuarioId: valorEscolhido })}
+                  opcaoVazia="Todos"
+                  placeholder="Todos"
+                />
               </div>
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Veiculo
                 </label>
-                <select
-                  value={filtros.veiculoId}
-                  onChange={(e) =>
-                    setFiltros({ ...filtros, veiculoId: e.target.value })
-                  }
-                  className="select-field"
-                >
-                  <option value="">Todos</option>
-                  <option value="__sem_veiculo__">Sem veiculo</option>
-                  {veiculos.map((veiculo) => (
-                    <option key={veiculo.id} value={veiculo.id}>
-                      {veiculo.emoji || ""} {veiculo.nome}
-                    </option>
-                  ))}
-                </select>
+                <SelectBusca
+                  opcoes={[{ valor: "__sem_veiculo__", rotulo: "Sem veiculo" }, ...veiculos.map((veiculo) => ({ valor: veiculo.id, rotulo: `${(veiculo.emoji || "") ?? ""} ${(veiculo.nome) ?? ""}` }))]}
+                  valor={filtros.veiculoId}
+                  aoMudar={(valorEscolhido) => setFiltros({ ...filtros, veiculoId: valorEscolhido })}
+                  opcaoVazia="Todos"
+                  placeholder="Todos"
+                />
               </div>
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Lojas
                 </label>
-                <select
-                  value=""
-                  onChange={(e) => adicionarFiltroLoja(e.target.value)}
-                  className="select-field"
-                >
-                  <option value="">Adicionar loja...</option>
-                  {lojas
+                <SelectBusca
+                  opcoes={lojas
                     .filter((loja) => !filtros.lojaIds.includes(loja.id))
-                    .map((loja) => (
-                      <option key={loja.id} value={loja.id}>
-                        {loja.nome}
-                      </option>
-                    ))}
-                </select>
+                    .map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                  valor=""
+                  aoMudar={adicionarFiltroLoja}
+                  placeholder="Adicionar loja..."
+                />
               </div>
             </div>
 
@@ -885,35 +864,25 @@ export function Roteiros() {
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Funcionário *
                 </label>
-                <select
-                  value={form.usuarioId}
-                  onChange={(e) => setForm({ ...form, usuarioId: e.target.value })}
-                  className="select-field"
-                >
-                  <option value="">Selecione...</option>
-                  {funcionarios.map((funcionario) => (
-                    <option key={funcionario.id} value={funcionario.id}>
-                      {funcionario.nome}
-                    </option>
-                  ))}
-                </select>
+                <SelectBusca
+                  opcoes={funcionarios.map((funcionario) => ({ valor: funcionario.id, rotulo: funcionario.nome ?? "" }))}
+                  valor={form.usuarioId}
+                  aoMudar={(valorEscolhido) => setForm({ ...form, usuarioId: valorEscolhido })}
+                  opcaoVazia="Selecione..."
+                  placeholder="Selecione..."
+                />
               </div>
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Veículo
                 </label>
-                <select
-                  value={form.veiculoId}
-                  onChange={(e) => setForm({ ...form, veiculoId: e.target.value })}
-                  className="select-field"
-                >
-                  <option value="">Sem veículo</option>
-                  {veiculos.map((veiculo) => (
-                    <option key={veiculo.id} value={veiculo.id}>
-                      {veiculo.emoji || ""} {veiculo.nome} - {veiculo.modelo}
-                    </option>
-                  ))}
-                </select>
+                <SelectBusca
+                  opcoes={veiculos.map((veiculo) => ({ valor: veiculo.id, rotulo: `${(veiculo.emoji || "") ?? ""} ${(veiculo.nome) ?? ""} - ${(veiculo.modelo) ?? ""}` }))}
+                  valor={form.veiculoId}
+                  aoMudar={(valorEscolhido) => setForm({ ...form, veiculoId: valorEscolhido })}
+                  opcaoVazia="Sem veículo"
+                  placeholder="Sem veículo"
+                />
               </div>
             </div>
 
@@ -1128,33 +1097,19 @@ export function Roteiros() {
                         }
                         className="input-field"
                       />
-                      <select
-                        value={editando.usuarioId}
-                        onChange={(e) =>
-                          setEditando({ ...editando, usuarioId: e.target.value })
-                        }
-                        className="select-field"
-                      >
-                        {funcionarios.map((funcionario) => (
-                          <option key={funcionario.id} value={funcionario.id}>
-                            {funcionario.nome}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={editando.veiculoId}
-                        onChange={(e) =>
-                          setEditando({ ...editando, veiculoId: e.target.value })
-                        }
-                        className="select-field"
-                      >
-                        <option value="">Sem veículo</option>
-                        {veiculos.map((veiculo) => (
-                          <option key={veiculo.id} value={veiculo.id}>
-                            {veiculo.emoji || ""} {veiculo.nome}
-                          </option>
-                        ))}
-                      </select>
+                      <SelectBusca
+                        opcoes={funcionarios.map((funcionario) => ({ valor: funcionario.id, rotulo: funcionario.nome ?? "" }))}
+                        valor={editando.usuarioId}
+                        aoMudar={(valorEscolhido) => setEditando({ ...editando, usuarioId: valorEscolhido })}
+                        placeholder="Buscar..."
+                      />
+                      <SelectBusca
+                        opcoes={veiculos.map((veiculo) => ({ valor: veiculo.id, rotulo: `${(veiculo.emoji || "") ?? ""} ${(veiculo.nome) ?? ""}` }))}
+                        valor={editando.veiculoId}
+                        aoMudar={(valorEscolhido) => setEditando({ ...editando, veiculoId: valorEscolhido })}
+                        opcaoVazia="Sem veículo"
+                        placeholder="Sem veículo"
+                      />
                       <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                         <input
                           type="checkbox"
@@ -1295,20 +1250,13 @@ export function Roteiros() {
                         <option value="ANOTACAO">Anotação</option>
                       </select>
                       {itemForm.tipo === "LOJA" ? (
-                        <select
-                          value={itemForm.lojaId}
-                          onChange={(e) =>
-                            alterarItemForm(roteiro.id, { lojaId: e.target.value })
-                          }
-                          className="select-field"
-                        >
-                          <option value="">Selecione uma loja...</option>
-                          {lojas.map((loja) => (
-                            <option key={loja.id} value={loja.id}>
-                              {loja.nome}
-                            </option>
-                          ))}
-                        </select>
+                        <SelectBusca
+                          opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                          valor={itemForm.lojaId}
+                          aoMudar={(valorEscolhido) => alterarItemForm(roteiro.id, { lojaId: valorEscolhido })}
+                          opcaoVazia="Selecione uma loja..."
+                          placeholder="Selecione uma loja..."
+                        />
                       ) : (
                         <input
                           value={itemForm.anotacao}

@@ -7,6 +7,7 @@ import { AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { obterEntradaMaquinaConcluida } from "../utils/roteiroMaquinas";
 import { enviarImagemParaCloudinary } from "../utils/cloudinary";
+import { SelectBusca } from "../components/SelectBusca";
 
 const ordenarRoteiro = (roteiro) => ({
   ...roteiro,
@@ -770,24 +771,17 @@ export function RoteiroExecucao() {
                     <label className="mb-2 block text-sm font-semibold text-gray-700">
                       🧸 Produto *
                     </label>
-                    <select
-                      value={formMovimentacao.produtoId}
-                      onChange={(e) =>
-                        setFormMovimentacao({
+                    <SelectBusca
+                      opcoes={produtos.map((produto) => ({ valor: produto.id, rotulo: `${(produto.emoji || "") ?? ""} ${(produto.nome) ?? ""}`, detalhe: produto.codigo || undefined }))}
+                      valor={formMovimentacao.produtoId}
+                      aoMudar={(valorEscolhido) => setFormMovimentacao({
                           ...formMovimentacao,
-                          produtoId: e.target.value,
-                        })
-                      }
-                      className="select-field"
+                          produtoId: valorEscolhido,
+                        })}
+                      opcaoVazia="Selecione..."
+                      placeholder="Selecione..."
                       required
-                    >
-                      <option value="">Selecione...</option>
-                      {produtos.map((produto) => (
-                        <option key={produto.id} value={produto.id}>
-                          {produto.emoji || ""} {produto.nome}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-gray-700">

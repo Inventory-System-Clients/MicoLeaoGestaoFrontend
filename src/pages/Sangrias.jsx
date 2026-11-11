@@ -7,6 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { confirmar } from "../utils/alerts";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 import { pode } from "../utils/perfis";
+import { SelectBusca } from "../components/SelectBusca";
 
 const NOTE_VALUES = [2, 5, 10, 20, 50, 100, 200];
 
@@ -577,25 +578,18 @@ export function Sangrias() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     🏪 Loja *
                   </label>
-                  <select
-                    value={formData.lojaId}
-                    onChange={(event) =>
-                      setFormData((prev) => ({
+                  <SelectBusca
+                    opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                    valor={formData.lojaId}
+                    aoMudar={(valorEscolhido) => setFormData((prev) => ({
                         ...prev,
-                        lojaId: event.target.value,
-                      }))
-                    }
-                    className="input-field w-full"
+                        lojaId: valorEscolhido,
+                      }))}
+                    opcaoVazia="Selecione uma loja"
+                    placeholder="Selecione uma loja"
                     required
                     disabled={loadingLojas || endpointIndisponivel}
-                  >
-                    <option value="">Selecione uma loja</option>
-                    {lojas.map((loja) => (
-                      <option key={loja.id} value={loja.id}>
-                        {loja.nome}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
@@ -757,48 +751,31 @@ export function Sangrias() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     🏪 Loja
                   </label>
-                  <select
-                    value={filtros.lojaId}
-                    onChange={(event) =>
-                      setFiltros((prev) => ({
+                  <SelectBusca
+                    opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                    valor={filtros.lojaId}
+                    aoMudar={(valorEscolhido) => setFiltros((prev) => ({
                         ...prev,
-                        lojaId: event.target.value,
-                      }))
-                    }
-                    className="input-field w-full"
+                        lojaId: valorEscolhido,
+                      }))}
+                    opcaoVazia="Todas as lojas"
+                    placeholder="Todas as lojas"
                     disabled={loadingLojas || endpointIndisponivel}
-                  >
-                    <option value="">Todas as lojas</option>
-                    {lojas.map((loja) => (
-                      <option key={loja.id} value={loja.id}>
-                        {loja.nome}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     👤 Quem registrou
                   </label>
-                  <select
-                    value={filtros.usuarioId}
-                    onChange={(event) =>
-                      setFiltros((prev) => ({
-                        ...prev,
-                        usuarioId: event.target.value,
-                      }))
-                    }
-                    className="input-field w-full"
+                  <SelectBusca
+                    opcoes={opcoesUsuario.map(([id, nome]) => ({ valor: id, rotulo: nome ?? "" }))}
+                    valor={filtros.usuarioId}
+                    aoMudar={(usuarioId) => setFiltros((prev) => ({ ...prev, usuarioId }))}
                     disabled={endpointIndisponivel}
-                  >
-                    <option value="">Todos</option>
-                    {opcoesUsuario.map(([id, nome]) => (
-                      <option key={id} value={id}>
-                        {nome}
-                      </option>
-                    ))}
-                  </select>
+                    opcaoVazia="Todos"
+                    placeholder="Buscar..."
+                  />
                 </div>
 
                 <div>

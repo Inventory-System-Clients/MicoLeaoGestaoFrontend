@@ -7,6 +7,7 @@ import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { SelectBusca } from "../components/SelectBusca";
 
 const STATUS_LACRE = {
   SEPARADO: { label: "Separado", variant: "warning" },
@@ -326,45 +327,31 @@ export default function Envios() {
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Loja de destino
                 </label>
-                <select
-                  value={form.lojaDestinoId}
-                  onChange={(e) =>
-                    setForm((prev) => ({
+                <SelectBusca
+                  opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                  valor={form.lojaDestinoId}
+                  aoMudar={(valorEscolhido) => setForm((prev) => ({
                       ...prev,
-                      lojaDestinoId: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  <option value="">Selecione...</option>
-                  {lojas.map((loja) => (
-                    <option key={loja.id} value={loja.id}>
-                      {loja.nome}
-                    </option>
-                  ))}
-                </select>
+                      lojaDestinoId: valorEscolhido,
+                    }))}
+                  opcaoVazia="Selecione..."
+                  placeholder="Selecione..."
+                />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Transportador
                 </label>
-                <select
-                  value={form.transportadorId}
-                  onChange={(e) =>
-                    setForm((prev) => ({
+                <SelectBusca
+                  opcoes={transportadores.map((transportador) => ({ valor: transportador.id, rotulo: transportador.nome ?? "" }))}
+                  valor={form.transportadorId}
+                  aoMudar={(valorEscolhido) => setForm((prev) => ({
                       ...prev,
-                      transportadorId: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  <option value="">Selecione...</option>
-                  {transportadores.map((transportador) => (
-                    <option key={transportador.id} value={transportador.id}>
-                      {transportador.nome}
-                    </option>
-                  ))}
-                </select>
+                      transportadorId: valorEscolhido,
+                    }))}
+                  opcaoVazia="Selecione..."
+                  placeholder="Selecione..."
+                />
                 <div className="mt-2 flex gap-2">
                   <input
                     value={novoTransportadorNome}
@@ -425,24 +412,18 @@ export default function Envios() {
                       <label className="mb-1 block text-xs font-medium text-gray-700">
                         Produto
                       </label>
-                      <select
-                        value={lacre.produtoId}
-                        onChange={(e) =>
-                          atualizarLacreCampo(
+                      <SelectBusca
+                        opcoes={produtos.map((produto) => ({ valor: produto.id, rotulo: produto.nome ?? "", detalhe: produto.codigo || undefined }))}
+                        valor={lacre.produtoId}
+                        aoMudar={(valorEscolhido) => atualizarLacreCampo(
                             indexLacre,
                             "produtoId",
-                            e.target.value,
-                          )
-                        }
-                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                      >
-                        <option value="">Selecione...</option>
-                        {produtos.map((produto) => (
-                          <option key={produto.id} value={produto.id}>
-                            {produto.nome}
-                          </option>
-                        ))}
-                      </select>
+                            valorEscolhido,
+                          )}
+                        opcaoVazia="Selecione..."
+                        placeholder="Selecione..."
+                        className="text-sm"
+                      />
                     </div>
 
                     <div className="w-28 min-w-30">

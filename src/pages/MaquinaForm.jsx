@@ -6,6 +6,7 @@ import { Footer } from "../components/Footer";
 import { PageHeader, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { SelectBusca } from "../components/SelectBusca";
 
 // Máscara de moeda: guarda os dígitos digitados (centavos) e formata
 // exibindo sempre "0,00" com os últimos 2 dígitos como centavos.
@@ -439,24 +440,26 @@ export function MaquinaForm() {
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Produto *
                     </label>
-                    <select
-                      name="nome"
-                      value={formData.nome}
-                      onChange={handleChange}
-                      className="select-field"
+                    <SelectBusca
+                      opcoes={[
+                        ...(formData.nome &&
+                        !produtos.some((produto) => produto.nome === formData.nome)
+                          ? [{ valor: formData.nome, rotulo: formData.nome }]
+                          : []),
+                        ...produtos.map((produto) => ({
+                          valor: produto.nome,
+                          rotulo: produto.nome ?? "",
+                          detalhe: produto.codigo || undefined,
+                        })),
+                      ]}
+                      valor={formData.nome}
+                      aoMudar={(valorEscolhido) =>
+                        handleChange({ target: { name: "nome", value: valorEscolhido, type: "text" } })
+                      }
+                      opcaoVazia="Selecione o produto"
+                      placeholder="Buscar produto (nome ou SKU)"
                       required
-                    >
-                      <option value="">Selecione o produto</option>
-                      {formData.nome &&
-                        !produtos.some((produto) => produto.nome === formData.nome) && (
-                          <option value={formData.nome}>{formData.nome}</option>
-                        )}
-                      {produtos.map((produto) => (
-                        <option key={produto.id} value={produto.nome}>
-                          {produto.nome}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 )}
 
@@ -505,19 +508,13 @@ export function MaquinaForm() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Loja
                   </label>
-                  <select
-                    name="loja_id"
-                    value={formData.loja_id}
-                    onChange={handleChange}
-                    className="select-field"
-                  >
-                    <option value="">Depósito (sem loja)</option>
-                    {lojas.map((loja) => (
-                      <option key={loja.id} value={loja.id}>
-                        {loja.nome}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectBusca
+                    opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                    valor={formData.loja_id}
+                    aoMudar={(valorEscolhido) => handleChange({ target: { value: valorEscolhido, name: "loja_id", type: "select-one" } })}
+                    opcaoVazia="Depósito (sem loja)"
+                    placeholder="Depósito (sem loja)"
+                  />
                 </div>
 
                 <div>
@@ -580,23 +577,21 @@ export function MaquinaForm() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Tipo de Máquina
                   </label>
-                  <select
-                    name="tipo"
-                    value={formData.tipo}
-                    onChange={handleChange}
-                    className="select-field"
-                  >
-                    <option value="">Selecione o tipo</option>
-                    {formData.tipo &&
-                      !tiposMaquina.some((t) => t.nome === formData.tipo) && (
-                        <option value={formData.tipo}>{formData.tipo}</option>
-                      )}
-                    {tiposMaquina.map((tipo) => (
-                      <option key={tipo.id} value={tipo.nome}>
-                        {tipo.nome}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectBusca
+                    opcoes={[
+                      ...(formData.tipo &&
+                      !tiposMaquina.some((t) => t.nome === formData.tipo)
+                        ? [{ valor: formData.tipo, rotulo: formData.tipo }]
+                        : []),
+                      ...tiposMaquina.map((tipo) => ({ valor: tipo.nome, rotulo: tipo.nome ?? "" })),
+                    ]}
+                    valor={formData.tipo}
+                    aoMudar={(valorEscolhido) =>
+                      handleChange({ target: { name: "tipo", value: valorEscolhido, type: "text" } })
+                    }
+                    opcaoVazia="Selecione o tipo"
+                    placeholder="Buscar tipo"
+                  />
                   <p className="text-xs text-gray-500 mt-1">
                     Escolher um tipo preenche a Capacidade Padrão
                     automaticamente (ainda dá pra ajustar depois).

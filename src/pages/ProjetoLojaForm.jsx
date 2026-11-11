@@ -9,6 +9,7 @@ import { filtrarLojasOperacionais } from "../utils/lojas";
 import { enviarImagemParaCloudinary } from "../utils/cloudinary";
 import { confirmar } from "../utils/alerts";
 import { LojaForm } from "./LojaForm";
+import { SelectBusca } from "../components/SelectBusca";
 
 const CATEGORIAS_SUGERIDAS = [
   "Totem / Terminais de Pagamento",
@@ -650,19 +651,14 @@ export function ProjetoLojaForm() {
               )}
 
               {!concluido && tipoLoja === "EXISTENTE" && (
-                <select
-                  className="select-field"
-                  value={lojaId}
-                  onChange={(e) => setLojaId(e.target.value)}
+                <SelectBusca
+                  opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                  valor={lojaId}
+                  aoMudar={(valorEscolhido) => setLojaId(valorEscolhido)}
+                  opcaoVazia="Selecione a loja..."
+                  placeholder="Selecione a loja..."
                   required
-                >
-                  <option value="">Selecione a loja...</option>
-                  {lojas.map((loja) => (
-                    <option key={loja.id} value={loja.id}>
-                      {loja.nome}
-                    </option>
-                  ))}
-                </select>
+                />
               )}
 
               {!concluido && tipoLoja === "NOVA" && (

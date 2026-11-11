@@ -9,6 +9,7 @@ import api from "../services/api";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 import { confirmar } from "../utils/alerts";
 import { pode } from "../utils/perfis";
+import { SelectBusca } from "../components/SelectBusca";
 
 const statusMaquina = {
   EM_OPERACAO: {
@@ -395,19 +396,12 @@ export function VisaoMaquinas() {
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Loja
               </label>
-              <select
-                className="select-field"
-                value={filtroLoja}
-                onChange={(e) => setFiltroLoja(e.target.value)}
-              >
-                <option value="todas">Todas</option>
-                <option value="sem-loja">Depósito</option>
-                {lojas.map((loja) => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </option>
-                ))}
-              </select>
+              <SelectBusca
+                opcoes={[{ valor: "todas", rotulo: "Todas" }, { valor: "sem-loja", rotulo: "Depósito" }, ...lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))]}
+                valor={filtroLoja}
+                aoMudar={(valorEscolhido) => setFiltroLoja(valorEscolhido)}
+                placeholder="Buscar..."
+              />
             </div>
           </div>
 

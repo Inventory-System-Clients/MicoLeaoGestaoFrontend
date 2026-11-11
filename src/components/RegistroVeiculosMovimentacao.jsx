@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../contexts/AuthContext";
 import api from "../services/api";
+import { SelectBusca } from "../components/SelectBusca";
 
 const TIPO_BADGE = {
   retirada: { label: "Retirada", className: "bg-blue-100 text-blue-800" },
@@ -70,18 +71,13 @@ export default function RegistroVeiculos({
           <label className="block text-sm font-medium mb-1 text-blue-900">
             Filtrar por veículo
           </label>
-          <select
-            className="border rounded-lg p-2 w-full focus:ring-2 focus:ring-blue-200"
-            value={filtroVeiculo}
-            onChange={(e) => setFiltroVeiculo(e.target.value)}
-          >
-            <option value="">Todos</option>
-            {veiculos.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.nome}
-              </option>
-            ))}
-          </select>
+          <SelectBusca
+            opcoes={veiculos.map((v) => ({ valor: v.id, rotulo: v.nome ?? "" }))}
+            valor={filtroVeiculo}
+            aoMudar={(valorEscolhido) => setFiltroVeiculo(valorEscolhido)}
+            opcaoVazia="Todos"
+            placeholder="Todos"
+          />
         </div>
         <div className="flex-1">
           <label className="block text-sm font-medium mb-1 text-blue-900">

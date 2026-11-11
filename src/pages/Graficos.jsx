@@ -11,6 +11,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { SelectBusca } from "../components/SelectBusca";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const NENHUMA_LOJA_VALUE = "";
@@ -656,10 +657,12 @@ export function Graficos() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">🏪 Loja</label>
-              <select value={lojaSelecionada} onChange={(e) => setLojaSelecionada(e.target.value)}
-                className="input-field w-full">
-                {lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
-              </select>
+              <SelectBusca
+                opcoes={lojas.map((l) => ({ valor: l.id, rotulo: l.nome ?? "" }))}
+                valor={lojaSelecionada}
+                aoMudar={(valorEscolhido) => setLojaSelecionada(valorEscolhido)}
+                placeholder="Buscar..."
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">📅 Data Inicial</label>

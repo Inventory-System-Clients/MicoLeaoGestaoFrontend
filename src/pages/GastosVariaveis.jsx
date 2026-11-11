@@ -7,6 +7,7 @@ import { PageHeader, DataTable, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import LancarGastoVariavel from "../components/LancarGastoVariavel";
 import { filtrarLojasOperacionais } from "../utils/lojas";
+import { SelectBusca } from "../components/SelectBusca";
 
 const formatCurrency = (value) =>
   Number(value || 0).toLocaleString("pt-BR", {
@@ -329,23 +330,16 @@ export function GastosVariaveis() {
               </div>
               <div className="mb-3">
                 <label className="block text-sm font-medium">Loja</label>
-                <select
-                  value={editForm.lojaId}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({
+                <SelectBusca
+                  opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                  valor={editForm.lojaId}
+                  aoMudar={(valorEscolhido) => setEditForm((prev) => ({
                       ...prev,
-                      lojaId: e.target.value,
-                    }))
-                  }
-                  className="w-full border rounded p-1"
-                >
-                  <option value="">Selecione a loja</option>
-                  {lojas.map((loja) => (
-                    <option key={loja.id} value={loja.id}>
-                      {loja.nome}
-                    </option>
-                  ))}
-                </select>
+                      lojaId: valorEscolhido,
+                    }))}
+                  opcaoVazia="Selecione a loja"
+                  placeholder="Selecione a loja"
+                />
               </div>
               <div className="mb-3">
                 <label className="block text-sm font-medium">Valor (R$)</label>
@@ -422,18 +416,13 @@ export function GastosVariaveis() {
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Loja
             </label>
-            <select
-              value={filtroLojaId}
-              onChange={(e) => setFiltroLojaId(e.target.value)}
-              className="input-field"
-            >
-              <option value="">Todas as lojas</option>
-              {lojas.map((loja) => (
-                <option key={loja.id} value={loja.id}>
-                  {loja.nome}
-                </option>
-              ))}
-            </select>
+            <SelectBusca
+              opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+              valor={filtroLojaId}
+              aoMudar={(valorEscolhido) => setFiltroLojaId(valorEscolhido)}
+              opcaoVazia="Todas as lojas"
+              placeholder="Todas as lojas"
+            />
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">

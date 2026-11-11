@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import api from "../services/api";
 import { aviso } from "../utils/alerts";
+import { SelectBusca } from "./SelectBusca";
 import { enviarImagemParaCloudinary } from "../utils/cloudinary";
 
 const paraDataISO = (data) => {
@@ -311,44 +312,30 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
             <label className="mb-1 block text-sm font-bold text-gray-700">
               Loja
             </label>
-            <select
-              value={lojaSelecionada}
-              onChange={handleLojaChange}
+            <SelectBusca
+              opcoes={(lojas || []).map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+              valor={lojaSelecionada}
+              aoMudar={(lojaId) => handleLojaChange({ target: { value: lojaId } })}
+              opcaoVazia="Selecione a loja"
+              placeholder="Buscar loja"
               required
-              className="select-field"
-            >
-              <option value="">Selecione a loja</option>
-              {lojas &&
-                lojas.map((loja) => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </option>
-                ))}
-            </select>
+            />
           </div>
 
           <div>
             <label className="mb-1 block text-sm font-bold text-gray-700">
               🎮 Máquina
             </label>
-            <select
-              value={maquinaSelecionada}
-              onChange={(e) => setMaquinaSelecionada(e.target.value)}
+            <SelectBusca
+              opcoes={(maquinas || [])
+                .filter((m) => m.lojaId === lojaSelecionada && m.geradoraReceita)
+                .map((maquina) => ({ valor: maquina.id, rotulo: maquina.nome ?? "" }))}
+              valor={maquinaSelecionada}
+              aoMudar={setMaquinaSelecionada}
               disabled={registrarTotalLoja}
-              className="select-field disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <option value="">Selecione a máquina</option>
-              {maquinas &&
-                maquinas
-                  .filter(
-                    (m) => m.lojaId === lojaSelecionada && m.geradoraReceita,
-                  )
-                  .map((maquina) => (
-                    <option key={maquina.id} value={maquina.id}>
-                      {maquina.nome}
-                    </option>
-                  ))}
-            </select>
+              opcaoVazia="Selecione a máquina"
+              placeholder="Buscar máquina"
+            />
           </div>
         </div>
 
@@ -658,19 +645,13 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
             <label className="mb-1 block text-sm font-bold text-gray-700">
               👤 Quem conferiu (opcional)
             </label>
-            <select
-              value={conferidoPorId}
-              onChange={(e) => setConferidoPorId(e.target.value)}
-              className="select-field"
-            >
-              <option value="">Ninguém conferiu junto</option>
-              {usuarios &&
-                usuarios.map((usuario) => (
-                  <option key={usuario.id} value={usuario.id}>
-                    {usuario.nome}
-                  </option>
-                ))}
-            </select>
+            <SelectBusca
+              opcoes={(usuarios || []).map((usuario) => ({ valor: usuario.id, rotulo: usuario.nome ?? "" }))}
+              valor={conferidoPorId}
+              aoMudar={setConferidoPorId}
+              opcaoVazia="Ninguém conferiu junto"
+              placeholder="Buscar pessoa"
+            />
           </div>
 
           <div>

@@ -7,6 +7,7 @@ import { PageLoader } from "../components/Loading";
 import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 import { pode } from "../utils/perfis";
+import { SelectBusca } from "../components/SelectBusca";
 
 const TIPOS_PROBLEMA = [
   { value: "MECANICO", label: "Mecânico" },
@@ -745,18 +746,13 @@ export default function ManutencaoPage() {
                       (selecione primeiro)
                     </span>
                   </label>
-                  <select
-                    value={form.lojaId}
-                    onChange={handleSelectLoja}
-                    className="select-field"
-                  >
-                    <option value="">Selecione a loja...</option>
-                    {lojas.map((loja) => (
-                      <option key={loja.id} value={loja.id}>
-                        {loja.nome}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectBusca
+                    opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                    valor={form.lojaId}
+                    aoMudar={(valorEscolhido) => handleSelectLoja({ target: { value: valorEscolhido, type: "select-one" } })}
+                    opcaoVazia="Selecione a loja..."
+                    placeholder="Selecione a loja..."
+                  />
                 </div>
 
                 <div>
@@ -766,24 +762,21 @@ export default function ManutencaoPage() {
                       (opcional)
                     </span>
                   </label>
-                  <select
-                    value={form.maquinaId}
-                    onChange={handleSelectMaquina}
+                  <SelectBusca
+                    opcoes={maquinasDaLoja.map((maquina) => ({
+                      valor: maquina.id,
+                      rotulo: `${maquina.codigo ?? ""} ${maquina.nome ? `- ${maquina.nome}` : ""}`.trim(),
+                    }))}
+                    valor={form.maquinaId}
+                    aoMudar={(maquinaId) => handleSelectMaquina({ target: { value: maquinaId } })}
                     disabled={!form.lojaId}
-                    className="select-field disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <option value="">
-                      {form.lojaId
+                    opcaoVazia={
+                      form.lojaId
                         ? "Nenhuma (problema é da loja)"
-                        : "Selecione a loja primeiro"}
-                    </option>
-                    {maquinasDaLoja.map((maquina) => (
-                      <option key={maquina.id} value={maquina.id}>
-                        {maquina.codigo}{" "}
-                        {maquina.nome ? `- ${maquina.nome}` : ""}
-                      </option>
-                    ))}
-                  </select>
+                        : "Selecione a loja primeiro"
+                    }
+                    placeholder={form.lojaId ? "Buscar máquina" : "Selecione a loja primeiro"}
+                  />
                   {!form.lojaId && (
                     <p className="mt-1 text-xs text-gray-500">
                       Escolha a loja para poder escolher a máquina.
@@ -882,25 +875,24 @@ export default function ManutencaoPage() {
                   <span className="text-red-500">*</span>
                 </label>
                 <div className="flex gap-2">
-                  <select
-                    value={funcionarioParaAdicionar}
-                    onChange={(e) =>
-                      setFuncionarioParaAdicionar(e.target.value)
-                    }
-                    className="select-field"
-                  >
-                    <option value="">Selecione um funcionário...</option>
-                    {funcionarios
-                      .filter(
-                        (funcionario) =>
-                          !form.funcionariosIds.includes(funcionario.id),
-                      )
-                      .map((funcionario) => (
-                        <option key={funcionario.id} value={funcionario.id}>
-                          {funcionario.nome} ({funcionario.email})
-                        </option>
-                      ))}
-                  </select>
+                  <div className="flex-1">
+                    <SelectBusca
+                      opcoes={funcionarios
+                        .filter(
+                          (funcionario) =>
+                            !form.funcionariosIds.includes(funcionario.id),
+                        )
+                        .map((funcionario) => ({
+                          valor: funcionario.id,
+                          rotulo: funcionario.nome ?? "",
+                          detalhe: funcionario.email || undefined,
+                        }))}
+                      valor={funcionarioParaAdicionar}
+                      aoMudar={setFuncionarioParaAdicionar}
+                      opcaoVazia="Selecione um funcionário..."
+                      placeholder="Buscar funcionário"
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={handleAdicionarFuncionario}
@@ -984,26 +976,19 @@ export default function ManutencaoPage() {
                 <label className="mb-1 block text-sm font-bold text-gray-700">
                   Peça
                 </label>
-                <select
-                  value={form.pecaId}
-                  onChange={(e) =>
-                    setForm((prev) => ({
+                <SelectBusca
+                  opcoes={pecas.map((peca) => ({ valor: peca.id, rotulo: peca.nome ?? "" }))}
+                  valor={form.pecaId}
+                  aoMudar={(valorEscolhido) => setForm((prev) => ({
                       ...prev,
-                      pecaId: e.target.value,
+                      pecaId: valorEscolhido,
                       pecaFuncionarioId: "",
                       pecaQuantidade: "",
-                    }))
-                  }
-                  className="select-field"
+                    }))}
+                  opcaoVazia="Nenhuma peça"
+                  placeholder="Nenhuma peça"
                   disabled={form.funcionariosIds.length === 0}
-                >
-                  <option value="">Nenhuma peça</option>
-                  {pecas.map((peca) => (
-                    <option key={peca.id} value={peca.id}>
-                      {peca.nome}
-                    </option>
-                  ))}
-                </select>
+                />
                 {form.funcionariosIds.length === 0 && (
                   <p className="mt-1 text-xs text-gray-500">
                     Adicione um funcionário responsável primeiro.
@@ -1254,66 +1239,45 @@ export default function ManutencaoPage() {
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Loja
                 </label>
-                <select
-                  value={filtros.lojaId}
-                  onChange={(e) =>
-                    setFiltros((prev) => ({ ...prev, lojaId: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  <option value="">Todas</option>
-                  {lojas.map((loja) => (
-                    <option key={loja.id} value={loja.id}>
-                      {loja.nome}
-                    </option>
-                  ))}
-                </select>
+                <SelectBusca
+                  opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                  valor={filtros.lojaId}
+                  aoMudar={(valorEscolhido) => setFiltros((prev) => ({ ...prev, lojaId: valorEscolhido }))}
+                  opcaoVazia="Todas"
+                  placeholder="Todas"
+                />
               </div>
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Máquina
                 </label>
-                <select
-                  value={filtros.maquinaId}
-                  onChange={(e) =>
-                    setFiltros((prev) => ({
+                <SelectBusca
+                  opcoes={maquinas.map((maquina) => ({ valor: maquina.id, rotulo: maquina.codigo ?? "" }))}
+                  valor={filtros.maquinaId}
+                  aoMudar={(valorEscolhido) => setFiltros((prev) => ({
                       ...prev,
-                      maquinaId: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  <option value="">Todas</option>
-                  {maquinas.map((maquina) => (
-                    <option key={maquina.id} value={maquina.id}>
-                      {maquina.codigo}
-                    </option>
-                  ))}
-                </select>
+                      maquinaId: valorEscolhido,
+                    }))}
+                  opcaoVazia="Todas"
+                  placeholder="Todas"
+                />
               </div>
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Usuário
                 </label>
-                <select
-                  value={filtros.usuarioId}
-                  onChange={(e) =>
-                    setFiltros((prev) => ({
+                <SelectBusca
+                  opcoes={usuariosFiltro.map((user) => ({ valor: user.id, rotulo: `${(user.nome) ?? ""} (${(user.role) ?? ""})` }))}
+                  valor={filtros.usuarioId}
+                  aoMudar={(valorEscolhido) => setFiltros((prev) => ({
                       ...prev,
-                      usuarioId: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  <option value="">Todos</option>
-                  {usuariosFiltro.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.nome} ({user.role})
-                    </option>
-                  ))}
-                </select>
+                      usuarioId: valorEscolhido,
+                    }))}
+                  opcaoVazia="Todos"
+                  placeholder="Todos"
+                />
               </div>
             </div>
           </div>
@@ -1514,23 +1478,17 @@ export default function ManutencaoPage() {
                             <label className="mb-1 block text-xs font-medium text-gray-700">
                               Peça
                             </label>
-                            <select
-                              value={formUsoPeca.pecaId}
-                              onChange={(e) =>
-                                setFormUsoPeca((prev) => ({
+                            <SelectBusca
+                              opcoes={pecas.map((peca) => ({ valor: peca.id, rotulo: peca.nome ?? "" }))}
+                              valor={formUsoPeca.pecaId}
+                              aoMudar={(valorEscolhido) => setFormUsoPeca((prev) => ({
                                   ...prev,
-                                  pecaId: e.target.value,
-                                }))
-                              }
-                              className="select-field py-1.5 text-sm"
-                            >
-                              <option value="">Selecione...</option>
-                              {pecas.map((peca) => (
-                                <option key={peca.id} value={peca.id}>
-                                  {peca.nome}
-                                </option>
-                              ))}
-                            </select>
+                                  pecaId: valorEscolhido,
+                                }))}
+                              opcaoVazia="Selecione..."
+                              placeholder="Selecione..."
+                              className="text-sm"
+                            />
                           </div>
                           <div>
                             <label className="mb-1 block text-xs font-medium text-gray-700">
@@ -1628,23 +1586,17 @@ export default function ManutencaoPage() {
                             <label className="mb-1 block text-xs font-medium text-gray-700">
                               Peça
                             </label>
-                            <select
-                              value={formPecaQuebrada.pecaId}
-                              onChange={(e) =>
-                                setFormPecaQuebrada((prev) => ({
+                            <SelectBusca
+                              opcoes={pecas.map((peca) => ({ valor: peca.id, rotulo: peca.nome ?? "" }))}
+                              valor={formPecaQuebrada.pecaId}
+                              aoMudar={(valorEscolhido) => setFormPecaQuebrada((prev) => ({
                                   ...prev,
-                                  pecaId: e.target.value,
-                                }))
-                              }
-                              className="select-field py-1.5 text-sm"
-                            >
-                              <option value="">Selecione...</option>
-                              {pecas.map((peca) => (
-                                <option key={peca.id} value={peca.id}>
-                                  {peca.nome}
-                                </option>
-                              ))}
-                            </select>
+                                  pecaId: valorEscolhido,
+                                }))}
+                              opcaoVazia="Selecione..."
+                              placeholder="Selecione..."
+                              className="text-sm"
+                            />
                           </div>
                           <div>
                             <label className="mb-1 block text-xs font-medium text-gray-700">

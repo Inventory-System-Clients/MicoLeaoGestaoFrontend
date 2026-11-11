@@ -4,6 +4,7 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageHeader, AlertBox, Badge } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
+import { SelectBusca } from "../components/SelectBusca";
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 
@@ -833,18 +834,13 @@ export function AnaliseEstoque() {
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Loja
               </label>
-              <select
-                className="select-field"
-                value={lojaSelecionada}
-                onChange={(event) => setLojaSelecionada(event.target.value)}
-              >
-                <option value="">Selecione uma loja</option>
-                {lojas.map((loja) => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </option>
-                ))}
-              </select>
+              <SelectBusca
+                opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                valor={lojaSelecionada}
+                aoMudar={(valorEscolhido) => setLojaSelecionada(valorEscolhido)}
+                opcaoVazia="Selecione uma loja"
+                placeholder="Selecione uma loja"
+              />
             </div>
 
             <div>
