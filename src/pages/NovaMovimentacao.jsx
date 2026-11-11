@@ -133,7 +133,8 @@ export function NovaMovimentacao() {
     try {
       const { data } = await api.get(`/visitas/maquinas/${id}`);
       setContexto(data);
-      if (data.produtoSugeridoId && data.estoque.some((e) => e.produtoId === data.produtoSugeridoId)) {
+      // Produto cadastrado na máquina já vem escolhido
+      if (data.produtoSugeridoId) {
         setForm((f) => ({ ...f, produtoId: data.produtoSugeridoId }));
       }
     } catch (e) {
@@ -366,6 +367,9 @@ export function NovaMovimentacao() {
           </div>
           {produtoEscolhido && abastecidas > produtoEscolhido.quantidade && (
             <p className="text-sm text-rose-600">A loja só tem {produtoEscolhido.quantidade} desse produto.</p>
+          )}
+          {produtoEscolhido && produtoEscolhido.quantidade === 0 && (
+            <p className="text-xs text-amber-700">A loja está sem estoque deste produto: só dá para lançar 0, ou escolha outro.</p>
           )}
           {(contexto.estoque || []).length === 0 && <p className="text-xs text-amber-700">A loja está sem estoque de produtos.</p>}
           {form.totalPre !== "" && (
