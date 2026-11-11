@@ -232,3 +232,14 @@
     background-size: 20px 20px;
   }
 }
+
+/* Listas largas: barra de rolagem lateral em cima da tabela, não lá embaixo.
+   A caixa que rola é espelhada de cima pra baixo (a barra vai pro topo) e a
+   tabela é espelhada de volta, então o conteúdo aparece normal. Só vale pra
+   caixas que rolam de lado e têm a tabela direto dentro. */
+.overflow-x-auto:has(> table) {
+  transform: scaleY(-1);
+}
+.overflow-x-auto:has(> table) > table {
+  transform: scaleY(-1);
+}
