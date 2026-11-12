@@ -6,7 +6,8 @@ import {
   useEffect,
 } from "react";
 import api from "../services/api";
-import { ehAcessoRestrito } from "../utils/perfis";
+import { acessoATela } from "../utils/perfis";
+import { contarParaFazer } from "../utils/manutencao";
 
 export const AuthContext = createContext({});
 
@@ -86,15 +87,13 @@ export function AuthProvider({ children }) {
     if (
       !usuario ||
       ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario.role) ||
-      ehAcessoRestrito(usuario)
+      !acessoATela(usuario, "/manutencao", true)
     )
       return;
     try {
       const response = await api.get("/manutencoes");
       const dados = response.data;
-      setMinhasManutencoesPendentesCount(
-        Array.isArray(dados) ? dados.length : 0,
-      );
+      setMinhasManutencoesPendentesCount(contarParaFazer(dados, usuario));
     } catch {
       // Silencioso: não bloqueia a navegação por falha ao buscar manutenções.
     }
@@ -104,7 +103,7 @@ export function AuthProvider({ children }) {
     if (
       !usuario ||
       ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario.role) ||
-      ehAcessoRestrito(usuario)
+      !acessoATela(usuario, "/manutencao", true)
     )
       return;
 
@@ -112,9 +111,7 @@ export function AuthProvider({ children }) {
       try {
         const response = await api.get("/manutencoes");
         const dados = response.data;
-        setMinhasManutencoesPendentesCount(
-          Array.isArray(dados) ? dados.length : 0,
-        );
+        setMinhasManutencoesPendentesCount(contarParaFazer(dados, usuario));
       } catch {
         // Silencioso: não bloqueia a navegação por falha ao buscar manutenções.
       }

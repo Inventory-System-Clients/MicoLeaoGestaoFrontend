@@ -1,1657 +1,792 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
-import { useAuth } from "../contexts/AuthContext";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
-import { AlertBox, Badge, PageHeader } from "../components/UIComponents";
-import { filtrarLojasOperacionais } from "../utils/lojas";
-import { pode } from "../utils/perfis";
+import { PageHeader, Modal } from "../components/UIComponents";
 import { SelectBusca } from "../components/SelectBusca";
+import { useAuth } from "../contexts/AuthContext";
+import { obterPerfil, pode } from "../utils/perfis";
+import {
+  STATUS_MANUTENCAO,
+  ORDEM_STATUS,
+  TIPOS_PROBLEMA,
+  ACOES_HISTORICO,
+  ehParaMim,
+} from "../utils/manutencao";
 
-const TIPOS_PROBLEMA = [
-  { value: "MECANICO", label: "Mecânico" },
-  { value: "ELETRICO", label: "Elétrico" },
-  { value: "SOFTWARE", label: "Software/Sistema" },
-  { value: "LIMPEZA", label: "Limpeza/Higienização" },
-  { value: "ESTRUTURAL", label: "Estrutural da loja" },
-  { value: "OUTRO", label: "Outro" },
-];
+// Manutenção: qualquer um solicita; Cadastro/admin autoriza mandando para um
+// setor (perfil) ou uma pessoa (quando eles mesmos abrem, já vai). Quem aceitar fica com
+// ela (some pros outros). Quem aceitou conclui, pede serviço de terceiro ou
+// diz que não consegue (vai pro admin reenviar). O admin finaliza lançando o
+// gasto (obrigatório, pode ser R$ 0).
 
-const STATUS_OPCOES = [
-  {
-    value: "ABERTA",
-    label: "Aberta",
-    variant: "warning",
-    emoji: "🟠",
-    borderClass: "border-amber-300",
-    bgClass: "bg-amber-50/60",
-  },
-  {
-    value: "EM_ANDAMENTO",
-    label: "Em andamento",
-    variant: "info",
-    emoji: "🔵",
-    borderClass: "border-blue-300",
-    bgClass: "bg-blue-50/60",
-  },
-  {
-    value: "AGUARDANDO_PECA",
-    label: "Aguardando peça",
-    variant: "danger",
-    emoji: "🔴",
-    borderClass: "border-red-300",
-    bgClass: "bg-red-50/60",
-  },
-  {
-    value: "CONCLUIDA",
-    label: "Concluída",
-    variant: "success",
-    emoji: "🟢",
-    borderClass: "border-emerald-300",
-    bgClass: "bg-emerald-50/50",
-  },
-];
+const FORM_VAZIO = {
+  lojaId: "",
+  maquinaId: "",
+  titulo: "",
+  descricao: "",
+  tipoProblema: "",
+  prazo: "",
+  destinoTipo: "setor",
+  setor: "",
+  destinatarioId: "",
+};
 
-const obterStatusInfo = (status) =>
-  STATUS_OPCOES.find((opcao) => opcao.value === status) || {
-    label: status || "-",
-    variant: "info",
-    emoji: "⚪",
-    borderClass: "border-gray-200",
-    bgClass: "bg-white",
-  };
+const mensagemDeErro = (erro, padrao) => erro?.response?.data?.error || padrao;
+const dataHora = (valor) =>
+  valor ? new Date(valor).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "-";
+const reais = (valor) => Number(valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-const obterLabelTipoProblema = (tipo) =>
-  TIPOS_PROBLEMA.find((opcao) => opcao.value === tipo)?.label || tipo || "-";
+function EscolhaDestino({ valor, aoMudar, destinos }) {
+  return (
+    <div className="space-y-3">
+      <div className="inline-flex rounded-xl bg-gray-100 p-1">
+        {[
+          ["setor", "👥 Setor"],
+          ["pessoa", "👤 Pessoa"],
+        ].map(([tipo, rotulo]) => (
+          <button
+            key={tipo}
+            type="button"
+            onClick={() => aoMudar({ ...valor, destinoTipo: tipo })}
+            className={`rounded-lg px-4 py-1.5 text-sm font-bold ${
+              valor.destinoTipo === tipo ? "bg-white text-gray-900 shadow" : "text-gray-500"
+            }`}
+          >
+            {rotulo}
+          </button>
+        ))}
+      </div>
+      {valor.destinoTipo === "setor" ? (
+        <div className="flex flex-wrap gap-2">
+          {(destinos.setores || []).map((setor) => (
+            <button
+              key={setor.valor}
+              type="button"
+              onClick={() => aoMudar({ ...valor, setor: setor.valor })}
+              className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${
+                valor.setor === setor.valor
+                  ? "border-gray-900 bg-gray-900 text-white"
+                  : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
+              }`}
+            >
+              {setor.nome} <span className="opacity-60">({setor.pessoas})</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <SelectBusca
+          opcoes={(destinos.pessoas || []).map((p) => ({ valor: p.id, rotulo: p.nome, detalhe: obterPerfil(p.role).curto }))}
+          valor={valor.destinatarioId}
+          aoMudar={(destinatarioId) => aoMudar({ ...valor, destinatarioId })}
+          placeholder="Buscar pessoa"
+        />
+      )}
+      <p className="text-xs text-gray-500">
+        {valor.destinoTipo === "setor"
+          ? "Todos do setor veem; quem aceitar primeiro fica com ela."
+          : "Só essa pessoa vê e decide se aceita."}
+      </p>
+    </div>
+  );
+}
+
+const destinoTexto = (m) => {
+  if (m.destinatario) return `👤 ${m.destinatario.nome}`;
+  if (m.setor) return `👥 ${obterPerfil(m.setor).nome}`;
+  const lista = m.funcionariosPermitidos || [];
+  return lista.length ? `👥 ${lista.map((p) => p.nome).join(", ")}` : "—";
+};
 
 export default function ManutencaoPage() {
   const {
     usuario,
     loading: authLoading,
-    atualizarAlertasManutencaoCount,
     atualizarMinhasManutencoesPendentesCount,
+    atualizarAlertasManutencaoCount,
   } = useAuth();
   const [manutencoes, setManutencoes] = useState([]);
-  const [funcionarios, setFuncionarios] = useState([]);
-  const [usuariosFiltro, setUsuariosFiltro] = useState([]);
-  const [lojas, setLojas] = useState([]);
-  const [maquinas, setMaquinas] = useState([]);
-  const [alertasMovimentacao, setAlertasMovimentacao] = useState([]);
-  const [historicoMaquina, setHistoricoMaquina] = useState(null);
-  const [alertaRecorrencia, setAlertaRecorrencia] = useState(null);
+  const [destinos, setDestinos] = useState({ setores: [], pessoas: [], lojas: [], maquinas: [] });
+  const [meuEstoque, setMeuEstoque] = useState([]);
   const [pecas, setPecas] = useState([]);
-  const [meuEstoquePecas, setMeuEstoquePecas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [atualizando, setAtualizando] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [alertasMovimentacao, setAlertasMovimentacao] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
+  const [aviso, setAviso] = useState("");
 
-  const [funcionarioParaAdicionar, setFuncionarioParaAdicionar] = useState("");
-
-  const [usoPecaAbertoId, setUsoPecaAbertoId] = useState(null);
-  const [formUsoPeca, setFormUsoPeca] = useState({
-    pecaId: "",
-    quantidade: "",
-    observacao: "",
-  });
-
-  const [pecaQuebradaAbertoId, setPecaQuebradaAbertoId] = useState(null);
-  const [formPecaQuebrada, setFormPecaQuebrada] = useState({
-    pecaId: "",
-    quantidade: "",
-    observacao: "",
-  });
-
-  const FORM_VAZIO = {
-    titulo: "",
-    descricao: "",
-    funcionariosIds: [],
-    custo: "",
-    lojaId: "",
-    maquinaId: "",
-    responsavelId: "",
-    tipoProblema: "",
-    prazo: "",
-    pecaId: "",
-    pecaFuncionarioId: "",
-    pecaQuantidade: "",
-    pecaObservacao: "",
-  };
-
+  const [abrindo, setAbrindo] = useState(false);
   const [form, setForm] = useState(FORM_VAZIO);
+  const [enviando, setEnviando] = useState(false);
 
-  // Estoque (carrinho) de cada funcionário adicionado, pra peça selecionada.
-  // Mapa funcionarioId -> quantidade.
-  const [estoquePecaPorFuncionario, setEstoquePecaPorFuncionario] = useState(
-    {},
-  );
-  const [carregandoEstoquePeca, setCarregandoEstoquePeca] = useState(false);
+  const [aba, setAba] = useState("ABERTAS");
+  const [busca, setBusca] = useState("");
+  const [filtroLoja, setFiltroLoja] = useState("");
+  const [detalhesAbertos, setDetalhesAbertos] = useState({});
+  const [modal, setModal] = useState(null);
+  const [erroModal, setErroModal] = useState("");
 
-  const [filtros, setFiltros] = useState({
-    status: "TODAS",
-    dataInicio: "",
-    dataFim: "",
-    lojaId: "",
-    maquinaId: "",
-    usuarioId: "",
-  });
-
-  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
-  // (Admin e Funcionário de Cadastro gerenciam; custo só Admin).
   const regraGestao = ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role);
-  const veTodasManutencoes = pode(usuario, "manutencao.gerenciarTodas", regraGestao);
-  const podeCriarManutencao = pode(usuario, "manutencao.criar", regraGestao);
+  const veTodas = pode(usuario, "manutencao.gerenciarTodas", regraGestao);
+  const ehAdmin = pode(usuario, "manutencao.administrar");
+  // Autoriza solicitações (e já manda direto quando abre): Admin e Cadastro
+  const podeAutorizar = pode(usuario, "manutencao.autorizar", regraGestao);
+  const podeAbrir = pode(usuario, "manutencao.criar", true);
   const veAlertasMovimentacao = pode(usuario, "alertas.ver", regraGestao);
-  const podeDefinirCusto = pode(
-    usuario,
-    "manutencao.lancarCusto",
-    ["ADMIN", "DESENVOLVEDOR"].includes(usuario?.role),
-  );
 
-  const manutencoesOrdenadas = useMemo(
-    () =>
-      [...manutencoes].sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
-      ),
-    [manutencoes],
-  );
-
-  const manutencoesVisiveis = useMemo(() => {
-    if (veTodasManutencoes) return manutencoesOrdenadas;
-    return manutencoesOrdenadas.filter((item) => item.status !== "CONCLUIDA");
-  }, [veTodasManutencoes, manutencoesOrdenadas]);
-
-  const carregarDados = useCallback(async () => {
+  const carregar = useCallback(async () => {
+    const semAcesso = () => ({ data: [] });
     try {
-      setError("");
-
-      const params = {};
-      if (veTodasManutencoes) {
-        if (filtros.status !== "TODAS") params.status = filtros.status;
-        if (filtros.dataInicio) params.dataInicio = filtros.dataInicio;
-        if (filtros.dataFim) params.dataFim = filtros.dataFim;
-        if (filtros.lojaId) params.lojaId = filtros.lojaId;
-        if (filtros.maquinaId) params.maquinaId = filtros.maquinaId;
-        if (filtros.usuarioId) params.usuarioId = filtros.usuarioId;
-      }
-
-      const manutencoesResponse = await api.get("/manutencoes", { params });
-      const manutencoesData = manutencoesResponse.data;
-      setManutencoes(Array.isArray(manutencoesData) ? manutencoesData : []);
-
-      const pecasResponse = await api.get("/pecas");
-      const pecasData = pecasResponse.data;
-      setPecas(Array.isArray(pecasData) ? pecasData : []);
-
-      if (usuario?.role === "FUNCIONARIO") {
-        const estoquePecasResponse = await api.get("/pecas/estoque-funcionario");
-        const estoquePecasData = estoquePecasResponse.data;
-        setMeuEstoquePecas(
-          Array.isArray(estoquePecasData) ? estoquePecasData : [],
-        );
-      } else {
-        setMeuEstoquePecas([]);
-      }
-
-      if (podeCriarManutencao || veTodasManutencoes || veAlertasMovimentacao) {
-        // Cada busca pode ser recusada sozinha (acessos separados): vira lista vazia
-        const semAcesso = () => ({ data: [] });
-        const [
-          funcionariosResponse,
-          lojasResponse,
-          maquinasResponse,
-          usuariosResponse,
-          alertasResponse,
-        ] = await Promise.all([
-          api.get("/manutencoes/funcionarios").catch(semAcesso),
-          api.get("/lojas").catch(semAcesso),
-          api.get("/maquinas").catch(semAcesso),
-          api.get("/usuarios").catch(semAcesso),
-          veAlertasMovimentacao
-            ? api.get("/alertas-movimentacao").catch(semAcesso)
-            : semAcesso(),
-        ]);
-        const funcionariosData = funcionariosResponse.data;
-        const lojasData = lojasResponse.data;
-        const maquinasData = maquinasResponse.data;
-        const usuariosData = usuariosResponse.data;
-        const alertasData = alertasResponse.data;
-        setFuncionarios(
-          Array.isArray(funcionariosData) ? funcionariosData : [],
-        );
-        setLojas(filtrarLojasOperacionais(Array.isArray(lojasData) ? lojasData : []));
-        setMaquinas(Array.isArray(maquinasData) ? maquinasData : []);
-        setUsuariosFiltro(Array.isArray(usuariosData) ? usuariosData : []);
-        setAlertasMovimentacao(Array.isArray(alertasData) ? alertasData : []);
-      } else {
-        setFuncionarios([]);
-        setLojas([]);
-        setMaquinas([]);
-        setUsuariosFiltro([]);
-        setAlertasMovimentacao([]);
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || "Erro ao carregar dados");
+      const [lista, destinosRes, estoqueRes, pecasRes, alertasRes] = await Promise.all([
+        api.get("/manutencoes"),
+        api.get("/manutencoes/destinos").catch(() => ({ data: {} })),
+        api.get("/pecas/estoque-funcionario").catch(semAcesso),
+        api.get("/pecas").catch(semAcesso),
+        veAlertasMovimentacao ? api.get("/alertas-movimentacao").catch(semAcesso) : semAcesso(),
+      ]);
+      setManutencoes(Array.isArray(lista.data) ? lista.data : []);
+      setDestinos({ setores: [], pessoas: [], lojas: [], maquinas: [], ...destinosRes.data });
+      setMeuEstoque((Array.isArray(estoqueRes.data) ? estoqueRes.data : []).filter((i) => i.quantidade > 0));
+      setPecas(Array.isArray(pecasRes.data) ? pecasRes.data : []);
+      setAlertasMovimentacao(Array.isArray(alertasRes.data) ? alertasRes.data : []);
+      setErro("");
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Erro ao carregar as manutenções"));
     } finally {
-      setLoading(false);
+      setCarregando(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtros, usuario]);
+  }, [veAlertasMovimentacao]);
 
   useEffect(() => {
-    if (authLoading) return;
-    carregarDados();
-  }, [authLoading, carregarDados]);
+    if (!authLoading) carregar();
+  }, [authLoading, carregar]);
 
-  const handleAtualizarDados = async () => {
-    if (atualizando) return;
+  const atualizarTudo = async () => {
+    await carregar();
+    atualizarMinhasManutencoesPendentesCount?.();
+  };
 
+  // Abas: admin/gestão por status; quem trabalha vê o que é dele
+  const abas = useMemo(() => {
+    const conta = (filtro) => manutencoes.filter(filtro).length;
+    if (veTodas) {
+      return [
+        { chave: "ABERTAS", rotulo: "Em aberto", filtro: (m) => !["FINALIZADA", "RECUSADA"].includes(m.status) },
+        ...ORDEM_STATUS.map((status) => ({
+          chave: status,
+          rotulo:
+            status === "SOLICITADA"
+              ? "📥 Solicitações"
+              : `${STATUS_MANUTENCAO[status].icone} ${STATUS_MANUTENCAO[status].rotulo}${status === "CONCLUIDA" ? " (a finalizar)" : ""}`,
+          filtro: (m) => m.status === status,
+          destaque: ["SOLICITADA", "AGUARDANDO", "CONCLUIDA"].includes(status),
+        })),
+      ].map((a) => ({ ...a, total: conta(a.filtro) }));
+    }
+    return [
+      { chave: "ABERTAS", rotulo: "Todas", filtro: () => true },
+      { chave: "PARA_MIM", rotulo: "🕐 Para mim", filtro: (m) => m.status === "PENDENTE" && ehParaMim(m, usuario), destaque: true },
+      { chave: "COMIGO", rotulo: "🔧 Comigo", filtro: (m) => m.aceitaPorId === usuario?.id && m.status !== "CONCLUIDA" },
+      { chave: "ABERTAS_POR_MIM", rotulo: "📝 Pedidas por mim", filtro: (m) => m.criadoPorId === usuario?.id },
+    ].map((a) => ({ ...a, total: conta(a.filtro) }));
+  }, [manutencoes, veTodas, usuario]);
+
+  // Gestão: se tem solicitação esperando, abre direto nessa aba
+  useEffect(() => {
+    if (podeAutorizar && manutencoes.some((m) => m.status === "SOLICITADA")) setAba((a) => (a === "ABERTAS" ? "SOLICITADA" : a));
+  }, [podeAutorizar, manutencoes]);
+
+  const abaAtual = abas.find((a) => a.chave === aba) || abas[0];
+  const termo = busca.trim().toLowerCase();
+  const visiveis = manutencoes
+    .filter(abaAtual.filtro)
+    .filter((m) => !filtroLoja || m.lojaId === filtroLoja)
+    .filter(
+      (m) =>
+        !termo ||
+        [m.titulo, m.descricao, m.loja?.nome, m.maquina?.codigo, m.maquina?.nome, m.aceitaPor?.nome]
+          .filter(Boolean)
+          .some((t) => String(t).toLowerCase().includes(termo)),
+    )
+    .sort((a, b) => ORDEM_STATUS.indexOf(a.status) - ORDEM_STATUS.indexOf(b.status) || new Date(b.createdAt) - new Date(a.createdAt));
+
+  const maquinasDaLoja = (destinos.maquinas || []).filter((m) => m.lojaId === form.lojaId);
+
+  const abrirManutencao = async (evento) => {
+    evento.preventDefault();
+    setErro("");
+    setEnviando(true);
     try {
-      setAtualizando(true);
-      await carregarDados();
-    } finally {
-      setAtualizando(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!form.maquinaId) {
-      setHistoricoMaquina(null);
-      return undefined;
-    }
-
-    let cancelado = false;
-    api
-      .get(`/manutencoes/maquina/${form.maquinaId}`)
-      .then((response) => {
-        if (!cancelado) setHistoricoMaquina(response.data);
-      })
-      .catch(() => {
-        if (!cancelado) setHistoricoMaquina(null);
-      });
-
-    return () => {
-      cancelado = true;
-    };
-  }, [form.maquinaId]);
-
-  // Busca quanto cada funcionário adicionado tem no carrinho da peça
-  // selecionada, pra mostrar antes de confirmar a manutenção.
-  useEffect(() => {
-    if (!form.pecaId || form.funcionariosIds.length === 0) {
-      setEstoquePecaPorFuncionario({});
-      return undefined;
-    }
-
-    let cancelado = false;
-    setCarregandoEstoquePeca(true);
-
-    Promise.all(
-      form.funcionariosIds.map((funcionarioId) =>
-        api
-          .get("/pecas/estoque-funcionario", { params: { funcionarioId } })
-          .then((response) => ({
-            funcionarioId,
-            itens: Array.isArray(response.data) ? response.data : [],
-          }))
-          .catch(() => ({ funcionarioId, itens: [] })),
-      ),
-    ).then((resultados) => {
-      if (cancelado) return;
-      const mapa = {};
-      for (const { funcionarioId, itens } of resultados) {
-        const item = itens.find((estoque) => estoque.pecaId === form.pecaId);
-        mapa[funcionarioId] = item?.quantidade || 0;
-      }
-      setEstoquePecaPorFuncionario(mapa);
-      setCarregandoEstoquePeca(false);
-    });
-
-    return () => {
-      cancelado = true;
-    };
-  }, [form.pecaId, form.funcionariosIds]);
-
-  const handleAdicionarFuncionario = () => {
-    if (!funcionarioParaAdicionar) return;
-    setForm((prev) =>
-      prev.funcionariosIds.includes(funcionarioParaAdicionar)
-        ? prev
-        : {
-            ...prev,
-            funcionariosIds: [
-              ...prev.funcionariosIds,
-              funcionarioParaAdicionar,
-            ],
-          },
-    );
-    setFuncionarioParaAdicionar("");
-  };
-
-  const handleRemoverFuncionario = (id) => {
-    setForm((prev) => ({
-      ...prev,
-      funcionariosIds: prev.funcionariosIds.filter((fid) => fid !== id),
-      responsavelId: prev.responsavelId === id ? "" : prev.responsavelId,
-      pecaFuncionarioId:
-        prev.pecaFuncionarioId === id ? "" : prev.pecaFuncionarioId,
-    }));
-  };
-
-  const handleDefinirResponsavel = (id) => {
-    setForm((prev) => ({
-      ...prev,
-      responsavelId: prev.responsavelId === id ? "" : id,
-    }));
-  };
-
-  const handleSelectLoja = (event) => {
-    const lojaId = event.target.value;
-    setForm((prev) => ({ ...prev, lojaId, maquinaId: "" }));
-  };
-
-  const handleSelectMaquina = (event) => {
-    const maquinaId = event.target.value;
-    setForm((prev) => ({ ...prev, maquinaId }));
-  };
-
-  const maquinasDaLoja = useMemo(
-    () => maquinas.filter((maquina) => maquina.lojaId === form.lojaId),
-    [maquinas, form.lojaId],
-  );
-
-  const handleCriar = async (event) => {
-    event.preventDefault();
-    if (!podeCriarManutencao) return;
-
-    if (
-      !form.titulo.trim() ||
-      !form.descricao.trim() ||
-      form.funcionariosIds.length === 0
-    ) {
-      setError("Preencha título, descrição e selecione os funcionários.");
-      return;
-    }
-
-    const custoInformado = podeDefinirCusto && form.custo !== "";
-    const custoNumerico = custoInformado
-      ? Number(String(form.custo).replace(",", "."))
-      : null;
-
-    if (
-      custoInformado &&
-      (!Number.isFinite(custoNumerico) || custoNumerico < 0)
-    ) {
-      setError("Informe um custo válido (maior ou igual a zero).");
-      return;
-    }
-
-    if (custoInformado && custoNumerico > 0 && !form.lojaId && !form.maquinaId) {
-      setError("Selecione a loja ou a máquina para lançar o gasto variável.");
-      return;
-    }
-
-    const pecaInformada = form.pecaId !== "";
-    const pecaQuantidadeNumerica = pecaInformada
-      ? Number(form.pecaQuantidade)
-      : null;
-
-    if (pecaInformada) {
-      if (!form.pecaFuncionarioId) {
-        setError("Selecione qual funcionário vai usar a peça.");
-        return;
-      }
-      if (!Number.isInteger(pecaQuantidadeNumerica) || pecaQuantidadeNumerica <= 0) {
-        setError("Informe uma quantidade válida de peça (inteiro maior que zero).");
-        return;
-      }
-    }
-
-    try {
-      setSubmitting(true);
-      setError("");
-      setAlertaRecorrencia(null);
-
-      const response = await api.post("/manutencoes", {
+      const { data } = await api.post("/manutencoes", {
         titulo: form.titulo.trim(),
         descricao: form.descricao.trim(),
-        funcionariosIds: form.funcionariosIds,
-        custo: custoInformado ? custoNumerico : null,
         lojaId: form.lojaId || null,
         maquinaId: form.maquinaId || null,
-        responsavelId: form.responsavelId || null,
         tipoProblema: form.tipoProblema || null,
         prazo: form.prazo || null,
-        pecaPlanejada: pecaInformada
-          ? {
-              pecaId: form.pecaId,
-              funcionarioId: form.pecaFuncionarioId,
-              quantidade: pecaQuantidadeNumerica,
-              observacao: form.pecaObservacao?.trim() || null,
-            }
-          : null,
+        setor: podeAutorizar && form.destinoTipo === "setor" ? form.setor : null,
+        destinatarioId: podeAutorizar && form.destinoTipo === "pessoa" ? form.destinatarioId : null,
       });
-
-      if (response.data?.recorrente) {
-        setAlertaRecorrencia(response.data.recorrenciaMotivos || []);
-      }
-
       setForm(FORM_VAZIO);
-      setFuncionarioParaAdicionar("");
-      setEstoquePecaPorFuncionario({});
-      await carregarDados();
-    } catch (err) {
-      setError(err.response?.data?.error || "Erro ao criar manutenção");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleAtualizarStatus = async (id, novoStatus) => {
-    try {
-      setError("");
-      await api.patch(`/manutencoes/${id}/status`, { status: novoStatus });
-      await carregarDados();
-      await atualizarMinhasManutencoesPendentesCount();
-    } catch (err) {
-      setError(
-        err.response?.data?.error || "Erro ao atualizar status da manutenção",
+      setAbrindo(false);
+      setAviso(
+        data?.recorrente
+          ? `Manutenção aberta. ⚠️ Máquina com manutenção repetida: ${(data.recorrenciaMotivos || []).join(" ")}`
+          : data?.status === "SOLICITADA"
+            ? "Solicitação enviada! ✅ O Cadastro/admin vai autorizar e mandar para quem vai fazer."
+            : "Manutenção aberta! ✅",
       );
-    }
-  };
-
-  const handleResolver = (id) => handleAtualizarStatus(id, "CONCLUIDA");
-
-  const abrirUsoPeca = (manutencaoId) => {
-    setUsoPecaAbertoId((atual) => (atual === manutencaoId ? null : manutencaoId));
-    setFormUsoPeca({ pecaId: "", quantidade: "", observacao: "" });
-  };
-
-  const handleRegistrarUsoPeca = async (event, manutencaoId) => {
-    event.preventDefault();
-
-    const quantidadeNumerica = Number(formUsoPeca.quantidade);
-    if (!formUsoPeca.pecaId) {
-      setError("Selecione a peça utilizada.");
-      return;
-    }
-    if (!Number.isInteger(quantidadeNumerica) || quantidadeNumerica <= 0) {
-      setError("Informe uma quantidade válida (inteiro maior que zero).");
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      setError("");
-      await api.post(`/manutencoes/${manutencaoId}/pecas`, {
-        pecaId: formUsoPeca.pecaId,
-        quantidade: quantidadeNumerica,
-        observacao: formUsoPeca.observacao || null,
-      });
-      setUsoPecaAbertoId(null);
-      await carregarDados();
-    } catch (err) {
-      setError(err.response?.data?.error || "Erro ao registrar uso de peça");
+      await atualizarTudo();
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Erro ao abrir a manutenção"));
     } finally {
-      setSubmitting(false);
+      setEnviando(false);
     }
   };
 
-  const abrirPecaQuebrada = (manutencaoId) => {
-    setPecaQuebradaAbertoId((atual) =>
-      atual === manutencaoId ? null : manutencaoId,
-    );
-    setFormPecaQuebrada({ pecaId: "", quantidade: "", observacao: "" });
-  };
-
-  const handleRegistrarPecaQuebrada = async (event, manutencaoId) => {
-    event.preventDefault();
-
-    const quantidadeNumerica = Number(formPecaQuebrada.quantidade);
-    if (!formPecaQuebrada.pecaId) {
-      setError("Selecione a peça quebrada.");
-      return;
-    }
-    if (!Number.isInteger(quantidadeNumerica) || quantidadeNumerica <= 0) {
-      setError("Informe uma quantidade válida (inteiro maior que zero).");
-      return;
-    }
-
+  const acao = async (manutencao, caminho, corpo = {}, mensagem) => {
+    setErroModal("");
+    setEnviando(true);
     try {
-      setSubmitting(true);
-      setError("");
-      await api.post(`/manutencoes/${manutencaoId}/pecas-quebradas`, {
-        pecaId: formPecaQuebrada.pecaId,
-        quantidade: quantidadeNumerica,
-        observacao: formPecaQuebrada.observacao || null,
-      });
-      setPecaQuebradaAbertoId(null);
-      await carregarDados();
-    } catch (err) {
-      setError(
-        err.response?.data?.error || "Erro ao registrar peça quebrada",
-      );
+      await api.post(`/manutencoes/${manutencao.id}/${caminho}`, corpo);
+      setModal(null);
+      if (mensagem) setAviso(mensagem);
+      await atualizarTudo();
+    } catch (e) {
+      const texto = mensagemDeErro(e, "Não foi possível concluir a ação");
+      if (modal) setErroModal(texto);
+      else setErro(texto);
+      if (e?.response?.status === 409) await atualizarTudo();
     } finally {
-      setSubmitting(false);
+      setEnviando(false);
     }
   };
 
-  const handleResolverAlerta = async (id) => {
+  const registrarPeca = async (manutencao, tipo, dados) => {
+    setErroModal("");
+    setEnviando(true);
     try {
-      setError("");
+      await api.post(`/manutencoes/${manutencao.id}/${tipo === "usada" ? "pecas" : "pecas-quebradas"}`, {
+        pecaId: dados.pecaId,
+        quantidade: Number(dados.quantidade),
+        observacao: dados.observacao || null,
+      });
+      setModal(null);
+      setAviso(tipo === "usada" ? "Peça usada registrada." : "Peça quebrada registrada.");
+      await atualizarTudo();
+    } catch (e) {
+      setErroModal(mensagemDeErro(e, "Erro ao registrar a peça"));
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const resolverAlerta = async (id) => {
+    try {
       await api.patch(`/alertas-movimentacao/${id}/resolver`);
-      await carregarDados();
-      await atualizarAlertasManutencaoCount();
-    } catch (err) {
-      setError(
-        err.response?.data?.error || "Erro ao resolver alerta de movimentação",
-      );
+      await carregar();
+      atualizarAlertasManutencaoCount?.();
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Erro ao resolver alerta"));
     }
   };
 
-  if (loading || authLoading) {
-    return <PageLoader />;
-  }
+  if (carregando || authLoading) return <PageLoader />;
 
-  const limparFiltros = () => {
-    setFiltros({
-      status: "TODAS",
-      dataInicio: "",
-      dataFim: "",
-      lojaId: "",
-      maquinaId: "",
-      usuarioId: "",
-    });
+  const abrirModal = (tipo, manutencao, inicial = {}) => {
+    setErroModal("");
+    setModal({ tipo, manutencao, dados: inicial });
   };
-
-  const formatarDataHora = (dataIso) => {
-    if (!dataIso) return "-";
-    const data = new Date(dataIso);
-    if (Number.isNaN(data.getTime())) return "-";
-    return data.toLocaleString("pt-BR");
-  };
-
-  const formatarData = (dataIso) => {
-    if (!dataIso) return "-";
-    const data = new Date(`${dataIso}T00:00:00`);
-    if (Number.isNaN(data.getTime())) return "-";
-    return data.toLocaleDateString("pt-BR");
-  };
+  const mudarModal = (campo, valor) => setModal((m) => ({ ...m, dados: { ...m.dados, [campo]: valor } }));
 
   return (
     <div className="min-h-screen bg-background-light bg-pattern teddy-pattern">
       <Navbar />
-
-      <div className="mx-auto max-w-5xl space-y-4 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
         <PageHeader
           title="Manutenção"
-          subtitle={`Usuário: ${usuario?.nome || "-"} (${usuario?.role || "-"})`}
+          subtitle="Solicite, acompanhe e resolva: do pedido até o gasto lançado"
           icon="🛠️"
+          action={
+            podeAbrir ? (
+              <button type="button" onClick={() => setAbrindo((a) => !a)} className="btn-primary">
+                {abrindo ? "Fechar" : podeAutorizar ? "➕ Abrir manutenção" : "➕ Solicitar manutenção"}
+              </button>
+            ) : null
+          }
         />
 
-        {error && (
-          <AlertBox type="error" message={error} onClose={() => setError("")} />
-        )}
-
-        {alertaRecorrencia && alertaRecorrencia.length > 0 && (
-          <AlertBox
-            type="warning"
-            message={`⚠️ Manutenção recorrente detectada: ${alertaRecorrencia.join(" ")}`}
-            onClose={() => setAlertaRecorrencia(null)}
-          />
-        )}
-
-        {usuario?.role === "FUNCIONARIO" && (
-          <div className="card">
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">
-              🔩 Meu estoque de peças
-            </h2>
-            {meuEstoquePecas.filter((item) => item.quantidade > 0).length ===
-            0 ? (
-              <p className="text-sm text-gray-600">
-                Você não tem peças em estoque no momento.
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {meuEstoquePecas
-                  .filter((item) => item.quantidade > 0)
-                  .map((item) => (
-                    <Badge key={item.id} variant="info" size="sm">
-                      {item.peca?.nome}: {item.quantidade}{" "}
-                      {item.peca?.unidade || ""}
-                    </Badge>
-                  ))}
-              </div>
-            )}
+        {erro && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{erro}</div>}
+        {aviso && (
+          <div className="flex justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">
+            <span>{aviso}</span>
+            <button type="button" onClick={() => setAviso("")}>✕</button>
           </div>
         )}
 
-        {veAlertasMovimentacao && (
-          <div className="card border-l-4 border-amber-500">
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">
-              ⚠️ Alertas de Movimentação ({alertasMovimentacao.length})
-            </h2>
+        {/* Abrir manutenção */}
+        {abrindo && (
+          <form onSubmit={abrirManutencao} className="card space-y-5">
+            <h2 className="text-xl font-black text-gray-900">🛠️ {podeAutorizar ? "Abrir manutenção" : "Solicitar manutenção"}</h2>
 
-            {alertasMovimentacao.length === 0 ? (
-              <p className="text-sm text-gray-600">Nenhum alerta pendente.</p>
-            ) : (
-              <div className="space-y-3">
-                {alertasMovimentacao.map((alerta) => (
-                  <div
-                    key={alerta.id}
-                    className="rounded-lg border border-amber-200 bg-amber-50 p-4"
+            <section className="space-y-2">
+              <p className="text-sm font-black text-gray-700">1. Onde é o problema?</p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <SelectBusca
+                  opcoes={(destinos.lojas || []).map((l) => ({ valor: l.id, rotulo: l.nome }))}
+                  valor={form.lojaId}
+                  aoMudar={(lojaId) => setForm((f) => ({ ...f, lojaId, maquinaId: "" }))}
+                  placeholder="🏪 Loja"
+                  required
+                />
+                <SelectBusca
+                  opcoes={maquinasDaLoja.map((m) => ({ valor: m.id, rotulo: `${m.codigo}${m.tipo ? ` – ${m.tipo}` : ""}`, detalhe: m.nome || undefined }))}
+                  valor={form.maquinaId}
+                  aoMudar={(maquinaId) => setForm((f) => ({ ...f, maquinaId }))}
+                  opcaoVazia="Problema na loja (não numa máquina)"
+                  placeholder={form.lojaId ? "🎰 Máquina (opcional)" : "Escolha a loja primeiro"}
+                  disabled={!form.lojaId}
+                />
+              </div>
+            </section>
+
+            <section className="space-y-2">
+              <p className="text-sm font-black text-gray-700">2. O que aconteceu?</p>
+              <div className="flex flex-wrap gap-2">
+                {TIPOS_PROBLEMA.map((t) => (
+                  <button
+                    key={t.valor}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, tipoProblema: f.tipoProblema === t.valor ? "" : t.valor }))}
+                    className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${
+                      form.tipoProblema === t.valor ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200 bg-white text-gray-700"
+                    }`}
                   >
-                    <div className="space-y-1 text-sm text-gray-800">
-                      <p>
-                        <span className="font-semibold">Loja:</span>{" "}
-                        {alerta.loja?.nome || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Máquina:</span>{" "}
-                        {alerta.maquina
-                          ? `${alerta.maquina.nome || ""} - ${alerta.maquina.codigo || ""}`
-                          : "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Usuário:</span>{" "}
-                        {alerta.usuario?.nome || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Data/Hora:</span>{" "}
-                        {formatarDataHora(alerta.createdAt)}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Motivo:</span>{" "}
-                        {alerta.observacao}
-                      </p>
-                    </div>
-                    <div className="mt-3">
-                      <button
-                        type="button"
-                        onClick={() => handleResolverAlerta(alerta.id)}
-                        className="btn-primary"
-                      >
-                        Corrigido
-                      </button>
-                    </div>
-                  </div>
+                    {t.icone} {t.rotulo}
+                  </button>
                 ))}
               </div>
-            )}
-          </div>
-        )}
+              <input
+                value={form.titulo}
+                onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
+                placeholder="Resumo (ex.: garra não segura)"
+                maxLength={150}
+                className="input-field w-full"
+                required
+              />
+              <textarea
+                value={form.descricao}
+                onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
+                placeholder="Conte os detalhes: o que acontece, desde quando, o que já tentou..."
+                rows={3}
+                className="input-field w-full"
+                required
+              />
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                Prazo (opcional)
+                <input type="date" value={form.prazo} onChange={(e) => setForm((f) => ({ ...f, prazo: e.target.value }))} className="input-field w-auto" />
+              </label>
+            </section>
 
-        {podeCriarManutencao && (
-          <form onSubmit={handleCriar} className="card-gradient space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
-                <span className="text-xl">🛠️</span> Lançar manutenção
-              </h2>
-              <span className="text-xs font-medium text-gray-500">
-                <span className="text-red-500">*</span> campos obrigatórios,
-                o resto é opcional
-              </span>
-            </div>
-
-            {/* O que aconteceu */}
-            <div className="rounded-lg border border-orange-100 bg-orange-50/70 p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-orange-800">
-                <span className="text-lg">📋</span> O que aconteceu?
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-1 block text-sm font-bold text-gray-700">
-                    Título <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    value={form.titulo}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, titulo: e.target.value }))
-                    }
-                    className="input-field"
-                    placeholder="Ex: Troca de trava da máquina 12"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-bold text-gray-700">
-                    Problema relatado <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={form.descricao}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        descricao: e.target.value,
-                      }))
-                    }
-                    className="input-field min-h-28"
-                    placeholder="Descreva o problema relatado"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Onde é o problema */}
-            <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-blue-800">
-                <span className="text-lg">📍</span> Onde é o problema?
-              </h3>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-sm font-bold text-gray-700">
-                    🏪 Loja{" "}
-                    <span className="text-xs font-normal text-gray-500">
-                      (selecione primeiro)
-                    </span>
-                  </label>
-                  <SelectBusca
-                    opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
-                    valor={form.lojaId}
-                    aoMudar={(valorEscolhido) => handleSelectLoja({ target: { value: valorEscolhido, type: "select-one" } })}
-                    opcaoVazia="Selecione a loja..."
-                    placeholder="Selecione a loja..."
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-bold text-gray-700">
-                    🎮 Máquina{" "}
-                    <span className="text-xs font-normal text-gray-500">
-                      (opcional)
-                    </span>
-                  </label>
-                  <SelectBusca
-                    opcoes={maquinasDaLoja.map((maquina) => ({
-                      valor: maquina.id,
-                      rotulo: `${maquina.codigo ?? ""} ${maquina.nome ? `- ${maquina.nome}` : ""}`.trim(),
-                    }))}
-                    valor={form.maquinaId}
-                    aoMudar={(maquinaId) => handleSelectMaquina({ target: { value: maquinaId } })}
-                    disabled={!form.lojaId}
-                    opcaoVazia={
-                      form.lojaId
-                        ? "Nenhuma (problema é da loja)"
-                        : "Selecione a loja primeiro"
-                    }
-                    placeholder={form.lojaId ? "Buscar máquina" : "Selecione a loja primeiro"}
-                  />
-                  {!form.lojaId && (
-                    <p className="mt-1 text-xs text-gray-500">
-                      Escolha a loja para poder escolher a máquina.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {historicoMaquina && (
-                <div className="mt-3 rounded-lg border border-gray-200 bg-white/70 p-3">
-                  <p className="text-sm font-semibold text-gray-800">
-                    Histórico desta máquina (
-                    {historicoMaquina.manutencoes.length})
-                  </p>
-                  {historicoMaquina.recorrente && (
-                    <p className="mt-1 text-xs font-medium text-amber-700">
-                      ⚠️ {historicoMaquina.recorrenciaMotivos.join(" ")}
-                    </p>
-                  )}
-                  {historicoMaquina.manutencoes.length === 0 ? (
-                    <p className="mt-1 text-xs text-gray-500">
-                      Nenhuma manutenção anterior registrada.
-                    </p>
-                  ) : (
-                    <ul className="mt-2 space-y-1 text-xs text-gray-600">
-                      {historicoMaquina.manutencoes.slice(0, 5).map((item) => (
-                        <li key={item.id}>
-                          {formatarDataHora(item.createdAt)} —{" "}
-                          {obterLabelTipoProblema(item.tipoProblema)} —{" "}
-                          {obterStatusInfo(item.status).label} — {item.titulo}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Classificação */}
-            <div className="rounded-lg border border-violet-100 bg-violet-50/70 p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-violet-800">
-                <span className="text-lg">🏷️</span> Classificação{" "}
-                <span className="text-xs font-normal normal-case text-gray-500">
-                  (opcional)
-                </span>
-              </h3>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-sm font-bold text-gray-700">
-                    Tipo de problema
-                  </label>
-                  <select
-                    value={form.tipoProblema}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        tipoProblema: e.target.value,
-                      }))
-                    }
-                    className="select-field"
-                  >
-                    <option value="">Selecione...</option>
-                    {TIPOS_PROBLEMA.map((tipo) => (
-                      <option key={tipo.value} value={tipo.value}>
-                        {tipo.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-bold text-gray-700">
-                    📅 Prazo / data de aviso
-                  </label>
-                  <input
-                    type="date"
-                    value={form.prazo}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, prazo: e.target.value }))
-                    }
-                    className="input-field"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Responsáveis */}
-            <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-emerald-800">
-                <span className="text-lg">👷</span> Responsáveis
-              </h3>
-
-              <div>
-                <label className="mb-1 block text-sm font-bold text-gray-700">
-                  Adicionar funcionário{" "}
-                  <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <SelectBusca
-                      opcoes={funcionarios
-                        .filter(
-                          (funcionario) =>
-                            !form.funcionariosIds.includes(funcionario.id),
-                        )
-                        .map((funcionario) => ({
-                          valor: funcionario.id,
-                          rotulo: funcionario.nome ?? "",
-                          detalhe: funcionario.email || undefined,
-                        }))}
-                      valor={funcionarioParaAdicionar}
-                      aoMudar={setFuncionarioParaAdicionar}
-                      opcaoVazia="Selecione um funcionário..."
-                      placeholder="Buscar funcionário"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAdicionarFuncionario}
-                    disabled={!funcionarioParaAdicionar}
-                    className="btn-secondary shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    ➕ Adicionar
-                  </button>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  Adicione quantos funcionários forem necessários — todos
-                  poderão ver e resolver essa manutenção. Clique na ⭐ de um
-                  deles para marcá-lo como responsável principal (opcional).
-                </p>
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {form.funcionariosIds.length === 0 ? (
-                  <p className="text-xs text-gray-500">
-                    Nenhum funcionário adicionado ainda.
-                  </p>
-                ) : (
-                  form.funcionariosIds.map((id) => {
-                    const funcionario = funcionarios.find(
-                      (item) => item.id === id,
-                    );
-                    const ehResponsavel = form.responsavelId === id;
-
-                    return (
-                      <span
-                        key={id}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
-                          ehResponsavel
-                            ? "border-emerald-400 bg-emerald-100 text-emerald-900"
-                            : "border-gray-300 bg-white text-gray-700"
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleDefinirResponsavel(id)}
-                          title={
-                            ehResponsavel
-                              ? "Responsável principal"
-                              : "Marcar como responsável principal"
-                          }
-                          className="text-sm leading-none"
-                        >
-                          {ehResponsavel ? "⭐" : "☆"}
-                        </button>
-                        {funcionario?.nome || "Funcionário"}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoverFuncionario(id)}
-                          title="Remover"
-                          className="ml-0.5 leading-none text-gray-400 hover:text-red-600"
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Peça planejada */}
-            <div className="rounded-lg border border-sky-100 bg-sky-50/70 p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-sky-800">
-                <span className="text-lg">🔩</span> Peça{" "}
-                <span className="text-xs font-normal normal-case text-gray-500">
-                  (opcional)
-                </span>
-              </h3>
-              <p className="mb-3 text-xs text-gray-600">
-                A peça só é descontada do carrinho do funcionário quando essa
-                manutenção for marcada como <strong>Concluída</strong> — até lá
-                fica só reservada/planejada aqui.
+            {podeAutorizar ? (
+              <section className="space-y-2">
+                <p className="text-sm font-black text-gray-700">3. Para quem vai?</p>
+                <EscolhaDestino valor={form} aoMudar={setForm} destinos={destinos} />
+              </section>
+            ) : (
+              <p className="rounded-lg bg-violet-50 p-3 text-sm text-violet-800">
+                📥 Sua solicitação vai para o Cadastro/admin autorizar e escolher quem vai fazer. Você acompanha em "Pedidas por mim".
               </p>
-
-              <div>
-                <label className="mb-1 block text-sm font-bold text-gray-700">
-                  Peça
-                </label>
-                <SelectBusca
-                  opcoes={pecas.map((peca) => ({ valor: peca.id, rotulo: peca.nome ?? "" }))}
-                  valor={form.pecaId}
-                  aoMudar={(valorEscolhido) => setForm((prev) => ({
-                      ...prev,
-                      pecaId: valorEscolhido,
-                      pecaFuncionarioId: "",
-                      pecaQuantidade: "",
-                    }))}
-                  opcaoVazia="Nenhuma peça"
-                  placeholder="Nenhuma peça"
-                  disabled={form.funcionariosIds.length === 0}
-                />
-                {form.funcionariosIds.length === 0 && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    Adicione um funcionário responsável primeiro.
-                  </p>
-                )}
-              </div>
-
-              {form.pecaId && (
-                <>
-                  <div className="mt-3 rounded-lg bg-white/80 p-3 text-xs text-gray-700">
-                    <p className="font-bold text-gray-800">
-                      Disponibilidade de{" "}
-                      {pecas.find((item) => item.id === form.pecaId)?.nome}:
-                    </p>
-                    {carregandoEstoquePeca ? (
-                      <p className="mt-1 text-gray-500">
-                        Verificando estoque...
-                      </p>
-                    ) : (
-                      <ul className="mt-1 space-y-0.5">
-                        {form.funcionariosIds.map((id) => {
-                          const funcionario = funcionarios.find(
-                            (item) => item.id === id,
-                          );
-                          return (
-                            <li key={id}>
-                              👷 {funcionario?.nome || "Funcionário"}:{" "}
-                              {estoquePecaPorFuncionario[id] ?? 0}{" "}
-                              {pecas.find((item) => item.id === form.pecaId)
-                                ?.unidade || "un"}{" "}
-                              no carrinho
-                            </li>
-                          );
-                        })}
-                        <li>
-                          🏭 Estoque central da empresa:{" "}
-                          {pecas.find((item) => item.id === form.pecaId)
-                            ?.quantidadeEstoque ?? 0}{" "}
-                          {pecas.find((item) => item.id === form.pecaId)
-                            ?.unidade || "un"}
-                        </li>
-                      </ul>
-                    )}
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-sm font-bold text-gray-700">
-                        Funcionário que vai usar{" "}
-                        <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={form.pecaFuncionarioId}
-                        onChange={(e) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            pecaFuncionarioId: e.target.value,
-                          }))
-                        }
-                        className="select-field"
-                      >
-                        <option value="">Selecione...</option>
-                        {form.funcionariosIds.map((id) => {
-                          const funcionario = funcionarios.find(
-                            (item) => item.id === id,
-                          );
-                          return (
-                            <option key={id} value={id}>
-                              {funcionario?.nome || "Funcionário"} (
-                              {estoquePecaPorFuncionario[id] ?? 0} no carrinho)
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm font-bold text-gray-700">
-                        Quantidade <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={form.pecaQuantidade}
-                        onChange={(e) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            pecaQuantidade: e.target.value,
-                          }))
-                        }
-                        className="input-field"
-                        placeholder="Ex: 1"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-3">
-                    <label className="mb-1 block text-sm font-bold text-gray-700">
-                      Observação (opcional)
-                    </label>
-                    <input
-                      type="text"
-                      value={form.pecaObservacao}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          pecaObservacao: e.target.value,
-                        }))
-                      }
-                      className="input-field"
-                      placeholder="Ex: peça trocada por desgaste"
-                    />
-                  </div>
-
-                  <p className="mt-2 text-xs text-gray-500">
-                    Quando a manutenção for concluída, o sistema desconta essa
-                    quantidade do carrinho do funcionário selecionado. Se ele
-                    não tiver estoque suficiente naquele momento, a conclusão
-                    é bloqueada até você enviar mais peça pra ele na tela de
-                    Peças.
-                  </p>
-                </>
-              )}
-            </div>
-
-            {/* Custo — só ADMIN, é o que gera o gasto variável automático */}
-            {podeDefinirCusto && (
-              <div className="rounded-lg border border-amber-100 bg-amber-50/70 p-4">
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-amber-800">
-                  <span className="text-lg">💰</span> Custo da manutenção{" "}
-                  <span className="text-xs font-normal normal-case text-gray-500">
-                    (opcional)
-                  </span>
-                </h3>
-                <div className="sm:w-1/2">
-                  <label className="mb-1 block text-sm font-bold text-gray-700">
-                    Custo (R$)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.custo}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, custo: e.target.value }))
-                    }
-                    className="input-field"
-                    placeholder="Ex: 150.00"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Se informado, gera automaticamente um gasto variável para a
-                    loja ou máquina selecionada.
-                  </p>
-                </div>
-              </div>
             )}
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setAbrindo(false)} className="btn-secondary">Cancelar</button>
               <button
                 type="submit"
-                disabled={submitting}
-                className="btn-primary disabled:opacity-60"
+                disabled={enviando || (podeAutorizar && (form.destinoTipo === "setor" ? !form.setor : !form.destinatarioId))}
+                className="btn-primary disabled:opacity-50"
               >
-                {submitting ? "Salvando..." : "🛠️ Lançar manutenção"}
+                {enviando ? "Enviando..." : podeAutorizar ? "Abrir manutenção" : "Enviar solicitação"}
               </button>
             </div>
           </form>
         )}
 
-        {veTodasManutencoes && (
-          <div className="card">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Filtros (Admin)
-              </h2>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleAtualizarDados}
-                  disabled={atualizando}
-                  className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {atualizando ? "Atualizando..." : "Aplicar filtros"}
-                </button>
-                <button
-                  type="button"
-                  onClick={limparFiltros}
-                  className="btn-secondary"
-                >
-                  Limpar
-                </button>
-              </div>
+        {/* Alertas de movimentação (gestão) */}
+        {veAlertasMovimentacao && alertasMovimentacao.length > 0 && (
+          <details className="card border-l-4 border-amber-500">
+            <summary className="cursor-pointer text-lg font-bold text-gray-900">
+              ⚠️ Alertas de movimentação ({alertasMovimentacao.length})
+            </summary>
+            <div className="mt-3 space-y-2">
+              {alertasMovimentacao.map((alerta) => (
+                <div key={alerta.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+                  <div>
+                    <p className="font-semibold">
+                      {alerta.loja?.nome || "-"} · {alerta.maquina ? `${alerta.maquina.codigo || ""} ${alerta.maquina.nome || ""}` : "-"}
+                    </p>
+                    <p className="text-gray-700">{alerta.observacao}</p>
+                    <p className="text-xs text-gray-500">{alerta.usuario?.nome || "-"} · {dataHora(alerta.createdAt)}</p>
+                  </div>
+                  <button type="button" onClick={() => resolverAlerta(alerta.id)} className="btn-primary px-3 py-1.5 text-sm">Corrigido</button>
+                </div>
+              ))}
             </div>
+          </details>
+        )}
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-6">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Status
-                </label>
-                <select
-                  value={filtros.status}
-                  onChange={(e) =>
-                    setFiltros((prev) => ({ ...prev, status: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                >
-                  <option value="TODAS">Todas</option>
-                  {STATUS_OPCOES.map((opcao) => (
-                    <option key={opcao.value} value={opcao.value}>
-                      {opcao.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Data início
-                </label>
-                <input
-                  type="date"
-                  value={filtros.dataInicio}
-                  onChange={(e) =>
-                    setFiltros((prev) => ({
-                      ...prev,
-                      dataInicio: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Data fim
-                </label>
-                <input
-                  type="date"
-                  value={filtros.dataFim}
-                  onChange={(e) =>
-                    setFiltros((prev) => ({ ...prev, dataFim: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Loja
-                </label>
-                <SelectBusca
-                  opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
-                  valor={filtros.lojaId}
-                  aoMudar={(valorEscolhido) => setFiltros((prev) => ({ ...prev, lojaId: valorEscolhido }))}
-                  opcaoVazia="Todas"
-                  placeholder="Todas"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Máquina
-                </label>
-                <SelectBusca
-                  opcoes={maquinas.map((maquina) => ({ valor: maquina.id, rotulo: maquina.codigo ?? "" }))}
-                  valor={filtros.maquinaId}
-                  aoMudar={(valorEscolhido) => setFiltros((prev) => ({
-                      ...prev,
-                      maquinaId: valorEscolhido,
-                    }))}
-                  opcaoVazia="Todas"
-                  placeholder="Todas"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Usuário
-                </label>
-                <SelectBusca
-                  opcoes={usuariosFiltro.map((user) => ({ valor: user.id, rotulo: `${(user.nome) ?? ""} (${(user.role) ?? ""})` }))}
-                  valor={filtros.usuarioId}
-                  aoMudar={(valorEscolhido) => setFiltros((prev) => ({
-                      ...prev,
-                      usuarioId: valorEscolhido,
-                    }))}
-                  opcaoVazia="Todos"
-                  placeholder="Todos"
-                />
-              </div>
-            </div>
+        {/* Meu carrinho de peças */}
+        {meuEstoque.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white p-3 text-sm shadow-sm">
+            <span className="font-bold text-gray-700">🔩 Minhas peças:</span>
+            {meuEstoque.map((item) => (
+              <span key={item.id} className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                {item.peca?.nome}: {item.quantidade}
+              </span>
+            ))}
           </div>
         )}
 
-        <div className="card">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
-              <span className="text-xl">🗂️</span> Manutenções
-            </h2>
+        {/* Abas e filtros */}
+        <div className="flex gap-1 overflow-x-auto rounded-xl bg-white p-1 shadow-sm">
+          {abas.map((a) => (
             <button
+              key={a.chave}
               type="button"
-              onClick={handleAtualizarDados}
-              disabled={atualizando}
-              className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => setAba(a.chave)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold ${
+                abaAtual.chave === a.chave ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
+              }`}
             >
-              {atualizando ? "Atualizando..." : "🔄 Atualizar"}
+              {a.rotulo}
+              <span
+                className={`rounded-full px-1.5 text-xs ${
+                  a.destaque && a.total > 0 && abaAtual.chave !== a.chave ? "bg-rose-500 text-white" : "bg-black/10"
+                }`}
+              >
+                {a.total}
+              </span>
             </button>
-          </div>
-
-          {manutencoesVisiveis.length === 0 ? (
-            <p className="text-sm text-gray-600">
-              Nenhuma manutenção encontrada.
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {manutencoesVisiveis.map((item) => {
-                const podePermitido =
-                  veTodasManutencoes ||
-                  item.responsavel?.id === usuario?.id ||
-                  (item.funcionariosPermitidos || []).some(
-                    (f) => f.id === usuario?.id,
-                  );
-                const resolvida = item.status === "CONCLUIDA";
-                const podeAtualizar = !resolvida && podePermitido;
-                const corCard = resolvida
-                  ? {
-                      borderClass: "border-emerald-300",
-                      bgClass: "bg-emerald-50/50",
-                    }
-                  : {
-                      borderClass: "border-amber-300",
-                      bgClass: "bg-amber-50/60",
-                    };
-
-                return (
-                  <div
-                    key={item.id}
-                    className={`rounded-xl border-2 p-4 shadow-sm transition-shadow hover:shadow-md ${corCard.borderClass} ${corCard.bgClass}`}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-base font-bold text-gray-900">
-                          {item.titulo}
-                        </h3>
-                        <p className="mt-1 text-sm text-gray-700">
-                          {item.descricao}
-                        </p>
-                      </div>
-                      <Badge variant={resolvida ? "success" : "warning"} size="sm">
-                        {resolvida ? "🟢 Resolvida" : "🟠 Pendente"}
-                      </Badge>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1.5 rounded-lg bg-white/80 p-3 text-xs text-gray-700 sm:grid-cols-2">
-                      <p>
-                        🎮 <span className="font-semibold">Máquina:</span>{" "}
-                        {item.maquina
-                          ? `${item.maquina.codigo} ${item.maquina.nome || ""}`
-                          : "-"}
-                      </p>
-                      <p>
-                        🏪 <span className="font-semibold">Loja:</span>{" "}
-                        {item.loja?.nome || "-"}
-                      </p>
-                      <p>
-                        🏷️ <span className="font-semibold">Tipo:</span>{" "}
-                        {obterLabelTipoProblema(item.tipoProblema)}
-                      </p>
-                      <p>
-                        👷 <span className="font-semibold">Responsável:</span>{" "}
-                        {item.responsavel?.nome || "-"}
-                      </p>
-                      <p>
-                        📅 <span className="font-semibold">Prazo:</span>{" "}
-                        {formatarData(item.prazo)}
-                      </p>
-                      <p>
-                        ✍️ <span className="font-semibold">Criado por:</span>{" "}
-                        {item.criadoPor?.nome || "-"}
-                      </p>
-                      {podeDefinirCusto && (
-                        <p>
-                          💰 <span className="font-semibold">Custo:</span>{" "}
-                          {item.custo !== null && item.custo !== undefined
-                            ? `R$ ${item.custo}`
-                            : "-"}
-                        </p>
-                      )}
-                      {veTodasManutencoes && (
-                        <p className="sm:col-span-2">
-                          👥{" "}
-                          <span className="font-semibold">
-                            Podem visualizar/resolver:
-                          </span>{" "}
-                          {(item.funcionariosPermitidos || [])
-                            .map((f) => f.nome)
-                            .join(", ") || "-"}
-                        </p>
-                      )}
-                      {veTodasManutencoes && item.status === "CONCLUIDA" && (
-                        <>
-                          <p>
-                            ✅{" "}
-                            <span className="font-semibold">
-                              Concluído por:
-                            </span>{" "}
-                            {item.resolvidoPor?.nome || "-"}
-                          </p>
-                          <p>
-                            🕒{" "}
-                            <span className="font-semibold">
-                              Concluído em:
-                            </span>{" "}
-                            {formatarDataHora(item.resolvidoEm)}
-                          </p>
-                        </>
-                      )}
-                    </div>
-
-                    {podeAtualizar && (
-                      <div className="mt-3">
-                        <button
-                          type="button"
-                          onClick={() => handleResolver(item.id)}
-                          className="btn-primary text-sm"
-                        >
-                          ✅ Marcar como resolvida
-                        </button>
-                      </div>
-                    )}
-
-                    {item.pecaPlanejadaId && !item.pecaPlanejadaConsumida && (
-                      <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-2.5">
-                        <p className="text-xs font-bold text-sky-800">
-                          🔧 Peça planejada (será descontada ao concluir)
-                        </p>
-                        <p className="mt-0.5 text-xs text-sky-700">
-                          {item.pecaPlanejadaQuantidade}{" "}
-                          {item.pecaPlanejada?.unidade || ""}{" "}
-                          {item.pecaPlanejada?.nome} — reservada pra{" "}
-                          {item.pecaPlanejadaFuncionario?.nome || "-"}
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="mt-3 border-t border-gray-200/70 pt-3">
-                      <p className="text-xs font-bold text-gray-700">
-                        🔩 Peças usadas
-                      </p>
-                      {(item.pecasUsadas || []).length === 0 ? (
-                        <p className="text-xs text-gray-500">
-                          Nenhuma peça registrada.
-                        </p>
-                      ) : (
-                        <ul className="mt-1 space-y-1 text-xs text-gray-600">
-                          {item.pecasUsadas.map((uso) => (
-                            <li key={uso.id}>
-                              {uso.quantidade} {uso.peca?.unidade || ""}{" "}
-                              {uso.peca?.nome} — usado por{" "}
-                              {uso.usuario?.nome || "-"} em{" "}
-                              {formatarDataHora(uso.dataUso)}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-
-                      {podePermitido && (
-                        <div className="mt-2">
-                          <button
-                            type="button"
-                            onClick={() => abrirUsoPeca(item.id)}
-                            className="btn-secondary text-xs"
-                          >
-                            {usoPecaAbertoId === item.id
-                              ? "Cancelar"
-                              : "🔧 Registrar uso de peça"}
-                          </button>
-                        </div>
-                      )}
-
-                      {usoPecaAbertoId === item.id && (
-                        <form
-                          onSubmit={(e) => handleRegistrarUsoPeca(e, item.id)}
-                          className="mt-2 grid grid-cols-1 gap-2 rounded-lg bg-white/80 p-3 md:grid-cols-3"
-                        >
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-gray-700">
-                              Peça
-                            </label>
-                            <SelectBusca
-                              opcoes={pecas.map((peca) => ({ valor: peca.id, rotulo: peca.nome ?? "" }))}
-                              valor={formUsoPeca.pecaId}
-                              aoMudar={(valorEscolhido) => setFormUsoPeca((prev) => ({
-                                  ...prev,
-                                  pecaId: valorEscolhido,
-                                }))}
-                              opcaoVazia="Selecione..."
-                              placeholder="Selecione..."
-                              className="text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-gray-700">
-                              Quantidade
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              step="1"
-                              value={formUsoPeca.quantidade}
-                              onChange={(e) =>
-                                setFormUsoPeca((prev) => ({
-                                  ...prev,
-                                  quantidade: e.target.value,
-                                }))
-                              }
-                              className="input-field py-1.5 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-gray-700">
-                              Observação
-                            </label>
-                            <input
-                              value={formUsoPeca.observacao}
-                              onChange={(e) =>
-                                setFormUsoPeca((prev) => ({
-                                  ...prev,
-                                  observacao: e.target.value,
-                                }))
-                              }
-                              className="input-field py-1.5 text-sm"
-                            />
-                          </div>
-                          <div className="md:col-span-3 flex justify-end">
-                            <button
-                              type="submit"
-                              disabled={submitting}
-                              className="btn-primary text-sm disabled:opacity-60"
-                            >
-                              {submitting ? "Salvando..." : "Confirmar uso"}
-                            </button>
-                          </div>
-                        </form>
-                      )}
-                    </div>
-
-                    <div className="mt-3 border-t border-gray-200/70 pt-3">
-                      <p className="text-xs font-bold text-gray-700">
-                        🛠️ Peças quebradas devolvidas
-                      </p>
-                      {(item.pecasQuebradas || []).length === 0 ? (
-                        <p className="text-xs text-gray-500">
-                          Nenhuma peça quebrada registrada.
-                        </p>
-                      ) : (
-                        <ul className="mt-1 space-y-1 text-xs text-gray-600">
-                          {item.pecasQuebradas.map((devolucao) => (
-                            <li key={devolucao.id}>
-                              {devolucao.quantidade}{" "}
-                              {devolucao.peca?.unidade || ""}{" "}
-                              {devolucao.peca?.nome} — devolvida por{" "}
-                              {devolucao.funcionario?.nome || "-"} em{" "}
-                              {formatarDataHora(devolucao.dataDevolucao)}
-                              {devolucao.observacao
-                                ? ` (${devolucao.observacao})`
-                                : ""}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-
-                      {podePermitido && (
-                        <div className="mt-2">
-                          <button
-                            type="button"
-                            onClick={() => abrirPecaQuebrada(item.id)}
-                            className="btn-secondary text-xs"
-                          >
-                            {pecaQuebradaAbertoId === item.id
-                              ? "Cancelar"
-                              : "🛠️ Devolver peça quebrada"}
-                          </button>
-                        </div>
-                      )}
-
-                      {pecaQuebradaAbertoId === item.id && (
-                        <form
-                          onSubmit={(e) =>
-                            handleRegistrarPecaQuebrada(e, item.id)
-                          }
-                          className="mt-2 grid grid-cols-1 gap-2 rounded-lg bg-white/80 p-3 md:grid-cols-3"
-                        >
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-gray-700">
-                              Peça
-                            </label>
-                            <SelectBusca
-                              opcoes={pecas.map((peca) => ({ valor: peca.id, rotulo: peca.nome ?? "" }))}
-                              valor={formPecaQuebrada.pecaId}
-                              aoMudar={(valorEscolhido) => setFormPecaQuebrada((prev) => ({
-                                  ...prev,
-                                  pecaId: valorEscolhido,
-                                }))}
-                              opcaoVazia="Selecione..."
-                              placeholder="Selecione..."
-                              className="text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-gray-700">
-                              Quantidade
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              step="1"
-                              value={formPecaQuebrada.quantidade}
-                              onChange={(e) =>
-                                setFormPecaQuebrada((prev) => ({
-                                  ...prev,
-                                  quantidade: e.target.value,
-                                }))
-                              }
-                              className="input-field py-1.5 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-gray-700">
-                              Observação
-                            </label>
-                            <input
-                              value={formPecaQuebrada.observacao}
-                              onChange={(e) =>
-                                setFormPecaQuebrada((prev) => ({
-                                  ...prev,
-                                  observacao: e.target.value,
-                                }))
-                              }
-                              className="input-field py-1.5 text-sm"
-                              placeholder="Ex: quebrou ao instalar"
-                            />
-                          </div>
-                          <div className="md:col-span-3 flex justify-end">
-                            <button
-                              type="submit"
-                              disabled={submitting}
-                              className="btn-primary text-sm disabled:opacity-60"
-                            >
-                              {submitting ? "Salvando..." : "Confirmar devolução"}
-                            </button>
-                          </div>
-                        </form>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+          ))}
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="🔍 Buscar por problema, loja, máquina, pessoa"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+          {veTodas && (
+            <div className="w-full sm:w-72">
+              <SelectBusca
+                opcoes={(destinos.lojas || []).map((l) => ({ valor: l.id, rotulo: l.nome }))}
+                valor={filtroLoja}
+                aoMudar={setFiltroLoja}
+                opcaoVazia="Todas as lojas"
+                placeholder="Todas as lojas"
+                className="text-sm"
+              />
             </div>
           )}
         </div>
+
+        {/* Lista */}
+        {visiveis.length === 0 && (
+          <div className="rounded-xl border border-dashed border-gray-300 bg-white/60 p-8 text-center text-sm text-gray-500">
+            Nenhuma manutenção aqui.
+          </div>
+        )}
+        <div className="space-y-3">
+          {visiveis.map((m) => {
+            const info = STATUS_MANUTENCAO[m.status] || STATUS_MANUTENCAO.PENDENTE;
+            const tipo = TIPOS_PROBLEMA.find((t) => t.valor === m.tipoProblema);
+            const minha = m.aceitaPorId === usuario?.id;
+            const podeTrabalhar = minha || (veTodas && m.status === "ACEITA");
+            const podeAceitar = m.status === "PENDENTE" && !ehAdmin && (ehParaMim(m, usuario) || veTodas);
+            const aberto = Boolean(detalhesAbertos[m.id]);
+            const atrasada = m.prazo && !["CONCLUIDA", "FINALIZADA"].includes(m.status) && m.prazo < new Date().toISOString().slice(0, 10);
+            return (
+              <div key={m.id} className={`rounded-2xl border border-l-4 border-gray-100 bg-white p-4 shadow-sm ${info.borda}`}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full border px-2.5 py-0.5 text-xs font-black ${info.classe}`}>
+                        {info.icone} {info.rotulo}
+                      </span>
+                      {tipo && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">{tipo.icone} {tipo.rotulo}</span>}
+                      {atrasada && <span className="rounded-full bg-rose-500 px-2 py-0.5 text-xs font-bold text-white">Atrasada</span>}
+                      {m.servicoExterno && m.status === "ACEITA" && (
+                        <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800">🛠️ {m.servicoExterno} solicitado</span>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-black text-gray-900">{m.titulo}</h3>
+                    <p className="text-sm text-gray-600">
+                      🏪 {m.loja?.nome || "—"}
+                      {m.maquina && ` · 🎰 ${m.maquina.codigo}${m.maquina.tipo ? ` (${m.maquina.tipo})` : ""}`}
+                    </p>
+                  </div>
+                  <div className="text-right text-xs text-gray-500">
+                    <p>Aberta por <b>{m.criadoPor?.nome || "-"}</b></p>
+                    <p>{dataHora(m.createdAt)}</p>
+                    {m.prazo && <p>Prazo {m.prazo.split("-").reverse().join("/")}</p>}
+                  </div>
+                </div>
+
+                <p className="mt-2 whitespace-pre-line text-sm text-gray-800">{m.descricao}</p>
+
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  {!["SOLICITADA", "RECUSADA"].includes(m.status) && (
+                    <span className="text-gray-600">Para: <b className="text-gray-900">{destinoTexto(m)}</b></span>
+                  )}
+                  {m.aceitaPor && !["PENDENTE"].includes(m.status) && (
+                    <span className="text-gray-600">Com: <b className="text-gray-900">{m.aceitaPor.nome}</b>{m.aceitaEm && ` desde ${dataHora(m.aceitaEm)}`}</span>
+                  )}
+                </div>
+
+                {m.status === "SOLICITADA" && (
+                  <p className="mt-2 rounded-lg bg-violet-50 p-2 text-sm text-violet-800">
+                    📥 Aguardando autorização do Cadastro/admin.
+                  </p>
+                )}
+                {m.status === "RECUSADA" && (
+                  <p className="mt-2 rounded-lg bg-gray-50 p-2 text-sm text-gray-700">
+                    ✖️ Recusada{m.autorizadaPor ? ` por ${m.autorizadaPor.nome}` : ""}: {m.motivoRecusa}
+                  </p>
+                )}
+                {m.status === "AGUARDANDO" && m.motivoAguardando && (
+                  <p className="mt-2 rounded-lg bg-rose-50 p-2 text-sm text-rose-800">
+                    ⏸️ <b>{m.aceitaPor?.nome || "Quem aceitou"} não conseguiu fazer:</b> {m.motivoAguardando}
+                  </p>
+                )}
+                {m.status === "CONCLUIDA" && (
+                  <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-sm text-emerald-800">
+                    ✅ Concluída por <b>{m.resolvidoPor?.nome || m.aceitaPor?.nome || "-"}</b> em {dataHora(m.resolvidoEm)}
+                    {ehAdmin ? " — falta finalizar com o gasto." : " — aguardando o admin finalizar."}
+                  </p>
+                )}
+                {m.status === "FINALIZADA" && (
+                  <p className="mt-2 rounded-lg bg-gray-50 p-2 text-sm text-gray-700">
+                    🏁 Finalizada{m.finalizadaPor ? ` por ${m.finalizadaPor.nome}` : ""} · gasto <b>{reais(m.custo)}</b>
+                    {m.gastoDescricao && ` — ${m.gastoDescricao}`}
+                  </p>
+                )}
+
+                {/* Ações */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {podeAutorizar && m.status === "SOLICITADA" && (
+                    <>
+                      <button type="button" onClick={() => abrirModal("autorizar", m, { destinoTipo: "setor", setor: "", destinatarioId: "", prazo: m.prazo || "" })} className="btn-primary px-4 py-2 text-sm">
+                        👍 Autorizar e enviar
+                      </button>
+                      <button type="button" onClick={() => abrirModal("recusar", m)} className="btn-secondary px-3 py-2 text-sm">✖️ Recusar</button>
+                    </>
+                  )}
+                  {podeAceitar && (
+                    <button type="button" disabled={enviando} onClick={() => acao(m, "aceitar", {}, "Manutenção aceita: agora ela é sua.")} className="btn-primary px-4 py-2 text-sm">
+                      ✋ Aceitar
+                    </button>
+                  )}
+                  {m.status === "ACEITA" && podeTrabalhar && (
+                    <>
+                      <button type="button" onClick={() => abrirModal("concluir", m)} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700">✅ Concluir</button>
+                      <button type="button" onClick={() => abrirModal("servico", m, { servico: m.servicoExterno || "" })} className="btn-secondary px-3 py-2 text-sm">🛠️ Pedir serviço</button>
+                      <button type="button" onClick={() => abrirModal("aguardar", m)} className="btn-secondary px-3 py-2 text-sm">⏸️ Não consigo fazer</button>
+                      {meuEstoque.length > 0 && minha && (
+                        <button type="button" onClick={() => abrirModal("pecaUsada", m, { quantidade: "1" })} className="btn-secondary px-3 py-2 text-sm">🔩 Peça usada</button>
+                      )}
+                      {pecas.length > 0 && (
+                        <button type="button" onClick={() => abrirModal("pecaQuebrada", m, { quantidade: "1" })} className="btn-secondary px-3 py-2 text-sm">💥 Peça quebrada</button>
+                      )}
+                    </>
+                  )}
+                  {ehAdmin && ["PENDENTE", "ACEITA", "AGUARDANDO"].includes(m.status) && (
+                    <button
+                      type="button"
+                      onClick={() => abrirModal("reenviar", m, { destinoTipo: m.destinatarioId ? "pessoa" : "setor", setor: m.setor || "", destinatarioId: m.destinatarioId || m.aceitaPorId || "" })}
+                      className={`${m.status === "AGUARDANDO" ? "btn-primary" : "btn-secondary"} px-3 py-2 text-sm`}
+                    >
+                      ↪️ Reenviar
+                    </button>
+                  )}
+                  {ehAdmin && m.status === "CONCLUIDA" && (
+                    <button type="button" onClick={() => abrirModal("finalizar", m, { custo: "", gastoDescricao: "" })} className="btn-primary px-4 py-2 text-sm">🏁 Finalizar (lançar gasto)</button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setDetalhesAbertos((d) => ({ ...d, [m.id]: !d[m.id] }))}
+                    className="ml-auto px-2 py-2 text-sm font-semibold text-gray-500 hover:text-gray-800"
+                  >
+                    {aberto ? "Esconder detalhes ▲" : "Detalhes ▼"}
+                  </button>
+                </div>
+
+                {aberto && (
+                  <div className="mt-3 grid grid-cols-1 gap-4 border-t border-gray-100 pt-3 md:grid-cols-2">
+                    <div>
+                      <p className="mb-2 text-xs font-black uppercase text-gray-500">Linha do tempo</p>
+                      <ol className="space-y-2 border-l-2 border-gray-200 pl-3">
+                        {(m.historico || []).length === 0 && <li className="text-sm text-gray-500">Sem registro de etapas (manutenção antiga).</li>}
+                        {(m.historico || []).map((h, i) => (
+                          <li key={i} className="text-sm">
+                            <p className="font-semibold text-gray-800">{ACOES_HISTORICO[h.acao] || h.acao}</p>
+                            <p className="text-xs text-gray-500">{h.usuarioNome || "-"} · {dataHora(h.em)}</p>
+                            {h.detalhe && <p className="text-xs text-gray-700">{h.detalhe}</p>}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <p className="text-xs font-black uppercase text-gray-500">Peças</p>
+                      {(m.pecasUsadas || []).length === 0 && (m.pecasQuebradas || []).length === 0 && <p className="text-gray-500">Nenhuma peça registrada.</p>}
+                      {(m.pecasUsadas || []).map((p) => (
+                        <p key={p.id}>🔩 {p.quantidade}× {p.peca?.nome} <span className="text-xs text-gray-500">({p.usuario?.nome})</span></p>
+                      ))}
+                      {(m.pecasQuebradas || []).map((p) => (
+                        <p key={p.id}>💥 {p.quantidade}× {p.peca?.nome} quebrada <span className="text-xs text-gray-500">({p.funcionario?.nome})</span></p>
+                      ))}
+                      {m.servicoExterno && <p>🛠️ Serviço: {m.servicoExterno} ({dataHora(m.servicoSolicitadoEm)})</p>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
+      {/* Modais das ações */}
+      <Modal
+        isOpen={Boolean(modal)}
+        onClose={() => !enviando && setModal(null)}
+        title={
+          modal
+            ? {
+                autorizar: "👍 Autorizar e enviar",
+                recusar: "✖️ Recusar solicitação",
+                concluir: "✅ Concluir manutenção",
+                servico: "🛠️ Pedir serviço de terceiro",
+                aguardar: "⏸️ Não consigo fazer",
+                reenviar: "↪️ Reenviar manutenção",
+                finalizar: "🏁 Finalizar manutenção",
+                pecaUsada: "🔩 Peça usada",
+                pecaQuebrada: "💥 Peça quebrada",
+              }[modal.tipo]
+            : ""
+        }
+        size="sm"
+      >
+        {modal && (
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const { tipo, manutencao: m, dados } = modal;
+              if (tipo === "autorizar")
+                acao(m, "autorizar", {
+                  setor: dados.destinoTipo === "setor" ? dados.setor : null,
+                  destinatarioId: dados.destinoTipo === "pessoa" ? dados.destinatarioId : null,
+                  prazo: dados.prazo || null,
+                }, "Autorizada e enviada. 👍");
+              if (tipo === "recusar") acao(m, "recusar", { motivo: dados.motivo }, "Solicitação recusada.");
+              if (tipo === "concluir") acao(m, "concluir", { observacao: dados.observacao }, "Manutenção concluída! O admin vai finalizar.");
+              if (tipo === "servico") acao(m, "servico", { servico: dados.servico }, `Serviço "${dados.servico}" anotado.`);
+              if (tipo === "aguardar") acao(m, "aguardar", { motivo: dados.motivo }, "Avisado: a manutenção voltou para o admin.");
+              if (tipo === "reenviar")
+                acao(m, "reenviar", {
+                  setor: dados.destinoTipo === "setor" ? dados.setor : null,
+                  destinatarioId: dados.destinoTipo === "pessoa" ? dados.destinatarioId : null,
+                  observacao: dados.observacao,
+                }, "Manutenção reenviada.");
+              if (tipo === "finalizar") acao(m, "finalizar", { custo: dados.custo, gastoDescricao: dados.gastoDescricao }, "Manutenção finalizada. 🏁");
+              if (tipo === "pecaUsada" || tipo === "pecaQuebrada") registrarPeca(m, tipo === "pecaUsada" ? "usada" : "quebrada", dados);
+            }}
+          >
+            <p className="text-sm text-gray-600">
+              <b>{modal.manutencao.titulo}</b> · {modal.manutencao.loja?.nome || ""}
+              {modal.manutencao.maquina ? ` · ${modal.manutencao.maquina.codigo}` : ""}
+            </p>
+
+            {modal.tipo === "autorizar" && (
+              <>
+                <p className="text-sm whitespace-pre-line text-gray-700">{modal.manutencao.descricao}</p>
+                <p className="text-sm font-black text-gray-700">Para quem vai?</p>
+                <EscolhaDestino valor={modal.dados} aoMudar={(d) => setModal((mm) => ({ ...mm, dados: d }))} destinos={destinos} />
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                  Prazo (opcional)
+                  <input type="date" value={modal.dados.prazo || ""} onChange={(e) => mudarModal("prazo", e.target.value)} className="input-field w-auto" />
+                </label>
+              </>
+            )}
+            {modal.tipo === "recusar" && (
+              <textarea value={modal.dados.motivo || ""} onChange={(e) => mudarModal("motivo", e.target.value)} rows={3} placeholder="Por que não vai ser feita? (quem pediu vai ver)" className="input-field w-full" required minLength={3} />
+            )}
+            {modal.tipo === "concluir" && (
+              <textarea value={modal.dados.observacao || ""} onChange={(e) => mudarModal("observacao", e.target.value)} rows={3} placeholder="O que foi feito? (opcional)" className="input-field w-full" />
+            )}
+            {modal.tipo === "servico" && (
+              <>
+                <input value={modal.dados.servico || ""} onChange={(e) => mudarModal("servico", e.target.value)} placeholder="Qual serviço? Ex.: serralheiro, eletricista" className="input-field w-full" required minLength={3} />
+                <p className="text-xs text-gray-500">A manutenção continua com você. Quando o serviço for feito, toque em Concluir.</p>
+              </>
+            )}
+            {modal.tipo === "aguardar" && (
+              <>
+                <textarea value={modal.dados.motivo || ""} onChange={(e) => mudarModal("motivo", e.target.value)} rows={3} placeholder="Por que não deu? Ex.: faltou a peça X" className="input-field w-full" required minLength={3} />
+                <p className="text-xs text-gray-500">Ela volta para o admin, que reenvia para você ou para outra pessoa.</p>
+              </>
+            )}
+            {modal.tipo === "reenviar" && (
+              <>
+                <EscolhaDestino valor={modal.dados} aoMudar={(d) => setModal((mm) => ({ ...mm, dados: d }))} destinos={destinos} />
+                <input value={modal.dados.observacao || ""} onChange={(e) => mudarModal("observacao", e.target.value)} placeholder="Recado (opcional). Ex.: a peça chegou" className="input-field w-full" />
+              </>
+            )}
+            {modal.tipo === "finalizar" && (
+              <>
+                <label className="block text-sm font-semibold text-gray-700">
+                  Valor gasto (R$) *
+                  <input type="number" step="0.01" min="0" inputMode="decimal" value={modal.dados.custo} onChange={(e) => mudarModal("custo", e.target.value)} placeholder="0,00" className="input-field mt-1 w-full" required />
+                </label>
+                <textarea value={modal.dados.gastoDescricao} onChange={(e) => mudarModal("gastoDescricao", e.target.value)} rows={2} placeholder="O que foi gasto? Ex.: mola + serralheiro (ou: sem gasto, só ajuste)" className="input-field w-full" required minLength={3} />
+                <p className="text-xs text-gray-500">Obrigatório. Pode ser R$ 0. Se for maior que zero, entra em Gasto Variável da loja.</p>
+              </>
+            )}
+            {(modal.tipo === "pecaUsada" || modal.tipo === "pecaQuebrada") && (
+              <>
+                <SelectBusca
+                  opcoes={
+                    modal.tipo === "pecaUsada"
+                      ? meuEstoque.map((i) => ({ valor: i.pecaId || i.peca?.id, rotulo: i.peca?.nome || "Peça", detalhe: `${i.quantidade} comigo` }))
+                      : pecas.map((p) => ({ valor: p.id, rotulo: p.nome, detalhe: p.codigo || undefined }))
+                  }
+                  valor={modal.dados.pecaId || ""}
+                  aoMudar={(pecaId) => mudarModal("pecaId", pecaId)}
+                  placeholder="Buscar peça"
+                  required
+                />
+                <input type="number" min="1" value={modal.dados.quantidade} onChange={(e) => mudarModal("quantidade", e.target.value)} className="input-field w-full" required />
+                <input value={modal.dados.observacao || ""} onChange={(e) => mudarModal("observacao", e.target.value)} placeholder="Observação (opcional)" className="input-field w-full" />
+              </>
+            )}
+
+            {erroModal && <p className="text-sm text-rose-600">{erroModal}</p>}
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => setModal(null)} disabled={enviando} className="btn-secondary">Cancelar</button>
+              <button
+                type="submit"
+                disabled={
+                  enviando ||
+                  (["reenviar", "autorizar"].includes(modal.tipo) &&
+                    (modal.dados.destinoTipo === "setor" ? !modal.dados.setor : !modal.dados.destinatarioId))
+                }
+                className="btn-primary disabled:opacity-50"
+              >
+                {enviando ? "Salvando..." : "Confirmar"}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
       <Footer />
     </div>
   );

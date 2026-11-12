@@ -14,6 +14,7 @@ import { filtrarLojasOperacionais } from "../utils/lojas";
 import Swal from "sweetalert2";
 import { pode } from "../utils/perfis";
 import { MinhasMetas } from "../components/MinhasMetas";
+import { ehParaMim } from "../utils/manutencao";
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -1045,7 +1046,14 @@ export function Dashboard() {
       setLoadingManutencoesPendentes(true);
       const response = await api.get("/manutencoes");
       const lista = Array.isArray(response.data) ? response.data : [];
-      setManutencoesPendentes(lista);
+      // Só o que ainda é pra fazer (pendentes que chegaram + aceitas por ele)
+      setManutencoesPendentes(
+        lista.filter(
+          (m) =>
+            (m.status === "PENDENTE" && ehParaMim(m, usuario)) ||
+            (m.status === "ACEITA" && m.aceitaPorId === usuario?.id),
+        ),
+      );
     } catch (error) {
       console.error("Erro ao carregar manutenções pendentes:", error);
       setManutencoesPendentes([]);

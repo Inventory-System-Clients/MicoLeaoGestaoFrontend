@@ -228,7 +228,7 @@ export function AlertasProvider({ children }) {
         ...extrairAlertas(movInRes.data),
       ];
       const manutencaoItens = Array.isArray(manutencaoRes.data)
-        ? manutencaoRes.data.filter((item) => item.status !== "CONCLUIDA")
+        ? manutencaoRes.data.filter((item) => !["CONCLUIDA", "FINALIZADA"].includes(item.status))
         : [];
       const veiculosItens = Array.isArray(veiculosRes.data)
         ? veiculosRes.data

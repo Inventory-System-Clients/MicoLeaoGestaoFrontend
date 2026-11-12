@@ -19,10 +19,11 @@ const statusMapa = {
 };
 
 const statusManutencaoMapa = {
-  ABERTA: { label: "Aberta", variant: "warning" },
-  EM_ANDAMENTO: { label: "Em andamento", variant: "info" },
-  AGUARDANDO_PECA: { label: "Aguardando peça", variant: "danger" },
+  PENDENTE: { label: "Pendente", variant: "warning" },
+  ACEITA: { label: "Aceita", variant: "info" },
+  AGUARDANDO: { label: "Aguardando", variant: "danger" },
   CONCLUIDA: { label: "Concluída", variant: "success" },
+  FINALIZADA: { label: "Finalizada", variant: "success" },
 };
 
 const tipoProblemaMapa = {
