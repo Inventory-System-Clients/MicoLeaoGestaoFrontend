@@ -22,6 +22,7 @@ const FORM_VAZIO = {
   retirada: "",
   limpezaVidro: false,
   fichas: "",
+  recolheuFichas: false,
   notas: "",
   pix: "",
   limpezaPiso: false,
@@ -30,6 +31,51 @@ const FORM_VAZIO = {
   chaves: false,
   observacoes: "",
 };
+
+const marca = (ok) => (ok ? "✅" : "❌");
+
+// Mensagem da movimentação pro WhatsApp: tudo o que foi feito na visita
+const montarMensagemWhatsapp = (v) => {
+  const linhas = [
+    "🎰 *MOVIMENTAÇÃO DE MÁQUINA*",
+    "",
+    `👤 *Quem fez:* ${v.usuario}`,
+    `📅 *Data/hora:* ${v.dataHora}`,
+    `🏪 *Loja:* ${v.loja}`,
+    `🎮 *Máquina:* ${v.maquina}`,
+    "",
+    "📸 *Relógio*",
+    `-> IN: ${v.contadorIn}${v.inAnterior !== null ? ` (anterior ${v.inAnterior})` : ""}`,
+    `-> OUT: ${v.contadorOut}${v.outAnterior !== null ? ` (anterior ${v.outAnterior})` : ""}`,
+    "",
+    "🧸 *Pelúcias*",
+    `-> Tinha na máquina: ${v.totalPre}`,
+    ...(v.sairam !== null ? [`-> Saíram desde a última: ${v.sairam}`] : []),
+    `-> Abastecido: ${v.abastecidas}${v.produto ? ` (${v.produto})` : ""}`,
+    ...(v.retirada ? [`-> Retirada: ${v.retirada}`] : []),
+    `-> Ficou com: ${v.totalPos}${v.capacidade ? ` de ${v.capacidade}` : ""}`,
+    "",
+    "🪙 *Fichas*",
+    `-> Entre a movimentação anterior e a atual: ${v.fichasDoDia}`,
+    ...(v.fichasPendentes ? [`-> Não recolhidas antes: ${v.fichasPendentes}`] : []),
+    v.recolheu
+      ? `-> ✅ Recolhidas: ${v.fichasDoDia + v.fichasPendentes}`
+      : `-> ❌ Não recolhidas (acumulado na máquina: ${v.fichasDoDia + v.fichasPendentes})`,
+    ...(v.notas ? [`-> Notas: ${v.notas}`] : []),
+    ...(v.pix ? [`-> PIX/cartão: R$ ${Number(v.pix).toFixed(2).replace(".", ",")}`] : []),
+    "",
+    "🧾 *Checklist*",
+    `🧽 Limpeza do vidro ${marca(v.limpezaVidro)}`,
+    `🧹 Limpeza do piso ${marca(v.limpezaPiso)}`,
+    `🚪 Portas ${marca(v.portas)}  🔒 Cadeados ${marca(v.cadeados)}  🔑 Chaves ${marca(v.chaves)}`,
+    ...(v.observacoes ? ["", `📝 *Observação:* ${v.observacoes}`] : []),
+    ...(v.fotoUrl ? ["", `📷 Foto do relógio: ${v.fotoUrl}`] : []),
+  ];
+  return linhas.join("\n");
+};
+
+const abrirWhatsapp = (mensagem) =>
+  window.open(`https://wa.me/?text=${encodeURIComponent(mensagem)}`, "_blank", "noopener,noreferrer");
 
 const inteiro = (valor) => (valor === "" || valor === null || valor === undefined ? null : Math.max(0, Math.floor(Number(valor))));
 const mensagemDeErro = (erro, padrao) => erro?.response?.data?.error || erro?.message || padrao;
@@ -116,6 +162,7 @@ export function NovaMovimentacao() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
+  const [mensagemWhatsapp, setMensagemWhatsapp] = useState("");
 
   const carregarLojas = useCallback(async () => {
     try {
@@ -199,20 +246,26 @@ export function NovaMovimentacao() {
     F: form.contadorIn !== "" && form.contadorOut !== "" && form.totalPre !== "" && Boolean(form.fotoUrl),
     A: form.abastecidas !== "" && (abastecidas === 0 || (Boolean(form.produtoId) && abastecidas <= (produtoEscolhido?.quantidade ?? 0))),
     Lv: form.limpezaVidro,
-    Rf: form.fichas !== "",
     Lp: form.limpezaPiso,
     C: form.portas && form.cadeados && form.chaves,
   };
-  const ordem = ["F", "A", "Lv", "Rf", "Lp", "C"];
+  // Recolhimento de fichas é opcional: fica fora da conta dos passos
+  const ordem = ["F", "A", "Lv", "Lp", "C"];
   const feitos = ordem.filter((p) => feito[p]).length;
   const tudoPronto = feitos === ordem.length;
 
   // Ao completar um passo, abre o próximo que falta
   // Só os passos com campos abrem; os simples (limpezas) são um toque
-  const proximoQueFalta = ["F", "A", "Rf", "C"].find((p) => !feito[p]);
+  const proximoQueFalta = ["F", "A", "C"].find((p) => !feito[p]);
   const concluirPasso = (passo) => {
     if (feito[passo]) setAberto(proximoQueFalta || "");
   };
+
+  // Fichas: as do dia vêm do contador IN (dá pra corrigir); as que ficaram
+  // sem recolher em movimentações anteriores somam no recolhimento
+  const fichasDoDia = form.fichas !== "" ? (inteiro(form.fichas) ?? 0) : (fichasPeloRelogio ?? 0);
+  const fichasPendentes = contexto?.fichasPendentes?.total ?? 0;
+  const fichasNaMaquina = fichasDoDia + fichasPendentes;
 
   const enviarFoto = async (arquivo) => {
     if (!arquivo) return;
@@ -243,7 +296,7 @@ export function NovaMovimentacao() {
         sairam,
         abastecidas,
         totalPos: Math.max(0, totalPre + abastecidas - retirada),
-        fichas: inteiro(form.fichas),
+        fichas: fichasDoDia,
         contadorIn: inteiro(form.contadorIn),
         contadorOut: inteiro(form.contadorOut),
         quantidade_notas_entrada: inteiro(form.notas),
@@ -253,7 +306,7 @@ export function NovaMovimentacao() {
         fotoRelogioUrl: form.fotoUrl,
         checklist: {
           limpezaVidro: form.limpezaVidro,
-          recolhimentoFichas: true,
+          recolhimentoFichas: form.recolheuFichas,
           limpezaPiso: form.limpezaPiso,
           portas: form.portas,
           cadeados: form.cadeados,
@@ -264,6 +317,39 @@ export function NovaMovimentacao() {
           : [],
       });
       const maquina = loja?.maquinas.find((m) => m.id === maquinaId);
+      const mensagem = montarMensagemWhatsapp({
+        usuario: usuario?.nome || "",
+        dataHora: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }),
+        loja: loja?.nome || "",
+        maquina: `${maquina?.codigo || ""}${maquina?.tipo ? ` – ${maquina.tipo}` : ""}`,
+        contadorIn: inteiro(form.contadorIn),
+        contadorOut: inteiro(form.contadorOut),
+        inAnterior,
+        outAnterior,
+        totalPre,
+        sairam: ultima?.totalPos != null ? sairam : null,
+        abastecidas,
+        produto: abastecidas && produtoEscolhido
+          ? `${produtoEscolhido.nome}${produtoEscolhido.codigo ? ` · SKU ${produtoEscolhido.codigo}` : ""}`
+          : "",
+        retirada,
+        totalPos: Math.max(0, totalPre + abastecidas - retirada),
+        capacidade: capacidadePadrao,
+        fichasDoDia,
+        fichasPendentes,
+        recolheu: form.recolheuFichas,
+        notas: inteiro(form.notas),
+        pix: form.pix,
+        limpezaVidro: form.limpezaVidro,
+        limpezaPiso: form.limpezaPiso,
+        portas: form.portas,
+        cadeados: form.cadeados,
+        chaves: form.chaves,
+        observacoes: form.observacoes.trim(),
+        fotoUrl: form.fotoUrl,
+      });
+      setMensagemWhatsapp(mensagem);
+      abrirWhatsapp(mensagem);
       setSucesso(`Movimentação da máquina ${maquina?.codigo || ""} salva! ✅`);
       setMaquinaId("");
       setContexto(null);
@@ -406,28 +492,6 @@ export function NovaMovimentacao() {
           aoMarcar={mudar("limpezaVidro")}
         />
 
-        <Passo icone="🪙" titulo="Recolhimento de fichas" feito={feito.Rf} aberto={aberto === "Rf"} aoAbrir={() => setAberto(aberto === "Rf" ? "" : "Rf")}>
-          <CampoNumero
-            rotulo="Fichas recolhidas"
-            valor={form.fichas}
-            aoMudar={(valor) => setForm((f) => ({ ...f, fichas: valor, fichasEditadas: true }))}
-            dica={fichasPeloRelogio !== null ? `Pelo relógio: ${fichasPeloRelogio}` : null}
-          />
-          {fichasPeloRelogio !== null && form.fichas === "" && (
-            <button type="button" onClick={() => mudar("fichas")(String(fichasPeloRelogio))} className="text-sm font-bold text-blue-600">
-              Usar {fichasPeloRelogio} (pelo relógio)
-            </button>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <CampoNumero rotulo="Notas (opcional)" valor={form.notas} aoMudar={mudar("notas")} />
-            <label className="block text-sm font-semibold text-gray-700">
-              PIX / cartão (R$, opcional)
-              <input type="number" step="0.01" inputMode="decimal" value={form.pix} onChange={(e) => mudar("pix")(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-3 text-lg font-bold" />
-            </label>
-          </div>
-          <button type="button" onClick={() => concluirPasso("Rf")} disabled={!feito.Rf} className="btn-primary w-full disabled:opacity-40">Próximo</button>
-        </Passo>
-
         <Passo
           icone="🧹"
           titulo="Limpeza do piso"
@@ -440,6 +504,46 @@ export function NovaMovimentacao() {
           <Marcar rotulo="🚪 Portas" marcado={form.portas} aoMudar={mudar("portas")} />
           <Marcar rotulo="🔒 Cadeados" marcado={form.cadeados} aoMudar={mudar("cadeados")} />
           <Marcar rotulo="🔑 Chaves" marcado={form.chaves} aoMudar={mudar("chaves")} />
+        </Passo>
+
+        <Passo
+          icone="🪙"
+          titulo={
+            <>
+              Recolhimento de fichas{" "}
+              <span className="ml-1 rounded-full bg-gray-100 px-2 py-0.5 align-middle text-[11px] font-bold text-gray-500">opcional</span>
+            </>
+          }
+          feito={form.recolheuFichas}
+          aberto={aberto === "Rf"}
+          aoAbrir={() => setAberto(aberto === "Rf" ? "" : "Rf")}
+        >
+          <CampoNumero
+            rotulo="Fichas entre a movimentação anterior e a atual"
+            valor={form.fichas !== "" ? form.fichas : fichasPeloRelogio ?? ""}
+            aoMudar={(valor) => setForm((f) => ({ ...f, fichas: valor, fichasEditadas: true }))}
+            dica={fichasPeloRelogio !== null ? `Pelo contador IN: ${fichasPeloRelogio}` : "Sem leitura anterior do IN: informe as fichas"}
+          />
+          {fichasPendentes > 0 && (
+            <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
+              ⚠️ Ficaram <b>{fichasPendentes}</b> fichas sem recolher em {contexto.fichasPendentes.movimentacoes} movimentação(ões) anterior(es).
+            </p>
+          )}
+          <div className="rounded-xl bg-gray-900 p-3 text-center text-white">
+            <p className="text-3xl font-black">{fichasNaMaquina}</p>
+            <p className="text-xs text-gray-300">fichas na máquina agora</p>
+          </div>
+          <Marcar rotulo={`🪙 Recolhi as fichas (${fichasNaMaquina})`} marcado={form.recolheuFichas} aoMudar={mudar("recolheuFichas")} />
+          {!form.recolheuFichas && (
+            <p className="text-xs text-gray-500">Se não recolher, as fichas ficam somando para a próxima movimentação.</p>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <CampoNumero rotulo="Notas (opcional)" valor={form.notas} aoMudar={mudar("notas")} />
+            <label className="block text-sm font-semibold text-gray-700">
+              PIX / cartão (R$, opcional)
+              <input type="number" step="0.01" inputMode="decimal" value={form.pix} onChange={(e) => mudar("pix")(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-3 text-lg font-bold" />
+            </label>
+          </div>
         </Passo>
 
         <textarea
@@ -475,9 +579,20 @@ export function NovaMovimentacao() {
         <p className="mb-5 text-sm text-gray-500">Olá, {usuario?.nome?.split(" ")[0]}! Escolha a loja e a máquina e siga os passos.</p>
 
         {sucesso && (
-          <div className="mb-4 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
-            <span>{sucesso}</span>
-            <button type="button" onClick={() => setSucesso("")}>✕</button>
+          <div className="mb-4 space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
+            <div className="flex items-center justify-between">
+              <span>{sucesso}</span>
+              <button type="button" onClick={() => { setSucesso(""); setMensagemWhatsapp(""); }}>✕</button>
+            </div>
+            {mensagemWhatsapp && (
+              <button
+                type="button"
+                onClick={() => abrirWhatsapp(mensagemWhatsapp)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-500 py-3 text-base font-black text-white shadow hover:bg-green-600"
+              >
+                📲 Enviar no WhatsApp
+              </button>
+            )}
           </div>
         )}
         {erro && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{erro}</div>}
