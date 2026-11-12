@@ -23,7 +23,6 @@ import { Estoque } from "./pages/Estoque";
 import { Movimentacoes } from "./pages/Movimentacoes";
 import { Roteiros } from "./pages/Roteiros";
 // import { AuditoriaMaquinas } from "./pages/AuditoriaMaquinas"; // desativada por enquanto
-import { RoteiroExecucao } from "./pages/RoteiroExecucao";
 import { Treinamentos } from "./pages/Treinamentos";
 import { Desenvolvimento } from "./pages/Desenvolvimento";
 import { ModoSeguranca } from "./pages/ModoSeguranca";
@@ -60,6 +59,10 @@ function HomeRoute() {
     acessoATela(usuario, "/nova-movimentacao", false)
   ) {
     return <Navigate to="/nova-movimentacao" replace />;
+  }
+  // Motorista cai direto nas rotas dele (com o ponto no topo)
+  if (usuario?.role === "MOTORISTA" && acessoATela(usuario, "/roteiros", false)) {
+    return <Navigate to="/roteiros" replace />;
   }
   // Quem não tem o Dashboard (perfis restritos ou acesso tirado) vê só o
   // que foi liberado
@@ -378,10 +381,12 @@ function App() {
               </PrivateRoute>
             }
           />
+          {/* Rotas do motorista (antigos roteiros): monta Admin, Chefe de
+              Expedição e Gerente de Vendas; o motorista faz as dele */}
           <Route
             path="/roteiros"
             element={
-              <PrivateRoute>
+              <PrivateRoute roles={["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE", "FUNCIONARIO_CADASTRO"]}>
                 <Roteiros />
               </PrivateRoute>
             }
@@ -398,14 +403,7 @@ function App() {
             }
           />
           */}
-          <Route
-            path="/roteiros/:id/executar"
-            element={
-              <PrivateRoute>
-                <RoteiroExecucao />
-              </PrivateRoute>
-            }
-          />
+          <Route path="/roteiros/:id/executar" element={<Navigate to="/roteiros" replace />} />
           <Route
             path="/treinamentos"
             element={

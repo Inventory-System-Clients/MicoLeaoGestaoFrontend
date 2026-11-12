@@ -41,7 +41,16 @@ export const PERFIS = [
     curto: "Motorista",
     cor: "bg-yellow-100 text-yellow-800",
     descricao:
-      "Começa sem acesso: libere o que a pessoa precisa em Acessos, logo abaixo.",
+      "Faz as rotas dele: ao entrar bate o ponto, inicia a rota (o veículo fica em uso), marca as entregas e finaliza devolvendo o veículo. Outros acessos: libere em Acessos.",
+  },
+  {
+    valor: "GERENTE_VENDAS",
+    restrito: true,
+    nome: "Gerente de Vendas",
+    curto: "Gerente",
+    cor: "bg-indigo-100 text-indigo-800",
+    descricao:
+      "Monta e acompanha as rotas dos motoristas, vê os envios e acompanha as Metas por Loja. Outros acessos: libere em Acessos.",
   },
   {
     valor: "ABASTECEDOR",

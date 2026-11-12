@@ -73,7 +73,12 @@ export function Navbar() {
       label: "Operacional",
       icon: "🛠️",
       itens: [
-        { to: "/roteiros", label: "Roteiros", icon: "🗺️" },
+        {
+          to: "/roteiros",
+          label: "Rotas",
+          icon: "🚚",
+          roles: ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE", "FUNCIONARIO_CADASTRO"],
+        },
         { to: "/manutencao", label: "Manutenção", icon: "🛠️", alert: true },
         { to: "/conferencia-lacre", label: "Conferência de Lacre", icon: "🔏" },
         {

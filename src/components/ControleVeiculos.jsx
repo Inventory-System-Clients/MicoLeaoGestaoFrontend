@@ -152,7 +152,7 @@ export default function ControleVeiculos({
         roteiroRetorno?.roteiroId &&
         String(roteiroRetorno.veiculoId) === String(veiculoSelecionado.id)
       ) {
-        navigate(`/roteiros/${roteiroRetorno.roteiroId}/executar`);
+        navigate("/roteiros");
       }
     } catch (error) {
       console.error("Erro ao pilotar:", error);

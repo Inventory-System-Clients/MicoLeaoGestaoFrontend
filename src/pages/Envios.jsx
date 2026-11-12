@@ -43,6 +43,8 @@ export default function Envios() {
   const [envios, setEnvios] = useState([]);
   const [lojas, setLojas] = useState([]);
   const [transportadores, setTransportadores] = useState([]);
+  // Rotas do motorista ainda abertas: o envio pode ir por uma delas
+  const [rotas, setRotas] = useState([]);
   const [novoTransportadorNome, setNovoTransportadorNome] = useState("");
   const [criandoTransportador, setCriandoTransportador] = useState(false);
   const [produtos, setProdutos] = useState([]);
@@ -57,6 +59,7 @@ export default function Envios() {
   const [form, setForm] = useState({
     lojaDestinoId: prefill?.lojaDestinoId || "",
     transportadorId: "",
+    roteiroId: "",
     observacao: "",
     lacres: [
       prefill?.produtoId
@@ -77,12 +80,14 @@ export default function Envios() {
         enviosRes,
         lojasRes,
         transportadoresRes,
+        _rotasCarregadas,
         produtosRes,
         divergentesRes,
       ] = await Promise.all([
         api.get("/envios", { params }),
         api.get("/lojas"),
         api.get("/transportadores").catch(() => ({ data: [] })),
+        api.get("/roteiros").then((r) => setRotas((Array.isArray(r.data) ? r.data : []).filter((rota) => rota.dataInicio && rota.status !== "FINALIZADA"))).catch(() => setRotas([])),
         api.get("/produtos"),
         api.get("/lacres/divergentes"),
       ]);
@@ -182,8 +187,8 @@ export default function Envios() {
   const handleCriarEnvio = async (event) => {
     event.preventDefault();
 
-    if (!form.lojaDestinoId || !form.transportadorId) {
-      setError("Selecione a loja de destino e o transportador.");
+    if (!form.lojaDestinoId || (!form.transportadorId && !form.roteiroId)) {
+      setError("Selecione a loja de destino e quem leva (rota do motorista ou transportador).");
       return;
     }
 
@@ -192,7 +197,8 @@ export default function Envios() {
       setError("");
       await api.post("/envios", {
         lojaDestinoId: form.lojaDestinoId,
-        transportadorId: form.transportadorId,
+        transportadorId: form.transportadorId || null,
+        roteiroId: form.roteiroId || null,
         observacao: form.observacao || null,
         lacres: form.lacres.map((lacre) => ({
           numero: lacre.numero,
@@ -207,6 +213,7 @@ export default function Envios() {
       setForm({
         lojaDestinoId: "",
         transportadorId: "",
+    roteiroId: "",
         observacao: "",
         lacres: [novoLacreVazio()],
       });
@@ -340,7 +347,24 @@ export default function Envios() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Transportador
+                  🚚 Rota do motorista
+                </label>
+                <SelectBusca
+                  opcoes={rotas.map((rota) => ({
+                    valor: rota.id,
+                    rotulo: rota.nome,
+                    detalhe: `${rota.funcionario?.nome || ""} · ${new Date(rota.dataInicio).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`,
+                  }))}
+                  valor={form.roteiroId}
+                  aoMudar={(roteiroId) => setForm((prev) => ({ ...prev, roteiroId }))}
+                  opcaoVazia="Não vai por rota"
+                  placeholder="Buscar rota"
+                />
+                <p className="mt-1 text-xs text-gray-500">A loja do envio vira parada da rota. Se não for por rota, escolha o transportador.</p>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Transportador {form.roteiroId && <span className="font-normal text-gray-400">(opcional com rota)</span>}
                 </label>
                 <SelectBusca
                   opcoes={transportadores.map((transportador) => ({ valor: transportador.id, rotulo: transportador.nome ?? "" }))}
@@ -500,7 +524,9 @@ export default function Envios() {
                       </h3>
                       <p className="text-xs text-gray-600">
                         Separado por {envio.separadoPor?.nome || "-"} — leva{" "}
-                        {envio.transportador?.nome || "-"}
+                        {envio.roteiro
+                          ? `🚚 rota "${envio.roteiro.nome}" (${envio.roteiro.funcionario?.nome || "motorista"})`
+                          : envio.transportador?.nome || "-"}
                       </p>
                     </div>
                     {!envio.despachadoEm ? (

@@ -278,7 +278,8 @@ export function Dashboard() {
     estoque: pode(usuario, "estoque.tela", ["FUNCIONARIO_ESTOQUE", "FUNCIONARIO_CADASTRO"].includes(papel)),
     veiculos: pode(usuario, "veiculos.tela", papel !== "FUNCIONARIO_ESTOQUE"),
     alertas: pode(usuario, "alertas.ver", regraAdmin),
-    roteiro: pode(usuario, "roteiros.ver", true),
+    // Rotas agora são do motorista: o Funcionário não usa mais
+    roteiro: pode(usuario, "roteiros.ver", false),
   };
   const [stats, setStats] = useState({
     alertas: [],
@@ -2580,12 +2581,12 @@ export function Dashboard() {
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-medium opacity-90">
-                    Olhar Roteiro
+                    Rotas
                   </h3>
                   <span className="text-2xl">🗺️</span>
                 </div>
                 <p className="text-xs opacity-75 mt-1">
-                  Veja as lojas e máquinas da sua rota
+                  Paradas e envios da rota
                 </p>
               </div>
             </div>
