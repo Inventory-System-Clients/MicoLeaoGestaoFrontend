@@ -7,7 +7,7 @@ import api from "../services/api";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 
 // Perfis que trabalham só nas lojas marcadas aqui
-const ESCOLHE_LOJAS = ["FUNCIONARIO", "CONSULTOR_VENDAS"];
+const ESCOLHE_LOJAS = ["FUNCIONARIO", "CONSULTOR_VENDAS", "ABASTECEDOR"];
 
 export function UsuarioForm() {
   const { id } = useParams();
