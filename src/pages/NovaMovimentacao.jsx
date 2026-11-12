@@ -23,8 +23,6 @@ const FORM_VAZIO = {
   limpezaVidro: false,
   fichas: "",
   recolheuFichas: false,
-  notas: "",
-  pix: "",
   limpezaPiso: false,
   portas: false,
   cadeados: false,
@@ -61,8 +59,6 @@ const montarMensagemWhatsapp = (v) => {
     v.recolheu
       ? `-> ✅ Recolhidas: ${v.fichasDoDia + v.fichasPendentes}`
       : `-> ❌ Não recolhidas (acumulado na máquina: ${v.fichasDoDia + v.fichasPendentes})`,
-    ...(v.notas ? [`-> Notas: ${v.notas}`] : []),
-    ...(v.pix ? [`-> PIX/cartão: R$ ${Number(v.pix).toFixed(2).replace(".", ",")}`] : []),
     "",
     "🧾 *Checklist*",
     `🧽 Limpeza do vidro ${marca(v.limpezaVidro)}`,
@@ -299,8 +295,6 @@ export function NovaMovimentacao() {
         fichas: fichasDoDia,
         contadorIn: inteiro(form.contadorIn),
         contadorOut: inteiro(form.contadorOut),
-        quantidade_notas_entrada: inteiro(form.notas),
-        valor_entrada_maquininha_pix: form.pix === "" ? null : Number(form.pix),
         retiradaEstoque: false,
         observacoes: form.observacoes.trim() || null,
         fotoRelogioUrl: form.fotoUrl,
@@ -338,8 +332,6 @@ export function NovaMovimentacao() {
         fichasDoDia,
         fichasPendentes,
         recolheu: form.recolheuFichas,
-        notas: inteiro(form.notas),
-        pix: form.pix,
         limpezaVidro: form.limpezaVidro,
         limpezaPiso: form.limpezaPiso,
         portas: form.portas,
@@ -537,13 +529,6 @@ export function NovaMovimentacao() {
           {!form.recolheuFichas && (
             <p className="text-xs text-gray-500">Se não recolher, as fichas ficam somando para a próxima movimentação.</p>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <CampoNumero rotulo="Notas (opcional)" valor={form.notas} aoMudar={mudar("notas")} />
-            <label className="block text-sm font-semibold text-gray-700">
-              PIX / cartão (R$, opcional)
-              <input type="number" step="0.01" inputMode="decimal" value={form.pix} onChange={(e) => mudar("pix")(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-3 text-lg font-bold" />
-            </label>
-          </div>
         </Passo>
 
         <textarea
