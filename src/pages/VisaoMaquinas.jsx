@@ -11,6 +11,11 @@ import { confirmar } from "../utils/alerts";
 import { pode } from "../utils/perfis";
 import { SelectBusca } from "../components/SelectBusca";
 
+// Mais pelúcias do que a capacidade padrão da máquina
+const acimaDoPadrao = (item) =>
+  Number(item.maquina.capacidadePadrao) > 0 &&
+  Number(item.estoqueAtual) > Number(item.maquina.capacidadePadrao);
+
 const statusMaquina = {
   EM_OPERACAO: {
     label: "Em operação",
@@ -86,6 +91,8 @@ export function VisaoMaquinas() {
   );
   const podeCriarMaquina = pode(usuario, "maquinas.criar", regraCadastroMaquinas);
   const podeEditarMaquina = pode(usuario, "maquinas.editar", regraCadastroMaquinas);
+  // Padrão e quantidade da máquina: só o admin edita
+  const podeAjustarQuantidade = pode(usuario, "maquinas.ajustarQuantidade");
   const podeExcluirMaquina = pode(usuario, "maquinas.excluir", regraCadastroMaquinas);
   const podeCriarTipoMaquina = pode(usuario, "tiposMaquina.criar", regraCadastroMaquinas);
   const podeVerTransferencias = pode(
@@ -105,6 +112,10 @@ export function VisaoMaquinas() {
   const [salvandoTipoMaquina, setSalvandoTipoMaquina] = useState(false);
   const [erroTipoMaquina, setErroTipoMaquina] = useState("");
   const [maquinasResumo, setMaquinasResumo] = useState([]);
+  // Ajuste rápido de capacidade padrão / quantidade na máquina
+  const [ajustando, setAjustando] = useState(null);
+  const [salvandoAjuste, setSalvandoAjuste] = useState(false);
+  const [erroAjuste, setErroAjuste] = useState("");
   const [lojas, setLojas] = useState([]);
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("todos");
@@ -282,6 +293,36 @@ export function VisaoMaquinas() {
 
   if (loading) return <PageLoader />;
 
+  const abrirAjuste = (item) => {
+    setErroAjuste("");
+    setAjustando({
+      id: item.maquina.id,
+      codigo: item.maquina.codigo,
+      capacidadePadrao: String(item.maquina.capacidadePadrao ?? ""),
+      quantidadeAtual: String(item.estoqueAtual ?? 0),
+      quantidadeOriginal: item.estoqueAtual ?? 0,
+    });
+  };
+
+  const salvarAjuste = async (evento) => {
+    evento.preventDefault();
+    setSalvandoAjuste(true);
+    setErroAjuste("");
+    try {
+      await api.patch(`/maquinas/${ajustando.id}/quantidade`, {
+        capacidadePadrao: ajustando.capacidadePadrao,
+        quantidadeAtual: ajustando.quantidadeAtual,
+      });
+      setAjustando(null);
+      setSuccess(`Máquina ${ajustando.codigo} atualizada.`);
+      setRecarregar((n) => n + 1);
+    } catch (err) {
+      setErroAjuste(err.response?.data?.error || "Não foi possível salvar o ajuste.");
+    } finally {
+      setSalvandoAjuste(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background-light bg-pattern teddy-pattern">
       <Navbar />
@@ -455,6 +496,11 @@ export function VisaoMaquinas() {
                     {item.manutencoesAbertas.length} manutenção aberta
                   </span>
                 )}
+                {acimaDoPadrao(item) && (
+                  <span className="rounded-full border border-red-200 bg-red-100 px-3 py-1 text-xs font-bold text-red-800">
+                    acima do padrão
+                  </span>
+                )}
                 {item.alertaEstoqueBaixo && (
                   <span className="rounded-full border border-orange-200 bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800">
                     estoque baixo
@@ -469,13 +515,34 @@ export function VisaoMaquinas() {
               )}
 
               <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-lg bg-white/80 p-3">
-                  <p className="text-xs font-bold uppercase text-gray-500">Estoque</p>
-                  <p className="mt-1 font-bold text-gray-900">
+                <div
+                  className={`rounded-lg p-3 ${
+                    acimaDoPadrao(item) ? "border border-red-300 bg-red-50" : "bg-white/80"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-1">
+                    <p className="text-xs font-bold uppercase text-gray-500">Estoque</p>
+                    {podeAjustarQuantidade && (
+                      <button
+                        type="button"
+                        onClick={(evento) => {
+                          evento.stopPropagation();
+                          abrirAjuste(item);
+                        }}
+                        className="-mr-1 -mt-1 rounded-md px-1.5 py-0.5 text-xs font-bold text-blue-600 hover:bg-blue-50"
+                        title="Editar padrão e quantidade"
+                      >
+                        ✏️ Editar
+                      </button>
+                    )}
+                  </div>
+                  <p className={`mt-1 font-bold ${acimaDoPadrao(item) ? "text-red-700" : "text-gray-900"}`}>
                     {item.estoqueAtual} / {item.maquina.capacidadePadrao || 0}
                   </p>
-                  <p className="text-xs text-gray-500">
-                    mínimo {Math.round(item.estoqueMinimo || 0)}
+                  <p className={`text-xs ${acimaDoPadrao(item) ? "font-bold text-red-700" : "text-gray-500"}`}>
+                    {acimaDoPadrao(item)
+                      ? `⚠️ ${item.estoqueAtual - Number(item.maquina.capacidadePadrao)} acima do padrão`
+                      : `mínimo ${Math.round(item.estoqueMinimo || 0)}`}
                   </p>
                 </div>
                 <div className="rounded-lg bg-white/80 p-3">
@@ -618,6 +685,62 @@ export function VisaoMaquinas() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(ajustando)}
+        onClose={() => !salvandoAjuste && setAjustando(null)}
+        title={ajustando ? `✏️ Máquina ${ajustando.codigo}` : ""}
+        size="sm"
+      >
+        {ajustando && (
+          <form onSubmit={salvarAjuste} className="space-y-4">
+            {erroAjuste && <AlertBox type="error" message={erroAjuste} />}
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block text-sm font-semibold text-gray-700">
+                Capacidade padrão
+                <input
+                  type="number"
+                  min="1"
+                  value={ajustando.capacidadePadrao}
+                  onChange={(e) => setAjustando((a) => ({ ...a, capacidadePadrao: e.target.value }))}
+                  className="input-field mt-1"
+                  required
+                />
+              </label>
+              <label className="block text-sm font-semibold text-gray-700">
+                Pelúcias na máquina
+                <input
+                  type="number"
+                  min="0"
+                  value={ajustando.quantidadeAtual}
+                  onChange={(e) => setAjustando((a) => ({ ...a, quantidadeAtual: e.target.value }))}
+                  className="input-field mt-1"
+                  required
+                />
+              </label>
+            </div>
+            {Number(ajustando.quantidadeAtual) > Number(ajustando.capacidadePadrao) && (
+              <p className="rounded-lg bg-red-50 p-2 text-sm font-semibold text-red-700">
+                ⚠️ A quantidade passa do padrão em {Number(ajustando.quantidadeAtual) - Number(ajustando.capacidadePadrao)}.
+              </p>
+            )}
+            {Number(ajustando.quantidadeAtual) !== Number(ajustando.quantidadeOriginal) && (
+              <p className="text-xs text-gray-500">
+                A quantidade muda de {ajustando.quantidadeOriginal} para {ajustando.quantidadeAtual}: fica registrado como um
+                ajuste no histórico de movimentações (sem saída, abastecimento ou fichas).
+              </p>
+            )}
+            <div className="flex gap-3 justify-end pt-2 border-t border-gray-200">
+              <button type="button" onClick={() => setAjustando(null)} className="btn-secondary" disabled={salvandoAjuste}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn-primary" disabled={salvandoAjuste}>
+                {salvandoAjuste ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       <Footer />

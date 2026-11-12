@@ -257,6 +257,11 @@ export function NovaMovimentacao() {
     if (feito[passo]) setAberto(proximoQueFalta || "");
   };
 
+  // Aviso de pelúcias acima da capacidade padrão da máquina
+  const vaiFicarCom = Math.max(0, (totalPreNumero ?? 0) + abastecidas - (inteiro(form.retirada) ?? 0));
+  const tinhaAcima = capacidadePadrao > 0 && totalPreNumero !== null && totalPreNumero > capacidadePadrao;
+  const vaiFicarAcima = capacidadePadrao > 0 && form.totalPre !== "" && vaiFicarCom > capacidadePadrao;
+
   // Fichas: as do dia vêm do contador IN (dá pra corrigir); as que ficaram
   // sem recolher em movimentações anteriores somam no recolhimento
   const fichasDoDia = form.fichas !== "" ? (inteiro(form.fichas) ?? 0) : (fichasPeloRelogio ?? 0);
@@ -392,6 +397,11 @@ export function NovaMovimentacao() {
             />
             <CampoNumero rotulo="Retirada (opcional)" valor={form.retirada} aoMudar={mudar("retirada")} dica="Pelúcias tiradas" />
           </div>
+          {tinhaAcima && (
+            <p className="rounded-lg bg-red-50 p-2 text-sm font-semibold text-red-700">
+              ⚠️ A máquina está com {totalPreNumero} pelúcias, {totalPreNumero - capacidadePadrao} acima do padrão ({capacidadePadrao}). Confira a contagem ou retire o excesso.
+            </p>
+          )}
           {(fichasPeloRelogio !== null || premiosPeloRelogio !== null || saiuPelaContagem !== null) && (
             <div className="rounded-xl bg-gray-900 p-3 text-white">
               <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">Cálculo automático</p>
@@ -468,9 +478,14 @@ export function NovaMovimentacao() {
           )}
           {(contexto.estoque || []).length === 0 && <p className="text-xs text-amber-700">A loja está sem estoque de produtos.</p>}
           {form.totalPre !== "" && (
-            <p className="rounded-lg bg-emerald-50 p-2 text-center text-sm text-emerald-800">
-              A máquina vai ficar com <b>{Math.max(0, (totalPreNumero ?? 0) + abastecidas - (inteiro(form.retirada) ?? 0))}</b> pelúcias
-              {capacidadePadrao ? ` de ${capacidadePadrao}` : ""}.
+            <p
+              className={`rounded-lg p-2 text-center text-sm ${
+                vaiFicarAcima ? "bg-red-50 font-semibold text-red-700" : "bg-emerald-50 text-emerald-800"
+              }`}
+            >
+              {vaiFicarAcima && "⚠️ "}A máquina vai ficar com <b>{vaiFicarCom}</b> pelúcias
+              {capacidadePadrao ? ` de ${capacidadePadrao}` : ""}
+              {vaiFicarAcima ? ` — ${vaiFicarCom - capacidadePadrao} acima do padrão!` : "."}
             </p>
           )}
           <button type="button" onClick={() => concluirPasso("A")} disabled={!feito.A} className="btn-primary w-full disabled:opacity-40">Próximo</button>
