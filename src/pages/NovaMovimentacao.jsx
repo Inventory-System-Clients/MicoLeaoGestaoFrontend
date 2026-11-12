@@ -16,6 +16,7 @@ const FORM_VAZIO = {
   contadorIn: "",
   contadorOut: "",
   fotoUrl: "",
+  fotoFinalUrl: "",
   abastecidas: "",
   produtoId: "",
   totalPre: "",
@@ -66,6 +67,14 @@ const montarMensagemWhatsapp = (v) => {
     `🚪 Portas ${marca(v.portas)}  🔒 Cadeados ${marca(v.cadeados)}  🔑 Chaves ${marca(v.chaves)}`,
     ...(v.observacoes ? ["", `📝 *Observação:* ${v.observacoes}`] : []),
     ...(v.fotoUrl ? ["", `📷 Foto do relógio: ${v.fotoUrl}`] : []),
+    ...(v.fotoFinalUrl
+      ? [
+          `🧸 Foto final das pelúcias: ${v.fotoFinalUrl}`,
+          ...(v.analiseFotoFinal?.disponivel
+            ? [`🤖 IA: ${v.analiseFotoFinal.todasDeFrente ? "✅" : "⚠️"} ${v.analiseFotoFinal.mensagem}`]
+            : []),
+        ]
+      : []),
   ];
   return linhas.join("\n");
 };
@@ -155,6 +164,9 @@ export function NovaMovimentacao() {
   const [form, setForm] = useState(FORM_VAZIO);
   const [aberto, setAberto] = useState("F");
   const [enviandoFoto, setEnviandoFoto] = useState(false);
+  // Foto final: análise da IA (pelúcias de frente) — só aviso
+  const [enviandoFotoFinal, setEnviandoFotoFinal] = useState(false);
+  const [analiseFotoFinal, setAnaliseFotoFinal] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
@@ -181,6 +193,7 @@ export function NovaMovimentacao() {
     setMaquinaId(id);
     setContexto(null);
     setForm(FORM_VAZIO);
+    setAnaliseFotoFinal(null);
     setAberto("F");
     setErro("");
     setSucesso("");
@@ -244,15 +257,16 @@ export function NovaMovimentacao() {
     Lv: form.limpezaVidro,
     Lp: form.limpezaPiso,
     C: form.portas && form.cadeados && form.chaves,
+    FF: Boolean(form.fotoFinalUrl),
   };
   // Recolhimento de fichas é opcional: fica fora da conta dos passos
-  const ordem = ["F", "A", "Lv", "Lp", "C"];
+  const ordem = ["F", "A", "Lv", "Lp", "C", "FF"];
   const feitos = ordem.filter((p) => feito[p]).length;
   const tudoPronto = feitos === ordem.length;
 
   // Ao completar um passo, abre o próximo que falta
   // Só os passos com campos abrem; os simples (limpezas) são um toque
-  const proximoQueFalta = ["F", "A", "C"].find((p) => !feito[p]);
+  const proximoQueFalta = ["F", "A", "C", "FF"].find((p) => !feito[p]);
   const concluirPasso = (passo) => {
     if (feito[passo]) setAberto(proximoQueFalta || "");
   };
@@ -279,6 +293,32 @@ export function NovaMovimentacao() {
       setErro("Não foi possível enviar a foto. Verifique a internet e tente de novo.");
     } finally {
       setEnviandoFoto(false);
+    }
+  };
+
+  // Foto final: sobe a foto e pede pra IA conferir se as pelúcias estão de
+  // frente. Se não estiverem, avisa e dá pra tirar outra (não bloqueia nada).
+  const enviarFotoFinal = async (arquivo) => {
+    if (!arquivo) return;
+    setEnviandoFotoFinal(true);
+    setAnaliseFotoFinal(null);
+    setErro("");
+    let url;
+    try {
+      url = await enviarImagemParaCloudinary(arquivo);
+      setForm((f) => ({ ...f, fotoFinalUrl: url }));
+    } catch {
+      setErro("Não foi possível enviar a foto. Verifique a internet e tente de novo.");
+      setEnviandoFotoFinal(false);
+      return;
+    }
+    setEnviandoFotoFinal(false);
+    setAnaliseFotoFinal({ carregando: true });
+    try {
+      const { data } = await api.post("/visitas/analisar-foto", { fotoUrl: url });
+      setAnaliseFotoFinal(data);
+    } catch {
+      setAnaliseFotoFinal({ disponivel: false, mensagem: "Não foi possível analisar a foto agora." });
     }
   };
 
@@ -310,6 +350,10 @@ export function NovaMovimentacao() {
           portas: form.portas,
           cadeados: form.cadeados,
           chaves: form.chaves,
+          fotoFinalUrl: form.fotoFinalUrl,
+          analiseFotoFinal: analiseFotoFinal?.disponivel
+            ? { todasDeFrente: analiseFotoFinal.todasDeFrente, mensagem: analiseFotoFinal.mensagem }
+            : null,
         },
         produtos: form.produtoId
           ? [{ produtoId: form.produtoId, quantidadeSaiu: sairam, quantidadeAbastecida: abastecidas, retiradaProduto: retirada }]
@@ -344,6 +388,8 @@ export function NovaMovimentacao() {
         chaves: form.chaves,
         observacoes: form.observacoes.trim(),
         fotoUrl: form.fotoUrl,
+        fotoFinalUrl: form.fotoFinalUrl,
+        analiseFotoFinal,
       });
       setMensagemWhatsapp(mensagem);
       abrirWhatsapp(mensagem);
@@ -351,6 +397,7 @@ export function NovaMovimentacao() {
       setMaquinaId("");
       setContexto(null);
       setForm(FORM_VAZIO);
+      setAnaliseFotoFinal(null);
       await carregarLojas();
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
@@ -543,6 +590,40 @@ export function NovaMovimentacao() {
           <Marcar rotulo={`🪙 Recolhi as fichas (${fichasNaMaquina})`} marcado={form.recolheuFichas} aoMudar={mudar("recolheuFichas")} />
           {!form.recolheuFichas && (
             <p className="text-xs text-gray-500">Se não recolher, as fichas ficam somando para a próxima movimentação.</p>
+          )}
+        </Passo>
+
+        <Passo icone="🧸" titulo="Foto final das pelúcias" feito={feito.FF} aberto={aberto === "FF"} aoAbrir={() => setAberto(aberto === "FF" ? "" : "FF")}>
+          <p className="text-sm text-gray-600">Tire uma foto de frente da máquina: a IA confere se as pelúcias estão com o rosto virado para frente.</p>
+          <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed p-3 ${form.fotoFinalUrl ? "border-emerald-300 bg-emerald-50" : "border-gray-300 bg-gray-50"}`}>
+            {form.fotoFinalUrl ? (
+              <img src={form.fotoFinalUrl} alt="Pelúcias na máquina" className="h-20 w-20 rounded-lg object-cover" />
+            ) : (
+              <span className="flex h-20 w-20 items-center justify-center rounded-lg bg-white text-3xl">📷</span>
+            )}
+            <span className="text-sm font-bold text-gray-700">
+              {enviandoFotoFinal ? "Enviando foto..." : form.fotoFinalUrl ? "Tirar outra foto" : "Tirar foto das pelúcias"}
+            </span>
+            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { enviarFotoFinal(e.target.files?.[0]); e.target.value = ""; }} />
+          </label>
+          {analiseFotoFinal?.carregando && (
+            <p className="flex items-center gap-2 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+              <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-primary" /> 🤖 A IA está conferindo as pelúcias...
+            </p>
+          )}
+          {analiseFotoFinal && !analiseFotoFinal.carregando && analiseFotoFinal.disponivel && (
+            analiseFotoFinal.todasDeFrente ? (
+              <p className="rounded-lg bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">🤖 ✅ {analiseFotoFinal.mensagem}</p>
+            ) : (
+              <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                <p className="font-bold">🤖 ⚠️ Vire as pelúcias de frente</p>
+                <p className="mt-1">{analiseFotoFinal.mensagem}</p>
+                <p className="mt-1 text-xs text-amber-700">Depois de arrumar, toque em "Tirar outra foto" para a IA conferir de novo. É só um aviso: dá para salvar assim mesmo.</p>
+              </div>
+            )
+          )}
+          {analiseFotoFinal && !analiseFotoFinal.carregando && !analiseFotoFinal.disponivel && (
+            <p className="rounded-lg bg-gray-50 p-3 text-xs text-gray-500">🤖 {analiseFotoFinal.mensagem} A foto foi salva normalmente.</p>
           )}
         </Passo>
 
