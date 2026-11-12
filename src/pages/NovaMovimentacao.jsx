@@ -34,21 +34,37 @@ const FORM_VAZIO = {
 const inteiro = (valor) => (valor === "" || valor === null || valor === undefined ? null : Math.max(0, Math.floor(Number(valor))));
 const mensagemDeErro = (erro, padrao) => erro?.response?.data?.error || erro?.message || padrao;
 
-function Passo({ sigla, titulo, feito, aberto, aoAbrir, children }) {
+// Passo do checklist. Com conteúdo (campos pra preencher) abre e fecha, e o
+// ✓ aparece sozinho quando tudo está preenchido. `simples`: só marcar feito —
+// um toque na linha marca/desmarca, sem abrir nada.
+function Passo({ icone, titulo, feito, aberto, aoAbrir, simples = false, aoMarcar, children }) {
   return (
-    <div className={`rounded-2xl border bg-white shadow-sm transition ${feito ? "border-emerald-200" : "border-gray-200"}`}>
-      <button type="button" onClick={aoAbrir} className="flex w-full items-center gap-3 p-3 text-left">
-        <span
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg font-black transition ${
-            feito ? "bg-emerald-500 text-white shadow-md" : "bg-gray-100 text-gray-400"
-          }`}
-        >
-          {feito ? "✓" : sigla}
-        </span>
-        <span className="flex-1 font-black text-gray-900">{titulo}</span>
-        <span className="text-gray-400">{aberto ? "▲" : "▼"}</span>
+    <div className={`rounded-2xl border bg-white shadow-sm transition ${feito ? "border-emerald-300 bg-emerald-50/40" : "border-gray-200"}`}>
+      <button
+        type="button"
+        onClick={simples ? () => aoMarcar(!feito) : aoAbrir}
+        className="flex w-full items-center gap-3 p-3 text-left"
+      >
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-50 text-2xl">{icone}</span>
+        <span className={`flex-1 font-black ${feito ? "text-emerald-800" : "text-gray-900"}`}>{titulo}</span>
+        {simples ? (
+          <span
+            className={`flex h-8 w-8 items-center justify-center rounded-lg border-2 text-lg font-black transition ${
+              feito ? "border-emerald-500 bg-emerald-500 text-white" : "border-gray-300 bg-white text-transparent"
+            }`}
+          >
+            ✓
+          </span>
+        ) : (
+          <span className="flex items-center gap-2">
+            {feito && (
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-sm font-black text-white">✓</span>
+            )}
+            <span className="text-gray-400">{aberto ? "▲" : "▼"}</span>
+          </span>
+        )}
       </button>
-      {aberto && <div className="space-y-3 border-t border-gray-100 p-4">{children}</div>}
+      {!simples && aberto && <div className="space-y-3 border-t border-gray-100 p-4">{children}</div>}
     </div>
   );
 }
@@ -192,9 +208,10 @@ export function NovaMovimentacao() {
   const tudoPronto = feitos === ordem.length;
 
   // Ao completar um passo, abre o próximo que falta
-  const proximoQueFalta = ordem.find((p) => !feito[p]);
+  // Só os passos com campos abrem; os simples (limpezas) são um toque
+  const proximoQueFalta = ["F", "A", "Rf", "C"].find((p) => !feito[p]);
   const concluirPasso = (passo) => {
-    if (feito[passo] && proximoQueFalta) setAberto(proximoQueFalta);
+    if (feito[passo]) setAberto(proximoQueFalta || "");
   };
 
   const enviarFoto = async (arquivo) => {
@@ -272,7 +289,7 @@ export function NovaMovimentacao() {
           <span className="text-xs font-bold text-gray-500">{feitos}/{ordem.length}</span>
         </div>
 
-        <Passo sigla="F" titulo="Foto do relógio" feito={feito.F} aberto={aberto === "F"} aoAbrir={() => setAberto(aberto === "F" ? "" : "F")}>
+        <Passo icone="📸" titulo="Foto do relógio" feito={feito.F} aberto={aberto === "F"} aoAbrir={() => setAberto(aberto === "F" ? "" : "F")}>
           <label className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed p-3 ${form.fotoUrl ? "border-emerald-300 bg-emerald-50" : "border-gray-300 bg-gray-50"}`}>
             {form.fotoUrl ? (
               <img src={form.fotoUrl} alt="Relógio" className="h-16 w-16 rounded-lg object-cover" />
@@ -324,7 +341,7 @@ export function NovaMovimentacao() {
           <button type="button" onClick={() => concluirPasso("F")} disabled={!feito.F} className="btn-primary w-full disabled:opacity-40">Próximo</button>
         </Passo>
 
-        <Passo sigla="A" titulo="Abastecimento" feito={feito.A} aberto={aberto === "A"} aoAbrir={() => setAberto(aberto === "A" ? "" : "A")}>
+        <Passo icone="🧸" titulo="Abastecimento" feito={feito.A} aberto={aberto === "A"} aoAbrir={() => setAberto(aberto === "A" ? "" : "A")}>
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-1">
               <CampoNumero
@@ -381,11 +398,15 @@ export function NovaMovimentacao() {
           <button type="button" onClick={() => concluirPasso("A")} disabled={!feito.A} className="btn-primary w-full disabled:opacity-40">Próximo</button>
         </Passo>
 
-        <Passo sigla="Lv" titulo="Limpeza do vidro" feito={feito.Lv} aberto={aberto === "Lv"} aoAbrir={() => setAberto(aberto === "Lv" ? "" : "Lv")}>
-          <Marcar rotulo="Vidro limpo" marcado={form.limpezaVidro} aoMudar={(v) => { mudar("limpezaVidro")(v); if (v) setAberto("Rf"); }} />
-        </Passo>
+        <Passo
+          icone="🧽"
+          titulo="Limpeza do vidro"
+          simples
+          feito={feito.Lv}
+          aoMarcar={mudar("limpezaVidro")}
+        />
 
-        <Passo sigla="Rf" titulo="Recolhimento de fichas" feito={feito.Rf} aberto={aberto === "Rf"} aoAbrir={() => setAberto(aberto === "Rf" ? "" : "Rf")}>
+        <Passo icone="🪙" titulo="Recolhimento de fichas" feito={feito.Rf} aberto={aberto === "Rf"} aoAbrir={() => setAberto(aberto === "Rf" ? "" : "Rf")}>
           <CampoNumero
             rotulo="Fichas recolhidas"
             valor={form.fichas}
@@ -407,11 +428,15 @@ export function NovaMovimentacao() {
           <button type="button" onClick={() => concluirPasso("Rf")} disabled={!feito.Rf} className="btn-primary w-full disabled:opacity-40">Próximo</button>
         </Passo>
 
-        <Passo sigla="Lp" titulo="Limpeza do piso" feito={feito.Lp} aberto={aberto === "Lp"} aoAbrir={() => setAberto(aberto === "Lp" ? "" : "Lp")}>
-          <Marcar rotulo="Piso limpo" marcado={form.limpezaPiso} aoMudar={(v) => { mudar("limpezaPiso")(v); if (v) setAberto("C"); }} />
-        </Passo>
+        <Passo
+          icone="🧹"
+          titulo="Limpeza do piso"
+          simples
+          feito={feito.Lp}
+          aoMarcar={mudar("limpezaPiso")}
+        />
 
-        <Passo sigla="C" titulo="Conferência final" feito={feito.C} aberto={aberto === "C"} aoAbrir={() => setAberto(aberto === "C" ? "" : "C")}>
+        <Passo icone="🔐" titulo="Conferência final" feito={feito.C} aberto={aberto === "C"} aoAbrir={() => setAberto(aberto === "C" ? "" : "C")}>
           <Marcar rotulo="🚪 Portas" marcado={form.portas} aoMudar={mudar("portas")} />
           <Marcar rotulo="🔒 Cadeados" marcado={form.cadeados} aoMudar={mudar("cadeados")} />
           <Marcar rotulo="🔑 Chaves" marcado={form.chaves} aoMudar={mudar("chaves")} />
