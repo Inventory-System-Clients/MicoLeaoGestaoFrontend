@@ -46,8 +46,6 @@ export function Navbar() {
         "FUNCIONARIO_CADASTRO",
       ],
     },
-    // Movimentação em passos (Consultor de Vendas; os outros perfis só se liberado)
-    { to: "/nova-movimentacao", label: "Movimentação", icon: "✅", roles: [] },
     // Admin não bate ponto: acompanha a equipe em Cadastros > Controle de Ponto
     {
       to: "/ponto",
@@ -73,6 +71,8 @@ export function Navbar() {
       label: "Operacional",
       icon: "🛠️",
       itens: [
+        // Movimentação em passos: todos os perfis (pode ser tirada em Acessos)
+        { to: "/nova-movimentacao", label: "Movimentação", icon: "✅" },
         {
           to: "/roteiros",
           label: "Rotas",
@@ -171,6 +171,9 @@ export function Navbar() {
       label: "Análise",
       icon: "📈",
       itens: [
+        // Calendário: admin (liberável em Acessos); Tarefas: todos (as suas)
+        { to: "/calendario", label: "Calendário", icon: "📅", roles: ADMIN_ROLES },
+        { to: "/tarefas", label: "Tarefas", icon: "✅" },
         {
           to: "/movimentacoes",
           label: "Histórico de Movimentações",

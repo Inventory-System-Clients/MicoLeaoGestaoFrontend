@@ -6,6 +6,7 @@ import { Footer } from "../components/Footer";
 import { PageHeader } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { RelatorioTodasLojas } from "../components/RelatorioTodasLojas";
+import { RelatorioTarefas } from "../components/RelatorioTarefas";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 import Swal from "sweetalert2";
 import { SelectBusca } from "../components/SelectBusca";
@@ -2581,6 +2582,17 @@ export function Relatorios() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Tarefas do período (Análise > Tarefas) */}
+        {relatorio && !loading && (
+          <div className="mt-6">
+            <RelatorioTarefas
+              dataInicio={dataInicio}
+              dataFim={dataFim}
+              lojaId={lojaSelecionada === TODAS_LOJAS_VALUE ? "" : lojaSelecionada}
+            />
           </div>
         )}
 

@@ -42,27 +42,33 @@ import { MeuPonto } from "./pages/MeuPonto";
 import { ControlePonto } from "./pages/ControlePonto";
 import { Metas } from "./pages/Metas";
 import { NovaMovimentacao } from "./pages/NovaMovimentacao";
+import { Tarefas } from "./pages/Tarefas";
+import { Calendario } from "./pages/Calendario";
 import { GastosVariaveis } from "./pages/GastosVariaveis";
 import { RegistroDinheiro } from "./pages/RegistroDinheiro";
 import { StyleGuide } from "./pages/StyleGuide";
 import { AnaliseEstoque } from "./pages/AnaliseEstoque";
 import { InicioPerfilRestrito } from "./pages/InicioPerfilRestrito";
-import { acessoATela } from "./utils/perfis";
+import { acessoATela, ehAcessoRestrito } from "./utils/perfis";
 import "./App.css";
 
 function HomeRoute() {
   const { usuario } = useAuth();
-  // Consultor de Vendas (e quem tiver a movimentação em passos liberada sem
-  // Dashboard) cai direto na movimentação, com o ponto logo no topo
-  if (
-    !acessoATela(usuario, "/", true) &&
-    acessoATela(usuario, "/nova-movimentacao", false)
-  ) {
-    return <Navigate to="/nova-movimentacao" replace />;
-  }
   // Motorista cai direto nas rotas dele (com o ponto no topo)
   if (usuario?.role === "MOTORISTA" && acessoATela(usuario, "/roteiros", false)) {
     return <Navigate to="/roteiros" replace />;
+  }
+  // Consultor de Vendas e Abastecedor (e perfis antigos sem Dashboard) caem
+  // direto na movimentação, com o ponto logo no topo. Os outros perfis
+  // restritos também têm a movimentação (fica em Operacional), mas continuam
+  // entrando na tela inicial deles.
+  if (
+    !acessoATela(usuario, "/", true) &&
+    acessoATela(usuario, "/nova-movimentacao", false) &&
+    (!ehAcessoRestrito(usuario) ||
+      ["CONSULTOR_VENDAS", "ABASTECEDOR"].includes(usuario?.role))
+  ) {
+    return <Navigate to="/nova-movimentacao" replace />;
   }
   // Quem não tem o Dashboard (perfis restritos ou acesso tirado) vê só o
   // que foi liberado
@@ -475,9 +481,25 @@ function App() {
             }
           />
           <Route
-            path="/nova-movimentacao"
+            path="/tarefas"
+            element={
+              <PrivateRoute>
+                <Tarefas />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/calendario"
             element={
               <PrivateRoute adminOnly>
+                <Calendario />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/nova-movimentacao"
+            element={
+              <PrivateRoute>
                 <NovaMovimentacao />
               </PrivateRoute>
             }
