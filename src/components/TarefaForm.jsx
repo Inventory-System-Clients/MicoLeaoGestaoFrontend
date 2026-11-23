@@ -9,17 +9,19 @@ import { ICONE_TIPO, dataBr, hojeBrasilia, mensagemDeErro, reais } from "../util
 // dados } — ex.: do calendário, "Agendar pagamento" de uma conta.
 // O tipo escolhido define o que acontece sozinho no "Feito".
 
-const VAZIO = { titulo: "", descricao: "", tipo: "LIVRE", dados: {}, data: "", responsavelId: "" };
+const VAZIO = { titulo: "", descricao: "", tipo: "LIVRE", dados: {}, data: "", dataFim: "", responsavelId: "" };
 
 export function TarefaForm({ aberto, onFechar, onSalva, inicial }) {
   const [opcoes, setOpcoes] = useState(null);
   const [form, setForm] = useState(VAZIO);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+  const [variosDias, setVariosDias] = useState(false);
 
   useEffect(() => {
     if (!aberto) return;
     setErro("");
+    setVariosDias(Boolean(inicial?.dataFim));
     setForm({ ...VAZIO, data: hojeBrasilia(), ...inicial, dados: { ...(inicial?.dados || {}) } });
     api
       .get("/tarefas/opcoes")
@@ -65,7 +67,7 @@ export function TarefaForm({ aberto, onFechar, onSalva, inicial }) {
     setSalvando(true);
     setErro("");
     try {
-      const { data } = await api.post("/tarefas", form);
+      const { data } = await api.post("/tarefas", { ...form, dataFim: variosDias ? form.dataFim : "" });
       onSalva?.(data);
       onFechar();
     } catch (error) {
@@ -217,16 +219,36 @@ export function TarefaForm({ aberto, onFechar, onSalva, inicial }) {
             />
           </label>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block text-sm font-semibold text-gray-700">
-              Para quem *
-              <div className="mt-1">
-                <SelectBusca opcoes={opcoesUsuarios} valor={form.responsavelId} aoMudar={(valor) => mudar("responsavelId", valor)} placeholder="Buscar pessoa..." required />
-              </div>
-            </label>
-            <label className="block text-sm font-semibold text-gray-700">
-              Dia *
-              <input type="date" required className="input-field mt-1" value={form.data} onChange={(e) => mudar("data", e.target.value)} />
+          <label className="block text-sm font-semibold text-gray-700">
+            Para quem
+            <div className="mt-1">
+              <SelectBusca opcoes={opcoesUsuarios} valor={form.responsavelId} aoMudar={(valor) => mudar("responsavelId", valor)} opcaoVazia="👥 Ninguém em especial" placeholder="Buscar pessoa..." />
+            </div>
+          </label>
+
+          <div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                {variosDias ? "Do dia *" : "Dia *"}
+                <input type="date" required className="input-field mt-1" value={form.data} onChange={(e) => mudar("data", e.target.value)} />
+              </label>
+              {variosDias && (
+                <label className="block text-sm font-semibold text-gray-700">
+                  Até o dia *
+                  <input type="date" required min={form.data || undefined} className="input-field mt-1" value={form.dataFim} onChange={(e) => mudar("dataFim", e.target.value)} />
+                </label>
+              )}
+            </div>
+            <label className="mt-2 flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={variosDias}
+                onChange={(e) => {
+                  setVariosDias(e.target.checked);
+                  if (e.target.checked && !form.dataFim) mudar("dataFim", form.data);
+                }}
+              />
+              Dura vários dias (ex.: decoração de Natal de 01/12 a 31/12)
             </label>
           </div>
 
@@ -235,7 +257,12 @@ export function TarefaForm({ aberto, onFechar, onSalva, inicial }) {
             <textarea className="input-field mt-1" rows={2} value={form.descricao} onChange={(e) => mudar("descricao", e.target.value)} placeholder="Opcional" />
           </label>
 
-          <p className="text-xs text-gray-500">A pessoa escolhida precisa aceitar a tarefa e, quando fizer, marcar Feito.</p>
+          <p className="text-xs text-gray-500">
+            {form.responsavelId
+              ? "A pessoa escolhida precisa aceitar a tarefa e, quando fizer, marcar Feito."
+              : "Sem responsável: você pode marcar Feito, pegar para você ou escolher alguém depois."}
+            {variosDias ? " O prazo é o último dia." : ""}
+          </p>
 
           {erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
 

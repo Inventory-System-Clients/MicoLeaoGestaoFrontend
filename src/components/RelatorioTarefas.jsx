@@ -104,7 +104,7 @@ export function RelatorioTarefas({ dataInicio, dataFim, lojaId }) {
                   {dados.tarefas.map((tarefa) => (
                     <tr key={tarefa.id}>
                       <td className="font-mono text-xs">{tarefa.codigo}</td>
-                      <td className={tarefa.atrasada ? "font-bold text-red-700" : ""}>{dataBr(tarefa.data)}</td>
+                      <td className={tarefa.atrasada ? "font-bold text-red-700" : ""}>{tarefa.dataFim ? `${dataBr(tarefa.data)} a ${dataBr(tarefa.dataFim)}` : dataBr(tarefa.data)}</td>
                       <td>
                         {tarefa.titulo}
                         {tarefa.resultado?.mensagem && <span className="block text-xs text-gray-500">{tarefa.resultado.mensagem}</span>}
