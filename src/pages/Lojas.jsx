@@ -103,6 +103,19 @@ export function Lojas() {
           />
         </svg>
       ),
+      render: (loja) => (
+        <div>
+          <span className="font-semibold text-gray-900">{loja.nome}</span>
+          <div className="mt-0.5 flex flex-wrap gap-1 text-xs">
+            {loja.tipo === "AVULSA" && (
+              <span className="rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-800">🎮 Máquina avulsa</span>
+            )}
+            {loja.shopping && (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700">🏬 {loja.shopping.nome}</span>
+            )}
+          </div>
+        </div>
+      ),
     },
     {
       label: "Endereço",

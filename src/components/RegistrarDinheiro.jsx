@@ -3,6 +3,7 @@ import api from "../services/api";
 import { aviso } from "../utils/alerts";
 import { SelectBusca } from "./SelectBusca";
 import { enviarImagemParaCloudinary } from "../utils/cloudinary";
+import { rotuloPonto } from "../utils/lojas";
 
 const paraDataISO = (data) => {
   const ano = data.getFullYear();
@@ -313,7 +314,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
               Loja
             </label>
             <SelectBusca
-              opcoes={(lojas || []).map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+              opcoes={(lojas || []).map((loja) => ({ valor: loja.id, rotulo: rotuloPonto(loja) }))}
               valor={lojaSelecionada}
               aoMudar={(lojaId) => handleLojaChange({ target: { value: lojaId } })}
               opcaoVazia="Selecione a loja"

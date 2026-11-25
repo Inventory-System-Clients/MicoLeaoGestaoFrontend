@@ -9,5 +9,10 @@ export const ehDepositoPrincipal = (loja) =>
     String(loja?.nome || "").trim().toLowerCase(),
   );
 
+// Máquina avulsa (Loja tipo AVULSA): ponto de uma máquina só no shopping
+export const ehAvulsa = (loja) => loja?.tipo === "AVULSA";
+export const rotuloPonto = (loja) =>
+  loja ? `${ehAvulsa(loja) ? "🎮 " : ""}${loja.nome}` : "";
+
 export const filtrarLojasOperacionais = (lojas = []) =>
   lojas.filter((loja) => !ehDepositoPrincipal(loja));

@@ -1,5 +1,5 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
@@ -17,6 +17,8 @@ export const LojaForm = forwardRef(function LojaForm(
   const id = embutido ? lojaIdEmbutido : params.id;
   const navigate = useNavigate();
   const isEdit = !!id;
+  // /lojas/nova?tipo=AVULSA&shoppingId=... (vem da tela Shoppings)
+  const [busca] = useSearchParams();
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -33,8 +35,10 @@ export const LojaForm = forwardRef(function LojaForm(
     diasAvisoContrato: "60",
     valorFichaPadrao: "2,50",
     ativo: true,
-    shoppingId: "",
+    shoppingId: (!embutido && busca.get("shoppingId")) || "",
+    tipo: !embutido && busca.get("tipo") === "AVULSA" ? "AVULSA" : "LOJA",
   });
+  const avulsa = formData.tipo === "AVULSA";
 
   const parseDecimalInput = (value, defaultValue = 0) => {
     const raw = String(value || "").trim();
@@ -211,6 +215,7 @@ export const LojaForm = forwardRef(function LojaForm(
         dataInicio: response.data?.dataInicio || response.data?.data_inicio || "",
         observacoes: response.data?.observacoes || "",
         shoppingId: response.data?.shoppingId || "",
+        tipo: response.data?.tipo || "LOJA",
         dataFimContrato:
           response.data?.dataFimContrato ||
           response.data?.data_fim_contrato ||
@@ -234,10 +239,17 @@ export const LojaForm = forwardRef(function LojaForm(
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
-    });
+    const novo = { ...formData, [name]: type === "checkbox" ? checked : value };
+    // Máquina avulsa: endereço vazio vem do shopping
+    if (name === "shoppingId" && novo.tipo === "AVULSA") {
+      const shopping = shoppings.find((s) => s.id === value);
+      if (shopping) {
+        if (!novo.endereco) novo.endereco = shopping.endereco || shopping.nome;
+        if (!novo.cidade) novo.cidade = shopping.cidade || "";
+        if (!novo.estado) novo.estado = shopping.estado || "";
+      }
+    }
+    setFormData(novo);
   };
 
   // Manipula alteração dos campos de gastos fixos
@@ -376,6 +388,7 @@ export const LojaForm = forwardRef(function LojaForm(
       dataInicio: formData.dataInicio || null,
       observacoes: formData.observacoes?.trim() || null,
       shoppingId: formData.shoppingId || null,
+      tipo: embutido ? "LOJA" : formData.tipo || "LOJA",
       dataFimContrato: formData.dataFimContrato || null,
       diasAvisoContrato: formData.diasAvisoContrato
         ? parseInt(formData.diasAvisoContrato, 10)
@@ -457,13 +470,19 @@ export const LojaForm = forwardRef(function LojaForm(
       >
         {!embutido && (
           <PageHeader
-            title={isEdit ? "Editar Loja" : "Nova Loja"}
-            subtitle={
-              isEdit
-                ? "Atualize as informações da loja"
-                : "Cadastre uma nova loja no sistema"
+            title={
+              avulsa
+                ? isEdit ? "Editar máquina avulsa" : "Nova máquina avulsa"
+                : isEdit ? "Editar Loja" : "Nova Loja"
             }
-            icon="🏪"
+            subtitle={
+              avulsa
+                ? "Máquina solta no shopping, sem loja: tem contrato, dinheiro e fechamento próprios"
+                : isEdit
+                  ? "Atualize as informações da loja"
+                  : "Cadastre uma nova loja no sistema"
+            }
+            icon={avulsa ? "🎮" : "🏪"}
           />
         )}
 
@@ -684,10 +703,41 @@ export const LojaForm = forwardRef(function LojaForm(
                 Informações Básicas
               </h3>
 
+              {!embutido && (
+                <div className="mb-4">
+                  <p className="mb-2 text-sm font-semibold text-gray-700">Tipo *</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {[
+                      ["LOJA", "🏪 Loja", "Loja com uma ou mais máquinas"],
+                      ["AVULSA", "🎮 Máquina avulsa", "Uma máquina solta no shopping, sem loja"],
+                    ].map(([valor, rotulo, ajuda]) => (
+                      <button
+                        key={valor}
+                        type="button"
+                        onClick={() => setFormData((atual) => ({ ...atual, tipo: valor }))}
+                        className={`rounded-lg border px-3 py-2 text-left transition ${
+                          formData.tipo === valor
+                            ? "border-primary bg-primary/10"
+                            : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <span className={`block text-sm font-bold ${formData.tipo === valor ? "text-primary" : "text-gray-800"}`}>{rotulo}</span>
+                        <span className="block text-xs text-gray-500">{ajuda}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {avulsa && (
+                    <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                      Depois de salvar, coloque a máquina nela pelo cadastro da máquina ou por Transferir. A avulsa aceita uma máquina só.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Nome da Loja *
+                    {avulsa ? "Nome da máquina avulsa *" : "Nome da Loja *"}
                   </label>
                   <input
                     type="text"
@@ -695,22 +745,23 @@ export const LojaForm = forwardRef(function LojaForm(
                     value={formData.nome}
                     onChange={handleChange}
                     className="input-field"
-                    placeholder="Ex: Loja Shopping Center"
+                    placeholder={avulsa ? "Ex: Avulsa M12 · Shopping Norte" : "Ex: Loja Shopping Center"}
                     required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Shopping
+                    Shopping{avulsa ? " *" : ""}
                   </label>
                   <select
                     name="shoppingId"
                     value={formData.shoppingId || ""}
                     onChange={handleChange}
                     className="select-field"
+                    required={avulsa}
                   >
-                    <option value="">Sem shopping (loja de rua)</option>
+                    <option value="">{avulsa ? "Escolha o shopping" : "Sem shopping (loja de rua)"}</option>
                     {shoppings.map((shopping) => (
                       <option key={shopping.id} value={shopping.id}>
                         {shopping.nome}

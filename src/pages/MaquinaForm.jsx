@@ -5,7 +5,7 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageHeader, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
-import { filtrarLojasOperacionais } from "../utils/lojas";
+import { filtrarLojasOperacionais, rotuloPonto } from "../utils/lojas";
 import { SelectBusca } from "../components/SelectBusca";
 
 // Máscara de moeda: guarda os dígitos digitados (centavos) e formata
@@ -509,7 +509,7 @@ export function MaquinaForm() {
                     Loja
                   </label>
                   <SelectBusca
-                    opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                    opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: rotuloPonto(loja) }))}
                     valor={formData.loja_id}
                     aoMudar={(valorEscolhido) => handleChange({ target: { value: valorEscolhido, name: "loja_id", type: "select-one" } })}
                     opcaoVazia="Depósito (sem loja)"

@@ -764,7 +764,7 @@ export function MaquinaDetalhes() {
                   .filter((l) => l.ativo && l.id !== maquina.lojaId)
                   .map((loja) => (
                     <option key={loja.id} value={loja.id}>
-                      🏪 {loja.nome}
+                      {loja.tipo === "AVULSA" ? "🎮" : "🏪"} {loja.nome}
                     </option>
                   ))}
               </select>

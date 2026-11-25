@@ -166,8 +166,9 @@ export function Shoppings() {
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {shoppings.map((shopping) => {
-            const lojas = (shopping.lojas || []).filter((loja) => loja.ativo !== false);
-            const avulsas = (shopping.maquinasAvulsas || []).filter((maquina) => maquina.ativo !== false);
+            const pontos = (shopping.lojas || []).filter((loja) => loja.ativo !== false);
+            const lojas = pontos.filter((loja) => loja.tipo !== "AVULSA");
+            const avulsas = pontos.filter((loja) => loja.tipo === "AVULSA");
             return (
               <div key={shopping.id} className={`rounded-xl border bg-white p-4 shadow-sm ${shopping.ativo ? "border-gray-100" : "border-gray-200 opacity-70"}`}>
                 <div className="flex items-start justify-between gap-2">
@@ -199,7 +200,7 @@ export function Shoppings() {
                 <div className="mt-3">
                   <p className="text-xs font-bold uppercase text-gray-500">Lojas ({lojas.length})</p>
                   {lojas.length === 0 ? (
-                    <p className="text-sm text-gray-400">Nenhuma — escolha o shopping no cadastro da loja.</p>
+                    <p className="text-sm text-gray-400">Nenhuma.</p>
                   ) : (
                     <ul className="mt-1 flex flex-wrap gap-1">
                       {lojas.map((loja) => (
@@ -219,14 +220,31 @@ export function Shoppings() {
                     <p className="text-sm text-gray-400">Nenhuma.</p>
                   ) : (
                     <ul className="mt-1 flex flex-wrap gap-1">
-                      {avulsas.map((maquina) => (
-                        <li key={maquina.id} className="rounded-full bg-blue-50 px-2 py-0.5 text-sm text-blue-800">
-                          🎮 {maquina.codigo}{maquina.nome ? ` · ${maquina.nome}` : ""}
-                        </li>
-                      ))}
+                      {avulsas.map((avulsa) => {
+                        const maquina = (avulsa.maquinas || []).find((m) => m.ativo !== false);
+                        return (
+                          <li key={avulsa.id}>
+                            <Link to={`/lojas/${avulsa.id}`} className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-sm text-blue-800 hover:bg-blue-100">
+                              🎮 {avulsa.nome}
+                              {maquina ? ` · ${maquina.codigo}` : " · sem máquina"}
+                            </Link>
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </div>
+
+                {podeGerenciar && shopping.ativo && (
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                    <Link to={`/lojas/nova?shoppingId=${shopping.id}`} className="rounded-lg border border-orange-200 px-2 py-1 text-xs font-semibold text-orange-800 hover:bg-orange-50">
+                      + Loja
+                    </Link>
+                    <Link to={`/lojas/nova?tipo=AVULSA&shoppingId=${shopping.id}`} className="rounded-lg border border-blue-200 px-2 py-1 text-xs font-semibold text-blue-800 hover:bg-blue-50">
+                      + Máquina avulsa
+                    </Link>
+                  </div>
+                )}
                 {shopping.observacoes && <p className="mt-3 whitespace-pre-line text-sm text-gray-600">{shopping.observacoes}</p>}
               </div>
             );

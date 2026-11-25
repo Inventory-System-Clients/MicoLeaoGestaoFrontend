@@ -4,6 +4,7 @@ import { Modal } from "./UIComponents";
 import { SelectBusca } from "./SelectBusca";
 import { obterPerfil } from "../utils/perfis";
 import { ICONE_TIPO, dataBr, hojeBrasilia, mensagemDeErro, reais } from "../utils/tarefas";
+import { rotuloPonto } from "../utils/lojas";
 
 // Nova tarefa (Tarefas e Calendário). `inicial` pode vir com { data, tipo,
 // dados } — ex.: do calendário, "Agendar pagamento" de uma conta.
@@ -43,7 +44,7 @@ export function TarefaForm({ aberto, onFechar, onSalva, inicial }) {
       })),
     [opcoes, nomeDaLoja],
   );
-  const opcoesLojas = lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome }));
+  const opcoesLojas = lojas.map((loja) => ({ valor: loja.id, rotulo: rotuloPonto(loja) }));
   const opcoesUsuarios = (opcoes?.usuarios || []).map((usuario) => ({
     valor: usuario.id,
     rotulo: usuario.nome,

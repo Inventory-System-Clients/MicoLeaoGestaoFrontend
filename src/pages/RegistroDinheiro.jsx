@@ -5,7 +5,7 @@ import { Footer } from "../components/Footer";
 import { PageHeader, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import RegistrarDinheiro from "../components/RegistrarDinheiro";
-import { filtrarLojasOperacionais } from "../utils/lojas";
+import { filtrarLojasOperacionais, rotuloPonto } from "../utils/lojas";
 import { SelectBusca } from "../components/SelectBusca";
 
 const formatCurrency = (value) =>
@@ -203,7 +203,7 @@ export function RegistroDinheiro() {
                   🏪 Loja
                 </label>
                 <SelectBusca
-                  opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))}
+                  opcoes={lojas.map((loja) => ({ valor: loja.id, rotulo: rotuloPonto(loja) }))}
                   valor={filtros.lojaId}
                   aoMudar={(valorEscolhido) => setFiltros((prev) => ({
                       ...prev,
