@@ -38,6 +38,8 @@ export const LojaForm = forwardRef(function LojaForm(
     shoppingId: (!embutido && busca.get("shoppingId")) || "",
     tipo: !embutido && busca.get("tipo") === "AVULSA" ? "AVULSA" : "LOJA",
     estoqueLojaId: "",
+    // Loja sem estoque: usa o estoque de outra loja (estoqueLojaId)
+    semEstoque: false,
   });
   const avulsa = formData.tipo === "AVULSA";
 
@@ -228,6 +230,7 @@ export const LojaForm = forwardRef(function LojaForm(
         shoppingId: response.data?.shoppingId || "",
         tipo: response.data?.tipo || "LOJA",
         estoqueLojaId: response.data?.estoqueLojaId || "",
+        semEstoque: Boolean(response.data?.estoqueLojaId),
         dataFimContrato:
           response.data?.dataFimContrato ||
           response.data?.data_fim_contrato ||
@@ -386,6 +389,10 @@ export const LojaForm = forwardRef(function LojaForm(
       throw new Error("Por favor, informe o nome da loja");
     }
 
+    if (formData.semEstoque && !formData.estoqueLojaId) {
+      throw new Error("Escolha de qual loja vem o estoque (loja sem estoque próprio)");
+    }
+
     const gastosValidos = validarGastosFixos();
 
     const data = {
@@ -401,7 +408,7 @@ export const LojaForm = forwardRef(function LojaForm(
       observacoes: formData.observacoes?.trim() || null,
       shoppingId: formData.shoppingId || null,
       tipo: embutido ? "LOJA" : formData.tipo || "LOJA",
-      estoqueLojaId: formData.estoqueLojaId || null,
+      estoqueLojaId: formData.semEstoque ? formData.estoqueLojaId || null : null,
       dataFimContrato: formData.dataFimContrato || null,
       diasAvisoContrato: formData.diasAvisoContrato
         ? parseInt(formData.diasAvisoContrato, 10)
@@ -783,28 +790,62 @@ export const LojaForm = forwardRef(function LojaForm(
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Estoque usado no abastecimento
-                  </label>
-                  <select
-                    name="estoqueLojaId"
-                    value={formData.estoqueLojaId || ""}
-                    onChange={handleChange}
-                    className="select-field"
-                  >
-                    <option value="">{avulsa ? "Estoque próprio" : "Estoque próprio da loja"}</option>
-                    {lojasEstoque
-                      .filter((l) => l.id !== id)
-                      .map((l) => (
-                        <option key={l.id} value={l.id}>
-                          Usa o estoque de: {l.tipo === "AVULSA" ? "🎮 " : ""}{l.nome}
-                        </option>
-                      ))}
-                  </select>
-                  <span className="mt-1 block text-xs text-gray-500">
-                    Na movimentação, o abastecimento sai do estoque escolhido aqui.
-                  </span>
+                <div className="md:col-span-2">
+                  <p className="block text-sm font-semibold text-gray-700 mb-2">
+                    {avulsa ? "Tem estoque próprio?" : "A loja tem estoque próprio?"}
+                  </p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {[
+                      [false, "📦 Sim, tem estoque próprio", "O abastecimento sai do estoque dela"],
+                      [true, "🔗 Não, é sem estoque", "Usa o estoque de outra loja"],
+                    ].map(([valor, rotulo, ajuda]) => (
+                      <button
+                        key={String(valor)}
+                        type="button"
+                        onClick={() =>
+                          setFormData((atual) => ({
+                            ...atual,
+                            semEstoque: valor,
+                            estoqueLojaId: valor ? atual.estoqueLojaId : "",
+                          }))
+                        }
+                        className={`rounded-lg border px-3 py-2 text-left transition ${
+                          formData.semEstoque === valor
+                            ? "border-primary bg-primary/10"
+                            : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <span className={`block text-sm font-bold ${formData.semEstoque === valor ? "text-primary" : "text-gray-800"}`}>{rotulo}</span>
+                        <span className="block text-xs text-gray-500">{ajuda}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {formData.semEstoque && (
+                    <div className="mt-3">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Usa o estoque de qual loja? *
+                      </label>
+                      <select
+                        name="estoqueLojaId"
+                        value={formData.estoqueLojaId || ""}
+                        onChange={handleChange}
+                        className="select-field"
+                        required
+                      >
+                        <option value="">Escolha a loja que tem o estoque</option>
+                        {lojasEstoque
+                          .filter((l) => l.id !== id)
+                          .map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {l.tipo === "AVULSA" ? "🎮 " : ""}{l.nome}
+                            </option>
+                          ))}
+                      </select>
+                      <span className="mt-1 block text-xs text-gray-500">
+                        Na movimentação, o abastecimento sai do estoque dessa loja, e as telas de estoque mostram o estoque dela.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div>
