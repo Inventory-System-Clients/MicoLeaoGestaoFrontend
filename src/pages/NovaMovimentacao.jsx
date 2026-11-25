@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import api from "../services/api";
 import { Navbar } from "../components/Navbar";
 import { SelectBusca } from "../components/SelectBusca";
@@ -6,6 +6,7 @@ import { PontoRapido } from "../components/PontoRapido";
 import { MinhasMetas } from "../components/MinhasMetas";
 import { useAuth } from "../contexts/AuthContext";
 import { enviarImagemParaCloudinary } from "../utils/cloudinary";
+import { rotuloPonto } from "../utils/lojas";
 
 // Movimentação em passos (Consultor de Vendas): loja → máquina → checklist
 // F Foto do relógio (IN/OUT, contagem e cálculo automático) · A Abastecimento ·
@@ -155,9 +156,14 @@ function Marcar({ rotulo, marcado, aoMudar }) {
   );
 }
 
+const SEM_SHOPPING = "__sem_shopping";
+
 export function NovaMovimentacao() {
   const { usuario } = useAuth();
   const [lojas, setLojas] = useState(null);
+  // Shopping primeiro (quando houver lojas em shopping), depois a loja ou
+  // máquina avulsa. SEM_SHOPPING = lojas de rua.
+  const [shoppingId, setShoppingId] = useState("");
   const [lojaId, setLojaId] = useState("");
   const [maquinaId, setMaquinaId] = useState("");
   const [contexto, setContexto] = useState(null);
@@ -176,7 +182,10 @@ export function NovaMovimentacao() {
     try {
       const { data } = await api.get("/visitas/lojas");
       setLojas(data);
-      if (data.length === 1) setLojaId((atual) => atual || data[0].id);
+      if (data.length === 1) {
+        setShoppingId((atual) => atual || data[0].shopping?.id || SEM_SHOPPING);
+        setLojaId((atual) => atual || data[0].id);
+      }
     } catch (e) {
       setErro(mensagemDeErro(e, "Erro ao carregar as lojas"));
       setLojas([]);
@@ -188,6 +197,42 @@ export function NovaMovimentacao() {
   }, [carregarLojas]);
 
   const loja = lojas?.find((l) => l.id === lojaId);
+
+  const shoppings = useMemo(() => {
+    const mapa = new Map();
+    let semShopping = 0;
+    for (const l of lojas || []) {
+      if (l.shopping) {
+        const atual = mapa.get(l.shopping.id) || { ...l.shopping, pontos: 0 };
+        atual.pontos += 1;
+        mapa.set(l.shopping.id, atual);
+      } else semShopping += 1;
+    }
+    const lista = [...mapa.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    return { lista, semShopping };
+  }, [lojas]);
+  const usaShopping = shoppings.lista.length > 0;
+  const lojasDoShopping = (lojas || []).filter((l) =>
+    !usaShopping ? true : shoppingId === SEM_SHOPPING ? !l.shopping : l.shopping?.id === shoppingId,
+  );
+
+  const escolherLoja = (id) => {
+    setLojaId(id);
+    const escolhida = (lojas || []).find((l) => l.id === id);
+    // Máquina avulsa tem uma máquina só: já abre ela
+    if (escolhida?.tipo === "AVULSA" && escolhida.maquinas.length === 1) {
+      escolherMaquina(escolhida.maquinas[0].id);
+    } else {
+      escolherMaquina("");
+    }
+  };
+
+  const escolherShopping = (id) => {
+    setShoppingId(id);
+    const pontos = (lojas || []).filter((l) => (id === SEM_SHOPPING ? !l.shopping : l.shopping?.id === id));
+    if (id && pontos.length === 1) escolherLoja(pontos[0].id);
+    else escolherLoja("");
+  };
 
   const escolherMaquina = async (id) => {
     setMaquinaId(id);
@@ -657,7 +702,7 @@ export function NovaMovimentacao() {
         <PontoRapido />
 
         <h1 className="mb-1 text-3xl font-black text-gray-900">Movimentação</h1>
-        <p className="mb-5 text-sm text-gray-500">Olá, {usuario?.nome?.split(" ")[0]}! Escolha a loja e a máquina e siga os passos.</p>
+        <p className="mb-5 text-sm text-gray-500">Olá, {usuario?.nome?.split(" ")[0]}! {usaShopping ? "Escolha o shopping, a loja (ou máquina avulsa) e a máquina" : "Escolha a loja e a máquina"} e siga os passos.</p>
 
         {sucesso && (
           <div className="mb-4 space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
@@ -678,22 +723,37 @@ export function NovaMovimentacao() {
         )}
         {erro && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{erro}</div>}
 
-        {/* Lojas */}
+        {/* Shopping (antes da loja) */}
+        {usaShopping && (
+          <div className="mb-3">
+            <SelectBusca
+              opcoes={[
+                ...shoppings.lista.map((s) => ({ valor: s.id, rotulo: `🏬 ${s.nome}`, detalhe: `${s.pontos}` })),
+                ...(shoppings.semShopping ? [{ valor: SEM_SHOPPING, rotulo: "🏪 Lojas fora de shopping", detalhe: `${shoppings.semShopping}` }] : []),
+              ]}
+              valor={shoppingId}
+              aoMudar={escolherShopping}
+              placeholder="🏬 Shopping"
+              className="py-3 text-lg font-bold"
+            />
+          </div>
+        )}
+
+        {/* Lojas e máquinas avulsas */}
+        {(!usaShopping || shoppingId) && (
         <div className="mb-3">
           <SelectBusca
-            opcoes={(lojas || []).map((l) => ({ valor: l.id, rotulo: l.nome, detalhe: `${l.maquinas.filter((m) => m.feitaHoje).length}/${l.maquinas.length}` }))}
+            opcoes={lojasDoShopping.map((l) => ({ valor: l.id, rotulo: rotuloPonto(l), detalhe: `${l.maquinas.filter((m) => m.feitaHoje).length}/${l.maquinas.length}` }))}
             valor={lojaId}
-            aoMudar={(id) => {
-              setLojaId(id);
-              escolherMaquina("");
-            }}
-            placeholder="🏪 Lojas"
+            aoMudar={escolherLoja}
+            placeholder={usaShopping ? "🏪 Loja ou 🎮 máquina avulsa" : "🏪 Lojas"}
             className="py-3 text-lg font-bold"
           />
           {lojas && lojas.length === 0 && (
             <p className="mt-2 text-sm text-gray-500">Nenhuma loja liberada para você. Fale com o administrador.</p>
           )}
         </div>
+        )}
 
         {/* Máquinas */}
         {loja && (
