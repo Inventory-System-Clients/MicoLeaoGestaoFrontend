@@ -33,6 +33,7 @@ export const LojaForm = forwardRef(function LojaForm(
     diasAvisoContrato: "60",
     valorFichaPadrao: "2,50",
     ativo: true,
+    shoppingId: "",
   });
 
   const parseDecimalInput = (value, defaultValue = 0) => {
@@ -118,6 +119,14 @@ export const LojaForm = forwardRef(function LojaForm(
 
   // Extintores da loja
   const [extintores, setExtintores] = useState([]);
+  const [shoppings, setShoppings] = useState([]);
+
+  useEffect(() => {
+    api
+      .get("/shoppings")
+      .then(({ data }) => setShoppings(Array.isArray(data) ? data : []))
+      .catch(() => setShoppings([]));
+  }, []);
 
   useEffect(() => {
     if (isEdit) {
@@ -201,6 +210,7 @@ export const LojaForm = forwardRef(function LojaForm(
           (response.data?.ativo === false ? "INATIVA" : "ATIVA"),
         dataInicio: response.data?.dataInicio || response.data?.data_inicio || "",
         observacoes: response.data?.observacoes || "",
+        shoppingId: response.data?.shoppingId || "",
         dataFimContrato:
           response.data?.dataFimContrato ||
           response.data?.data_fim_contrato ||
@@ -365,6 +375,7 @@ export const LojaForm = forwardRef(function LojaForm(
       statusOperacao: formData.statusOperacao || "ATIVA",
       dataInicio: formData.dataInicio || null,
       observacoes: formData.observacoes?.trim() || null,
+      shoppingId: formData.shoppingId || null,
       dataFimContrato: formData.dataFimContrato || null,
       diasAvisoContrato: formData.diasAvisoContrato
         ? parseInt(formData.diasAvisoContrato, 10)
@@ -687,6 +698,25 @@ export const LojaForm = forwardRef(function LojaForm(
                     placeholder="Ex: Loja Shopping Center"
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Shopping
+                  </label>
+                  <select
+                    name="shoppingId"
+                    value={formData.shoppingId || ""}
+                    onChange={handleChange}
+                    className="select-field"
+                  >
+                    <option value="">Sem shopping (loja de rua)</option>
+                    {shoppings.map((shopping) => (
+                      <option key={shopping.id} value={shopping.id}>
+                        {shopping.nome}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

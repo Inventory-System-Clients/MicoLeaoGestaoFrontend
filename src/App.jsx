@@ -9,6 +9,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Usuarios } from "./pages/Usuarios";
 import { UsuarioForm } from "./pages/UsuarioForm";
 import { Lojas } from "./pages/Lojas";
+import { Shoppings } from "./pages/Shoppings";
 import { LojaForm } from "./pages/LojaForm";
 import { ProjetosLoja } from "./pages/ProjetosLoja";
 import { ProjetoLojaForm } from "./pages/ProjetoLojaForm";
@@ -152,6 +153,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Lojas />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/shoppings"
+            element={
+              <PrivateRoute>
+                <Shoppings />
               </PrivateRoute>
             }
           />

@@ -144,6 +144,7 @@ export function Navbar() {
       label: "Cadastros",
       icon: "🗂️",
       itens: [
+        { to: "/shoppings", label: "Shoppings", icon: "🏬", roles: CADASTRO_ROLES },
         { to: "/lojas", label: "Lojas", icon: "🏪", roles: CADASTRO_ROLES },
         {
           to: "/visao-maquinas",
