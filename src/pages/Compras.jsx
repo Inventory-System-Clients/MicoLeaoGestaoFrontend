@@ -556,6 +556,8 @@ export default function Compras() {
     const busca = filtrosSugestao.busca.trim().toLowerCase();
     const sugestoesLoja = estoquesLojas.flatMap(({ lojaId, itens }) => {
       const loja = lojas.find((item) => item.id === lojaId);
+      // Estoque emprestado: a sugestão sai só pela loja dona
+      if (loja?.estoqueLojaId) return [];
       return (itens || [])
         .map((item) => {
           const atual = Number(item.quantidade || 0);

@@ -281,6 +281,9 @@ export function Dashboard() {
     // Rotas agora são do motorista: o Funcionário não usa mais
     roteiro: pode(usuario, "roteiros.ver", false),
   };
+  // Shopping: "" = todos, "sem" = fora de shopping, ou o id (faturamento e performance)
+  const [shoppings, setShoppings] = useState([]);
+  const [shoppingFiltro, setShoppingFiltro] = useState("");
   const [stats, setStats] = useState({
     alertas: [],
     balanco: null,
@@ -843,6 +846,7 @@ export function Dashboard() {
               params: {
                 dataInicio: periodoComparacaoMensal.inicioMesAtual,
                 dataFim: periodoComparacaoMensal.fimMesAtual,
+                ...(shoppingFiltro ? { shoppingId: shoppingFiltro } : {}),
               },
             })
             .catch((err) => {
@@ -857,6 +861,7 @@ export function Dashboard() {
               params: {
                 dataInicio: periodoComparacaoMensal.inicioMesAnterior,
                 dataFim: periodoComparacaoMensal.fimMesAnterior,
+                ...(shoppingFiltro ? { shoppingId: shoppingFiltro } : {}),
               },
             })
             .catch((err) => {
@@ -877,7 +882,7 @@ export function Dashboard() {
             );
             return { data: { alertas: [] } };
           }),
-          !veFaturamento ? semAcesso(null) : api.get("/relatorios/balanco-semanal").catch((err) => {
+          !veFaturamento ? semAcesso(null) : api.get("/relatorios/balanco-semanal", { params: shoppingFiltro ? { shoppingId: shoppingFiltro } : {} }).catch((err) => {
             console.error("Erro ao carregar balanço:", err.message);
             return { data: null };
           }),
@@ -1001,7 +1006,14 @@ export function Dashboard() {
       setMaquinas([]);
       setAlertasBomDesempenho([]);
     }
-  }, [usuario]);
+  }, [usuario, shoppingFiltro]);
+
+  useEffect(() => {
+    api
+      .get("/shoppings")
+      .then(({ data }) => setShoppings(Array.isArray(data) ? data : []))
+      .catch(() => setShoppings([]));
+  }, []);
 
   useEffect(() => {
     carregarDados();
@@ -1508,7 +1520,8 @@ export function Dashboard() {
     // Consolidar necessidades por produto
     const necessidadesPorProduto = {};
 
-    lojasComEstoque.forEach((loja) => {
+    // Estoque emprestado: conta só pela loja dona
+    lojasComEstoque.filter((loja) => !loja.estoqueLojaId).forEach((loja) => {
       loja.estoque.forEach((item) => {
         const falta = item.estoqueMinimo - item.quantidade;
         if (falta > 0) {
@@ -2250,6 +2263,22 @@ export function Dashboard() {
             <p className="text-gray-600">
               Visão geral do seu sistema de pelúcias
             </p>
+            {shoppings.length > 0 && (
+              <select
+                className="select-field mt-2 max-w-xs py-1.5 text-sm"
+                value={shoppingFiltro}
+                onChange={(e) => setShoppingFiltro(e.target.value)}
+                title="Faturamento e performance só deste shopping"
+              >
+                <option value="">🏬 Todos os shoppings</option>
+                {shoppings.map((shopping) => (
+                  <option key={shopping.id} value={shopping.id}>
+                    🏬 {shopping.nome}
+                  </option>
+                ))}
+                <option value="sem">🏪 Fora de shopping</option>
+              </select>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {painel.relatorio && (
@@ -3129,6 +3158,45 @@ export function Dashboard() {
                 Ver todos os alertas de lojas ({alertasEstoqueLoja.length})
               </Link>
             )}
+          </div>
+        )}
+
+        {/* Performance por Shopping (soma das lojas e máquinas avulsas) */}
+        {!shoppingFiltro && shoppings.length > 0 && stats.balanco?.distribuicaoShoppings?.length > 0 && (
+          <div className="card mb-6">
+            <h2 className="mb-4 text-2xl font-bold text-gray-900">🏬 Performance por Shopping</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px] text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs uppercase text-gray-500">
+                    <th className="py-2 pr-2">Shopping</th>
+                    <th className="py-2 pr-2 text-right">Pontos</th>
+                    <th className="py-2 pr-2 text-right">Faturamento</th>
+                    <th className="py-2 pr-2 text-right">Fichas</th>
+                    <th className="py-2 text-right">Prêmios</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.balanco.distribuicaoShoppings.map((grupo) => (
+                    <tr key={grupo.shoppingId} className="border-b border-gray-100">
+                      <td className="py-2 pr-2 font-semibold">
+                        <button type="button" className="text-left text-primary hover:underline" onClick={() => setShoppingFiltro(grupo.shoppingId)}>
+                          {grupo.shoppingNome}
+                        </button>
+                      </td>
+                      <td className="py-2 pr-2 text-right text-gray-600">
+                        {grupo.lojas} 🏪{grupo.avulsas ? ` · ${grupo.avulsas} 🎮` : ""}
+                      </td>
+                      <td className="py-2 pr-2 text-right font-bold text-green-700">
+                        {Number(grupo.faturamento || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </td>
+                      <td className="py-2 pr-2 text-right">{Number(grupo.fichas || 0).toLocaleString("pt-BR")}</td>
+                      <td className="py-2 text-right">{Number(grupo.sairam || 0).toLocaleString("pt-BR")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

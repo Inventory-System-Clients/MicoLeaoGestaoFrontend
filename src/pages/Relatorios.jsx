@@ -6,12 +6,15 @@ import { Footer } from "../components/Footer";
 import { PageHeader } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { RelatorioTodasLojas } from "../components/RelatorioTodasLojas";
+import { RelatorioPorShopping } from "../components/RelatorioPorShopping";
 import { RelatorioTarefas } from "../components/RelatorioTarefas";
-import { filtrarLojasOperacionais } from "../utils/lojas";
+import { filtrarLojasOperacionais, rotuloPonto } from "../utils/lojas";
 import Swal from "sweetalert2";
 import { SelectBusca } from "../components/SelectBusca";
 
 const TODAS_LOJAS_VALUE = "__TODAS_AS_LOJAS__";
+// Filtro de shopping: "" = todos, "sem" = fora de shopping, ou o id
+const SEM_SHOPPING = "sem";
 
 export function Relatorios() {
   const location = useLocation();
@@ -19,6 +22,8 @@ export function Relatorios() {
   const [lojas, setLojas] = useState([]);
   const [usuariosMap, setUsuariosMap] = useState({});
   const [lojaSelecionada, setLojaSelecionada] = useState("");
+  const [shoppings, setShoppings] = useState([]);
+  const [shoppingFiltro, setShoppingFiltro] = useState("");
   const [roteiros, setRoteiros] = useState([]);
   const [roteiroSelecionado, setRoteiroSelecionado] = useState("");
   const [mesReferencia, setMesReferencia] = useState("");
@@ -132,6 +137,10 @@ export function Relatorios() {
       setLoadingLojas(true);
       const response = await api.get("/lojas");
       setLojas(filtrarLojasOperacionais(response.data || []));
+      api
+        .get("/shoppings")
+        .then(({ data }) => setShoppings(Array.isArray(data) ? data : []))
+        .catch(() => setShoppings([]));
     } catch (error) {
       console.error("Erro ao carregar lojas:", error);
       setError("Erro ao carregar lojas");
@@ -658,6 +667,7 @@ export function Relatorios() {
             dataInicio,
             dataFim,
             ...paramsLojaIds,
+            ...(shoppingFiltro ? { shoppingId: shoppingFiltro } : {}),
           },
         });
 
@@ -671,6 +681,7 @@ export function Relatorios() {
               dataInicio: dataInicioMesAnterior,
               dataFim: dataFimMesAnterior,
               ...paramsLojaIds,
+              ...(shoppingFiltro ? { shoppingId: shoppingFiltro } : {}),
             },
           });
 
@@ -1146,11 +1157,46 @@ export function Relatorios() {
           <h3 className="text-lg font-bold text-gray-900 mb-4">Filtros</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
+              {shoppings.length > 0 && (
+                <>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🏬 Shopping
+                  </label>
+                  <select
+                    className="select-field mb-3"
+                    value={shoppingFiltro}
+                    onChange={(e) => {
+                      setShoppingFiltro(e.target.value);
+                      setLojaSelecionada(e.target.value ? TODAS_LOJAS_VALUE : "");
+                      setRelatorio(null);
+                    }}
+                  >
+                    <option value="">Todos os shoppings</option>
+                    {shoppings.map((shopping) => (
+                      <option key={shopping.id} value={shopping.id}>
+                        {shopping.nome}
+                      </option>
+                    ))}
+                    <option value={SEM_SHOPPING}>Fora de shopping</option>
+                  </select>
+                </>
+              )}
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 🏪 Loja *
               </label>
               <SelectBusca
-                opcoes={[{ valor: TODAS_LOJAS_VALUE, rotulo: "Todas as lojas" }, ...lojas.map((loja) => ({ valor: loja.id, rotulo: loja.nome ?? "" }))]}
+                opcoes={[
+                  { valor: TODAS_LOJAS_VALUE, rotulo: shoppingFiltro ? "Todas deste shopping" : "Todas as lojas" },
+                  ...lojas
+                    .filter((loja) =>
+                      !shoppingFiltro
+                        ? true
+                        : shoppingFiltro === SEM_SHOPPING
+                          ? !loja.shoppingId
+                          : loja.shoppingId === shoppingFiltro,
+                    )
+                    .map((loja) => ({ valor: loja.id, rotulo: rotuloPonto(loja) })),
+                ]}
                 valor={lojaSelecionada}
                 aoMudar={(valorEscolhido) => handleLojaSelecionadaChange(valorEscolhido)}
                 opcaoVazia="Selecione uma loja"
@@ -1252,7 +1298,19 @@ export function Relatorios() {
 
         {/* Relatório */}
         {relatorio && !loading && relatorio.tipo === "todas-lojas" && (
-          <RelatorioTodasLojas relatorio={relatorio} />
+          <>
+            {!shoppingFiltro && shoppings.length > 0 && (
+              <RelatorioPorShopping
+                porShopping={relatorio.porShopping}
+                aoEscolher={(id) => {
+                  setShoppingFiltro(id);
+                  setLojaSelecionada(TODAS_LOJAS_VALUE);
+                  setRelatorio(null);
+                }}
+              />
+            )}
+            <RelatorioTodasLojas relatorio={relatorio} />
+          </>
         )}
 
         {relatorio && !loading && relatorio.tipo !== "todas-lojas" && (

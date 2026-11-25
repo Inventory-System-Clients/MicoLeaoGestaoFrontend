@@ -175,6 +175,11 @@ function DepositoCard({ loja, destaque, expandido, onToggle, onEdit }) {
               >
                 {estoqueVisivel.length} produtos · {loja.totalUnidades} unidades
               </p>
+              {loja.lojaDoEstoqueNome && (
+                <p className="text-xs font-semibold text-blue-700">
+                  📦 Usa o estoque de {loja.lojaDoEstoqueNome}
+                </p>
+              )}
             </div>
           </button>
 
@@ -301,10 +306,13 @@ export function Estoque() {
       setLojas(
         lojasData.map((loja) => {
           const estoque = estoquePorLoja[loja.id] || [];
+          // Estoque emprestado: mostra o da loja dona
+          const dona = loja.estoqueLojaId ? lojasData.find((l) => l.id === loja.estoqueLojaId) : null;
           return {
             ...loja,
             estoque,
             totalUnidades: somarUnidades(estoque.filter(itemAtivo)),
+            lojaDoEstoqueNome: loja.estoqueLojaId ? dona?.nome || "outra loja" : null,
           };
         }),
       );
@@ -344,8 +352,9 @@ export function Estoque() {
     [lojasVisiveis],
   );
 
+  // Quem usa o estoque de outra loja não soma (já está na loja dona)
   const totalDepositos = lojasVisiveis.reduce(
-    (total, loja) => total + loja.totalUnidades,
+    (total, loja) => total + (loja.estoqueLojaId ? 0 : loja.totalUnidades),
     0,
   );
   const totalMaquinas = maquinasVisiveis.reduce(

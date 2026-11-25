@@ -10,7 +10,8 @@ import {
   ResponsiveContainer, AreaChart, Area, Cell,
   ReferenceLine,
 } from "recharts";
-import { filtrarLojasOperacionais } from "../utils/lojas";
+import { filtrarLojasOperacionais, rotuloPonto } from "../utils/lojas";
+import { RelatorioPorShopping } from "../components/RelatorioPorShopping";
 import { SelectBusca } from "../components/SelectBusca";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -143,6 +144,10 @@ export function Graficos() {
   const [loadingAnual, setLoadingAnual]       = useState(false);
   const [lojas, setLojas]                     = useState([]);
   const [lojaSelecionada, setLojaSelecionada] = useState(NENHUMA_LOJA_VALUE);
+  // Shopping: "" = todos, "sem" = fora de shopping, ou o id
+  const [shoppings, setShoppings] = useState([]);
+  const [shoppingFiltro, setShoppingFiltro] = useState("");
+  const [rankingShoppings, setRankingShoppings] = useState([]);
   const [dataInicio, setDataInicio]           = useState("");
   const [dataFim, setDataFim]                 = useState("");
 
@@ -189,6 +194,10 @@ export function Graficos() {
       })
       .catch(() => setErro("Erro ao carregar lista de lojas."))
       .finally(() => setLoading(false));
+    api
+      .get("/shoppings")
+      .then(({ data }) => setShoppings(Array.isArray(data) ? data : []))
+      .catch(() => setShoppings([]));
   }, []);
 
   // ─── Carregamento painel principal ────────────────────────────────────────
@@ -207,17 +216,19 @@ export function Graficos() {
     setDadosTodasLojasAnterior(null);
     setDadosDashboardAnterior(null);
     try {
-      const params     = { dataInicio, dataFim };
+      const filtroShopping = shoppingFiltro ? { shoppingId: shoppingFiltro } : {};
+      const params     = { dataInicio, dataFim, ...filtroShopping };
       const isTodas    = lojaSelecionada === TODAS_LOJAS_VALUE;
-      const paramsLoja = { ...params, lojaId: lojaSelecionada };
+      const paramsLoja = { dataInicio, dataFim, lojaId: lojaSelecionada };
       const periodoAnterior = calcularPeriodoAnterior(dataInicio, dataFim);
       const paramsAnterior = {
         dataInicio: periodoAnterior.dataInicio,
         dataFim: periodoAnterior.dataFim,
+        ...filtroShopping,
       };
       const rankingPromise = api
         .get("/graficos/ranking-lucro-bruto-lojas", { params })
-        .catch(() => ({ data: { rankingLucroBrutoLojas: [] } }));
+        .catch(() => ({ data: { rankingLucroBrutoLojas: [], rankingLucroBrutoShoppings: [] } }));
       if (isTodas) {
         const [todasRes, rankingRes, anteriorRes] = await Promise.all([
           api.get("/relatorios/todas-lojas", { params }),
@@ -228,6 +239,7 @@ export function Graficos() {
         ]);
         setDadosTodasLojas(todasRes.data || null);
         setRankingLucroBruto(rankingRes.data?.rankingLucroBrutoLojas || []);
+        setRankingShoppings(rankingRes.data?.rankingLucroBrutoShoppings || []);
         setDadosTodasLojasAnterior(anteriorRes?.data || null);
       } else {
         const [dashRes, impressaoRes, rankingRes, anteriorRes] = await Promise.all([
@@ -236,7 +248,11 @@ export function Graficos() {
           rankingPromise,
           api
             .get("/relatorios/dashboard", {
-              params: { ...paramsAnterior, lojaId: lojaSelecionada },
+              params: {
+                dataInicio: periodoAnterior.dataInicio,
+                dataFim: periodoAnterior.dataFim,
+                lojaId: lojaSelecionada,
+              },
             })
             .catch(() => null),
         ]);
@@ -251,7 +267,7 @@ export function Graficos() {
     } finally {
       setLoading(false);
     }
-  }, [lojaSelecionada, dataInicio, dataFim]);
+  }, [lojaSelecionada, dataInicio, dataFim, shoppingFiltro]);
 
   useEffect(() => {
     if (lojaSelecionada && lojaSelecionada !== NENHUMA_LOJA_VALUE && dataInicio && dataFim) {
@@ -284,6 +300,7 @@ export function Graficos() {
         periodos.map(({ ini, fim }) => {
           const params = { dataInicio: ini, dataFim: fim };
           if (isTodas) {
+            if (shoppingFiltro) params.shoppingId = shoppingFiltro;
             return api.get("/relatorios/todas-lojas", { params });
           } else {
             // ⚠️ Usa /impressao porque é a fonte correta do faturamento consolidado
@@ -334,7 +351,7 @@ export function Graficos() {
     } finally {
       setLoadingAnual(false);
     }
-  }, [lojaSelecionada, anoSelecionado, anoAtual]);
+  }, [lojaSelecionada, anoSelecionado, anoAtual, shoppingFiltro]);
 
   useEffect(() => {
     if (lojaSelecionada && lojaSelecionada !== NENHUMA_LOJA_VALUE) {
@@ -656,9 +673,39 @@ export function Graficos() {
           <h3 className="text-lg font-bold text-gray-900 mb-4">Filtros do período</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
+              {shoppings.length > 0 && (
+                <>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">🏬 Shopping</label>
+                  <select
+                    className="select-field mb-3"
+                    value={shoppingFiltro}
+                    onChange={(e) => {
+                      setShoppingFiltro(e.target.value);
+                      if (e.target.value) setLojaSelecionada(TODAS_LOJAS_VALUE);
+                    }}
+                  >
+                    <option value="">Todos os shoppings</option>
+                    {shoppings.map((shopping) => (
+                      <option key={shopping.id} value={shopping.id}>{shopping.nome}</option>
+                    ))}
+                    <option value="sem">Fora de shopping</option>
+                  </select>
+                </>
+              )}
               <label className="block text-sm font-medium text-gray-700 mb-2">🏪 Loja</label>
               <SelectBusca
-                opcoes={lojas.map((l) => ({ valor: l.id, rotulo: l.nome ?? "" }))}
+                opcoes={lojas
+                  .filter((l) =>
+                    !shoppingFiltro || l.id === NENHUMA_LOJA_VALUE || l.id === TODAS_LOJAS_VALUE
+                      ? true
+                      : shoppingFiltro === "sem"
+                        ? !l.shoppingId
+                        : l.shoppingId === shoppingFiltro,
+                  )
+                  .map((l) => ({
+                    valor: l.id,
+                    rotulo: l.id === TODAS_LOJAS_VALUE && shoppingFiltro ? "Todas deste shopping" : rotuloPonto(l),
+                  }))}
                 valor={lojaSelecionada}
                 aoMudar={(valorEscolhido) => setLojaSelecionada(valorEscolhido)}
                 placeholder="Buscar..."
@@ -1055,7 +1102,14 @@ export function Graficos() {
               <RankingCard titulo="Ranking: Gasto Total das Lojas"   icon="🧾" dados={rankingGastoLojas}  campoNome="lojaNome" campoValor="custoTotal"             formatValor={formatMoney} />
               <RankingCard titulo="Ranking: Gasto Fixo das Lojas"    icon="🏠" dados={gastosFixosPorLoja} campoNome="lojaNome" campoValor="custoFixo"              formatValor={formatMoney} />
               <RankingCard titulo="Participação Percentual por Loja" icon="📊" dados={participacaoLojas}  campoNome="lojaNome" campoValor="participacaoLucroBruto" formatValor={(v) => `${toN(v).toFixed(2)}%`} />
+              {isTodas && !shoppingFiltro && shoppings.length > 0 && (
+                <RankingCard titulo="Ranking: Total Vendas por Shopping" icon="🏬" dados={rankingShoppings} campoNome="shoppingNome" campoValor="lucroBruto" formatValor={formatMoney} />
+              )}
             </div>
+
+            {isTodas && !shoppingFiltro && shoppings.length > 0 && (
+              <RelatorioPorShopping porShopping={dadosTodasLojas?.porShopping} aoEscolher={(id) => setShoppingFiltro(id)} />
+            )}
 
             <div className="flex flex-wrap gap-6">
               <KpiCard titulo="Faturamento Bruto" valor={formatMoney(kpiFaturamento)} icon="💰" cor="green"
