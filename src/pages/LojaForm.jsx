@@ -37,6 +37,7 @@ export const LojaForm = forwardRef(function LojaForm(
     ativo: true,
     shoppingId: (!embutido && busca.get("shoppingId")) || "",
     tipo: !embutido && busca.get("tipo") === "AVULSA" ? "AVULSA" : "LOJA",
+    estoqueLojaId: "",
   });
   const avulsa = formData.tipo === "AVULSA";
 
@@ -124,12 +125,22 @@ export const LojaForm = forwardRef(function LojaForm(
   // Extintores da loja
   const [extintores, setExtintores] = useState([]);
   const [shoppings, setShoppings] = useState([]);
+  // Lojas que podem emprestar o estoque (as que têm estoque próprio)
+  const [lojasEstoque, setLojasEstoque] = useState([]);
 
   useEffect(() => {
     api
       .get("/shoppings")
       .then(({ data }) => setShoppings(Array.isArray(data) ? data : []))
       .catch(() => setShoppings([]));
+    api
+      .get("/lojas")
+      .then(({ data }) =>
+        setLojasEstoque(
+          (Array.isArray(data) ? data : []).filter((l) => l.ativo !== false && !l.estoqueLojaId),
+        ),
+      )
+      .catch(() => setLojasEstoque([]));
   }, []);
 
   useEffect(() => {
@@ -216,6 +227,7 @@ export const LojaForm = forwardRef(function LojaForm(
         observacoes: response.data?.observacoes || "",
         shoppingId: response.data?.shoppingId || "",
         tipo: response.data?.tipo || "LOJA",
+        estoqueLojaId: response.data?.estoqueLojaId || "",
         dataFimContrato:
           response.data?.dataFimContrato ||
           response.data?.data_fim_contrato ||
@@ -389,6 +401,7 @@ export const LojaForm = forwardRef(function LojaForm(
       observacoes: formData.observacoes?.trim() || null,
       shoppingId: formData.shoppingId || null,
       tipo: embutido ? "LOJA" : formData.tipo || "LOJA",
+      estoqueLojaId: formData.estoqueLojaId || null,
       dataFimContrato: formData.dataFimContrato || null,
       diasAvisoContrato: formData.diasAvisoContrato
         ? parseInt(formData.diasAvisoContrato, 10)
@@ -768,6 +781,30 @@ export const LojaForm = forwardRef(function LojaForm(
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Estoque usado no abastecimento
+                  </label>
+                  <select
+                    name="estoqueLojaId"
+                    value={formData.estoqueLojaId || ""}
+                    onChange={handleChange}
+                    className="select-field"
+                  >
+                    <option value="">{avulsa ? "Estoque próprio" : "Estoque próprio da loja"}</option>
+                    {lojasEstoque
+                      .filter((l) => l.id !== id)
+                      .map((l) => (
+                        <option key={l.id} value={l.id}>
+                          Usa o estoque de: {l.tipo === "AVULSA" ? "🎮 " : ""}{l.nome}
+                        </option>
+                      ))}
+                  </select>
+                  <span className="mt-1 block text-xs text-gray-500">
+                    Na movimentação, o abastecimento sai do estoque escolhido aqui.
+                  </span>
                 </div>
 
                 <div>
