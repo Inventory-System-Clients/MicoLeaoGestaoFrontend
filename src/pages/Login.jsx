@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Login() {
@@ -7,7 +7,7 @@ export function Login() {
   const [senha, setSenha] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, signed, loading: carregandoSessao } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -26,6 +26,11 @@ export function Login() {
     setLoading(false);
   };
 
+
+  // Já logado: não mostra o login, vai para a tela inicial (que escolhe
+  // entre o Dashboard e a tela de cada perfil)
+  if (carregandoSessao) return null;
+  if (signed) return <Navigate to="/" replace />;
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background-light to-accent-cream/30 px-4 bg-pattern relative overflow-hidden">
       <div className="relative card-gradient max-w-md w-full backdrop-blur-sm">
@@ -41,7 +46,7 @@ export function Login() {
             </svg>
           </div>
           <img
-            src="/LogoMicoLeao.png"
+            src="/LogoMicoLeaoEscuro.png"
             alt="Mico Leao"
             className="mx-auto mb-4 h-32 w-32 rounded-2xl bg-white object-contain p-2 shadow-2xl ring-1 ring-primary/10"
           />
