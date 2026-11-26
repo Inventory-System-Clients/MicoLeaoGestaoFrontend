@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import { Modal } from "./UIComponents";
 import { SelectBusca } from "./SelectBusca";
-import { obterPerfil } from "../utils/perfis";
+import { SeletorPessoas } from "./SeletorPessoas";
 import { ICONE_TIPO, dataBr, hojeBrasilia, mensagemDeErro, reais } from "../utils/tarefas";
 import { rotuloPonto } from "../utils/lojas";
 
@@ -10,7 +10,8 @@ import { rotuloPonto } from "../utils/lojas";
 // dados } — ex.: do calendário, "Agendar pagamento" de uma conta.
 // O tipo escolhido define o que acontece sozinho no "Feito".
 
-const VAZIO = { titulo: "", descricao: "", tipo: "LIVRE", dados: {}, data: "", dataFim: "", responsavelId: "" };
+// responsaveisIds: várias pessoas (vazio = ninguém em especial)
+const VAZIO = { titulo: "", descricao: "", tipo: "LIVRE", dados: {}, data: "", dataFim: "", responsaveisIds: [] };
 
 export function TarefaForm({ aberto, onFechar, onSalva, inicial }) {
   const [opcoes, setOpcoes] = useState(null);
@@ -23,7 +24,13 @@ export function TarefaForm({ aberto, onFechar, onSalva, inicial }) {
     if (!aberto) return;
     setErro("");
     setVariosDias(Boolean(inicial?.dataFim));
-    setForm({ ...VAZIO, data: hojeBrasilia(), ...inicial, dados: { ...(inicial?.dados || {}) } });
+    setForm({
+      ...VAZIO,
+      data: hojeBrasilia(),
+      ...inicial,
+      responsaveisIds: inicial?.responsaveisIds || (inicial?.responsavelId ? [inicial.responsavelId] : []),
+      dados: { ...(inicial?.dados || {}) },
+    });
     api
       .get("/tarefas/opcoes")
       .then(({ data }) => setOpcoes(data))
@@ -45,11 +52,6 @@ export function TarefaForm({ aberto, onFechar, onSalva, inicial }) {
     [opcoes, nomeDaLoja],
   );
   const opcoesLojas = lojas.map((loja) => ({ valor: loja.id, rotulo: rotuloPonto(loja) }));
-  const opcoesUsuarios = (opcoes?.usuarios || []).map((usuario) => ({
-    valor: usuario.id,
-    rotulo: usuario.nome,
-    detalhe: obterPerfil(usuario.role).curto,
-  }));
   const opcoesContas = (opcoes?.contas || []).map((conta) => ({
     valor: conta.id,
     rotulo: `${conta.descricao}${conta.totalParcelas > 1 ? ` (${conta.numeroParcela}/${conta.totalParcelas})` : ""}`,
@@ -220,12 +222,17 @@ export function TarefaForm({ aberto, onFechar, onSalva, inicial }) {
             />
           </label>
 
-          <label className="block text-sm font-semibold text-gray-700">
+          <div className="block text-sm font-semibold text-gray-700">
             Para quem
             <div className="mt-1">
-              <SelectBusca opcoes={opcoesUsuarios} valor={form.responsavelId} aoMudar={(valor) => mudar("responsavelId", valor)} opcaoVazia="👥 Ninguém em especial" placeholder="Buscar pessoa..." />
+              <SeletorPessoas
+                opcoes={opcoes.usuarios || []}
+                valor={form.responsaveisIds}
+                aoMudar={(ids) => mudar("responsaveisIds", ids)}
+                placeholder="Adicionar pessoa (pode ser mais de uma)..."
+              />
             </div>
-          </label>
+          </div>
 
           <div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -259,9 +266,11 @@ export function TarefaForm({ aberto, onFechar, onSalva, inicial }) {
           </label>
 
           <p className="text-xs text-gray-500">
-            {form.responsavelId
-              ? "A pessoa escolhida precisa aceitar a tarefa e, quando fizer, marcar Feito."
-              : "Sem responsável: você pode marcar Feito, pegar para você ou escolher alguém depois."}
+            {form.responsaveisIds.length > 1
+              ? "A tarefa é do grupo: qualquer uma das pessoas aceita e, quando fizer, marca Feito."
+              : form.responsaveisIds.length === 1
+                ? "A pessoa escolhida precisa aceitar a tarefa e, quando fizer, marcar Feito."
+                : "Sem responsável: você pode marcar Feito, pegar para você ou escolher alguém depois."}
             {variosDias ? " O prazo é o último dia." : ""}
           </p>
 

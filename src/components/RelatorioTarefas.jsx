@@ -110,7 +110,7 @@ export function RelatorioTarefas({ dataInicio, dataFim, lojaId }) {
                         {tarefa.resultado?.mensagem && <span className="block text-xs text-gray-500">{tarefa.resultado.mensagem}</span>}
                       </td>
                       <td>{tarefa.criadoPor?.nome || "Sistema"}</td>
-                      <td>{tarefa.responsavel?.nome || "—"}</td>
+                      <td>{(tarefa.pessoas || []).map((p) => p.nome).join(", ") || tarefa.responsavel?.nome || "—"}</td>
                       <td>
                         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${(STATUS_TAREFA[tarefa.status] || {}).cor || ""}`}>
                           {(STATUS_TAREFA[tarefa.status] || {}).nome || tarefa.status}

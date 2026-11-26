@@ -3,7 +3,7 @@ import api from "../services/api";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageHeader, Modal } from "../components/UIComponents";
-import { SelectBusca } from "../components/SelectBusca";
+import { SeletorPessoas } from "../components/SeletorPessoas";
 import { TarefaForm } from "../components/TarefaForm";
 import { obterPerfil } from "../utils/perfis";
 import {
@@ -60,11 +60,14 @@ function CartaoTarefa({ tarefa, onAcao }) {
           </p>
           <p className="mt-1 text-sm text-gray-600">
             {tarefa.criadoPor ? <b>{tarefa.criadoPor.nome}</b> : <b>Sistema</b>} →{" "}
-            {tarefa.responsavel ? (
-              <>
-                <b>{tarefa.responsavel.nome}</b>{" "}
-                <span className="text-xs text-gray-400">({obterPerfil(tarefa.responsavel.role).curto})</span>
-              </>
+            {(tarefa.pessoas || []).length > 0 ? (
+              tarefa.pessoas.map((pessoa, indice) => (
+                <span key={pessoa.id}>
+                  {indice > 0 ? ", " : ""}
+                  <b>{pessoa.nome}</b>{" "}
+                  <span className="text-xs text-gray-400">({obterPerfil(pessoa.role).curto})</span>
+                </span>
+              ))
             ) : (
               <span className="font-semibold text-amber-700">ninguém em especial</span>
             )}
@@ -85,7 +88,7 @@ function CartaoTarefa({ tarefa, onAcao }) {
         <div className="flex flex-wrap gap-2 sm:max-w-xs sm:justify-end">
           {tarefa.pode.aceitar && (
             <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => onAcao("aceitar", tarefa)}>
-              {tarefa.responsavel ? "👍 Aceitar" : "🙋 Pegar para mim"}
+              {(tarefa.pessoas || []).length ? "👍 Aceitar" : "🙋 Pegar para mim"}
             </button>
           )}
           {tarefa.pode.feito && (
@@ -100,7 +103,7 @@ function CartaoTarefa({ tarefa, onAcao }) {
           )}
           {tarefa.pode.editar && (
             <button type="button" className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50" onClick={() => onAcao("editar", tarefa)}>
-              {tarefa.responsavel ? "✏️ Editar" : "👤 Escolher responsável"}
+              {(tarefa.pessoas || []).length ? "✏️ Editar" : "👤 Escolher responsável"}
             </button>
           )}
           {tarefa.pode.cancelar && (
@@ -138,7 +141,7 @@ function ModalAcao({ acao, tarefa, usuarios, onFechar, onFeito }) {
     setErro("");
     setCampos(
       acao === "editar"
-        ? { titulo: tarefa.titulo, descricao: tarefa.descricao || "", data: tarefa.data, dataFim: tarefa.dataFim || "", responsavelId: tarefa.responsavelId || "" }
+        ? { titulo: tarefa.titulo, descricao: tarefa.descricao || "", data: tarefa.data, dataFim: tarefa.dataFim || "", responsaveisIds: tarefa.pessoasIds || (tarefa.responsavelId ? [tarefa.responsavelId] : []) }
         : {},
     );
   }, [acao, tarefa]);
@@ -201,19 +204,18 @@ function ModalAcao({ acao, tarefa, usuarios, onFechar, onFeito }) {
               Título
               <input className="input-field mt-1" required maxLength={200} value={campos.titulo || ""} onChange={(e) => mudar("titulo", e.target.value)} />
             </label>
-            <label className="block text-sm font-semibold text-gray-700">
+            <div className="block text-sm font-semibold text-gray-700">
               Para quem
               <div className="mt-1">
-                <SelectBusca
-                  opcoes={usuarios.map((u) => ({ valor: u.id, rotulo: u.nome, detalhe: obterPerfil(u.role).curto }))}
-                  valor={campos.responsavelId || ""}
-                  aoMudar={(valor) => mudar("responsavelId", valor)}
-                  opcaoVazia="👥 Ninguém em especial"
-                  placeholder="Buscar pessoa..."
+                <SeletorPessoas
+                  opcoes={usuarios}
+                  valor={campos.responsaveisIds || []}
+                  aoMudar={(ids) => mudar("responsaveisIds", ids)}
+                  placeholder="Adicionar pessoa..."
                 />
               </div>
-              <span className="mt-1 block text-xs font-normal text-gray-500">Trocando a pessoa, a nova precisa aceitar de novo.</span>
-            </label>
+              <span className="mt-1 block text-xs font-normal text-gray-500">Trocando as pessoas, a tarefa precisa ser aceita de novo.</span>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <label className="block text-sm font-semibold text-gray-700">
                 Dia
@@ -297,7 +299,7 @@ export function Tarefas() {
     if (!termo) return lista;
     return lista.filter((tarefa) =>
       normalizar(
-        [tarefa.codigo, tarefa.titulo, tarefa.descricao, tarefa.responsavel?.nome, tarefa.criadoPor?.nome, tarefa.loja?.nome].join(" "),
+        [tarefa.codigo, tarefa.titulo, tarefa.descricao, (tarefa.pessoas || []).map((p) => p.nome).join(" "), tarefa.criadoPor?.nome, tarefa.loja?.nome].join(" "),
       ).includes(termo),
     );
   }, [dados, busca]);
@@ -387,7 +389,7 @@ export function Tarefas() {
         aberto={criando}
         onFechar={() => setCriando(false)}
         onSalva={(tarefa) => {
-          setAviso(`${tarefa.codigo} criada${tarefa.responsavel ? ` para ${tarefa.responsavel.nome}` : " (ninguém em especial)"}.`);
+          setAviso(`${tarefa.codigo} criada${(tarefa.pessoas || []).length ? ` para ${tarefa.pessoas.map((p) => p.nome).join(", ")}` : " (ninguém em especial)"}.`);
           carregar();
         }}
       />
