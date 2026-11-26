@@ -5,6 +5,7 @@ import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
 import { PageHeader, Modal } from "../components/UIComponents";
 import { SelectBusca } from "../components/SelectBusca";
+import { SeletorPessoas } from "../components/SeletorPessoas";
 import { useAuth } from "../contexts/AuthContext";
 import { obterPerfil, pode } from "../utils/perfis";
 import {
@@ -30,7 +31,7 @@ const FORM_VAZIO = {
   prazo: "",
   destinoTipo: "setor",
   setor: "",
-  destinatarioId: "",
+  destinatariosIds: [],
 };
 
 const mensagemDeErro = (erro, padrao) => erro?.response?.data?.error || padrao;
@@ -44,7 +45,7 @@ function EscolhaDestino({ valor, aoMudar, destinos }) {
       <div className="inline-flex rounded-xl bg-gray-100 p-1">
         {[
           ["setor", "👥 Setor"],
-          ["pessoa", "👤 Pessoa"],
+          ["pessoa", "👤 Pessoas"],
         ].map(([tipo, rotulo]) => (
           <button
             key={tipo}
@@ -76,23 +77,27 @@ function EscolhaDestino({ valor, aoMudar, destinos }) {
           ))}
         </div>
       ) : (
-        <SelectBusca
-          opcoes={(destinos.pessoas || []).map((p) => ({ valor: p.id, rotulo: p.nome, detalhe: obterPerfil(p.role).curto }))}
-          valor={valor.destinatarioId}
-          aoMudar={(destinatarioId) => aoMudar({ ...valor, destinatarioId })}
-          placeholder="Buscar pessoa"
+        <SeletorPessoas
+          opcoes={destinos.pessoas || []}
+          valor={valor.destinatariosIds || []}
+          aoMudar={(destinatariosIds) => aoMudar({ ...valor, destinatariosIds })}
+          placeholder="Adicionar pessoa (pode ser mais de uma)..."
+          vazio="Ninguém escolhido ainda"
         />
       )}
       <p className="text-xs text-gray-500">
         {valor.destinoTipo === "setor"
           ? "Todos do setor veem; quem aceitar primeiro fica com ela."
-          : "Só essa pessoa vê e decide se aceita."}
+          : (valor.destinatariosIds || []).length > 1
+            ? "Essas pessoas veem; quem aceitar primeiro fica com ela."
+            : "Só essa pessoa vê e decide se aceita."}
       </p>
     </div>
   );
 }
 
 const destinoTexto = (m) => {
+  if ((m.destinatarios || []).length > 1) return `👤 ${m.destinatarios.map((p) => p.nome).join(", ")}`;
   if (m.destinatario) return `👤 ${m.destinatario.nome}`;
   if (m.setor) return `👥 ${obterPerfil(m.setor).nome}`;
   const lista = m.funcionariosPermitidos || [];
@@ -225,7 +230,7 @@ export default function ManutencaoPage() {
         tipoProblema: form.tipoProblema || null,
         prazo: form.prazo || null,
         setor: podeAutorizar && form.destinoTipo === "setor" ? form.setor : null,
-        destinatarioId: podeAutorizar && form.destinoTipo === "pessoa" ? form.destinatarioId : null,
+        destinatariosIds: podeAutorizar && form.destinoTipo === "pessoa" ? form.destinatariosIds : [],
       });
       setForm(FORM_VAZIO);
       setAbrindo(false);
@@ -403,7 +408,7 @@ export default function ManutencaoPage() {
               <button type="button" onClick={() => setAbrindo(false)} className="btn-secondary">Cancelar</button>
               <button
                 type="submit"
-                disabled={enviando || (podeAutorizar && (form.destinoTipo === "setor" ? !form.setor : !form.destinatarioId))}
+                disabled={enviando || (podeAutorizar && (form.destinoTipo === "setor" ? !form.setor : !(form.destinatariosIds || []).length))}
                 className="btn-primary disabled:opacity-50"
               >
                 {enviando ? "Enviando..." : podeAutorizar ? "Abrir manutenção" : "Enviar solicitação"}
@@ -575,7 +580,7 @@ export default function ManutencaoPage() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   {podeAutorizar && m.status === "SOLICITADA" && (
                     <>
-                      <button type="button" onClick={() => abrirModal("autorizar", m, { destinoTipo: "setor", setor: "", destinatarioId: "", prazo: m.prazo || "" })} className="btn-primary px-4 py-2 text-sm">
+                      <button type="button" onClick={() => abrirModal("autorizar", m, { destinoTipo: "setor", setor: "", destinatariosIds: [], prazo: m.prazo || "" })} className="btn-primary px-4 py-2 text-sm">
                         👍 Autorizar e enviar
                       </button>
                       <button type="button" onClick={() => abrirModal("recusar", m)} className="btn-secondary px-3 py-2 text-sm">✖️ Recusar</button>
@@ -602,7 +607,7 @@ export default function ManutencaoPage() {
                   {ehAdmin && ["PENDENTE", "ACEITA", "AGUARDANDO"].includes(m.status) && (
                     <button
                       type="button"
-                      onClick={() => abrirModal("reenviar", m, { destinoTipo: m.destinatarioId ? "pessoa" : "setor", setor: m.setor || "", destinatarioId: m.destinatarioId || m.aceitaPorId || "" })}
+                      onClick={() => abrirModal("reenviar", m, { destinoTipo: m.destinatarioId ? "pessoa" : "setor", setor: m.setor || "", destinatariosIds: (m.destinatariosIds || []).length ? m.destinatariosIds : [m.destinatarioId || m.aceitaPorId].filter(Boolean) })}
                       className={`${m.status === "AGUARDANDO" ? "btn-primary" : "btn-secondary"} px-3 py-2 text-sm`}
                     >
                       ↪️ Reenviar
@@ -684,7 +689,7 @@ export default function ManutencaoPage() {
               if (tipo === "autorizar")
                 acao(m, "autorizar", {
                   setor: dados.destinoTipo === "setor" ? dados.setor : null,
-                  destinatarioId: dados.destinoTipo === "pessoa" ? dados.destinatarioId : null,
+                  destinatariosIds: dados.destinoTipo === "pessoa" ? dados.destinatariosIds : [],
                   prazo: dados.prazo || null,
                 }, "Autorizada e enviada. 👍");
               if (tipo === "recusar") acao(m, "recusar", { motivo: dados.motivo }, "Solicitação recusada.");
@@ -694,7 +699,7 @@ export default function ManutencaoPage() {
               if (tipo === "reenviar")
                 acao(m, "reenviar", {
                   setor: dados.destinoTipo === "setor" ? dados.setor : null,
-                  destinatarioId: dados.destinoTipo === "pessoa" ? dados.destinatarioId : null,
+                  destinatariosIds: dados.destinoTipo === "pessoa" ? dados.destinatariosIds : [],
                   observacao: dados.observacao,
                 }, "Manutenção reenviada.");
               if (tipo === "finalizar") acao(m, "finalizar", { custo: dados.custo, gastoDescricao: dados.gastoDescricao }, "Manutenção finalizada. 🏁");
@@ -777,7 +782,7 @@ export default function ManutencaoPage() {
                 disabled={
                   enviando ||
                   (["reenviar", "autorizar"].includes(modal.tipo) &&
-                    (modal.dados.destinoTipo === "setor" ? !modal.dados.setor : !modal.dados.destinatarioId))
+                    (modal.dados.destinoTipo === "setor" ? !modal.dados.setor : !(modal.dados.destinatariosIds || []).length))
                 }
                 className="btn-primary disabled:opacity-50"
               >

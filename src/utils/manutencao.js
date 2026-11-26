@@ -39,7 +39,9 @@ export const ACOES_HISTORICO = {
 // Pendente enviada pra essa pessoa: direto pra ela, ou pro setor (perfil)
 // dela; nas antigas (sem setor), quem estava na lista
 export const ehParaMim = (m, usuario) => {
-  if (m.destinatarioId) return m.destinatarioId === usuario?.id;
+  if (m.destinatarioId) {
+    return m.destinatarioId === usuario?.id || (m.destinatariosIds || []).includes(usuario?.id);
+  }
   if (m.setor) return m.setor === usuario?.role;
   return (
     m.responsavelId === usuario?.id ||
