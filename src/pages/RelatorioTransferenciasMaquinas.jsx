@@ -6,6 +6,9 @@ import { Footer } from "../components/Footer";
 import { PageHeader, DataTable, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
 import { SelectBusca } from "../components/SelectBusca";
+import { TransferirMaquinas } from "../components/TransferirMaquinas";
+import { useAuth } from "../contexts/AuthContext";
+import { pode } from "../utils/perfis";
 
 const filtrosIniciais = {
   maquina: "",
@@ -29,6 +32,10 @@ export function RelatorioTransferenciasMaquinas() {
   const [error, setError] = useState("");
   const [filtros, setFiltros] = useState(filtrosIniciais);
   const [filtrosAplicados, setFiltrosAplicados] = useState(filtrosIniciais);
+  const [transferindo, setTransferindo] = useState(false);
+  const [recarregar, setRecarregar] = useState(0);
+  const { usuario } = useAuth();
+  const podeTransferir = pode(usuario, "maquinas.transferir", ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_CADASTRO"].includes(usuario?.role));
 
   useEffect(() => {
     api
@@ -59,7 +66,7 @@ export function RelatorioTransferenciasMaquinas() {
       }
     };
     carregar();
-  }, [filtrosAplicados]);
+  }, [filtrosAplicados, recarregar]);
 
   const aplicarFiltros = (e) => {
     e.preventDefault();
@@ -124,7 +131,17 @@ export function RelatorioTransferenciasMaquinas() {
           title="Transferências de Máquinas"
           subtitle="Rastreabilidade: todas as mudanças de localização das máquinas desde o cadastro"
           icon="🔁"
+          action={
+            podeTransferir ? (
+              <button type="button" onClick={() => setTransferindo(true)} className="btn-primary">
+                🔁 Transferir máquina(s)
+              </button>
+            ) : null
+          }
         />
+        {transferindo && (
+          <TransferirMaquinas aberto onFechar={() => setTransferindo(false)} onFeito={() => setRecarregar((n) => n + 1)} />
+        )}
 
         {error && (
           <AlertBox type="error" message={error} onClose={() => setError("")} />

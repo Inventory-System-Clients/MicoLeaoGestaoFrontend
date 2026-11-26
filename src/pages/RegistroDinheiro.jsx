@@ -327,10 +327,11 @@ export function RegistroDinheiro() {
                 </thead>
                 <tbody>
                   {historico.map((item) => {
+                    // Blink só soma nos registros novos (antes era só comparação)
                     const contado =
                       Number(item.valorDinheiro || 0) +
                       Number(item.valorCartaoPix || 0) +
-                      Number(item.valorBlink || 0);
+                      (item.blinkNoTotal ? Number(item.valorBlink || 0) : 0);
                     const diferenca = Number(item.diferenca || 0);
 
                     return (

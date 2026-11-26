@@ -188,25 +188,20 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
     };
   }, [lojaSelecionada, maquinaSelecionada, registrarTotalLoja, dataInicio, dataFim]);
 
-  // O Blink é só um valor de comparação (trocadora) — não entra na soma
-  // contada contra o valor esperado pelo sistema (fichas).
+  // Desde 26/11/2026 o Blink é faturamento: soma no valor contado (Dinheiro +
+  // Cartão/Pix + Blink), que é comparado com o esperado pelo sistema.
   const valorContadoTotal =
     (parseLocaleNumber(valorDinheiro) || 0) +
-    (parseLocaleNumber(valorCartaoPix) || 0);
+    (parseLocaleNumber(valorCartaoPix) || 0) +
+    (parseLocaleNumber(valorBlink) || 0);
 
   const diferenca =
     valorEsperado !== null ? Number((valorContadoTotal - valorEsperado).toFixed(2)) : null;
 
-  const valorBlinkNumeroPreview = parseLocaleNumber(valorBlink);
-  const diferencaBlinkPreview =
-    registrarTotalLoja && valorBlinkNumeroPreview !== null
-      ? Number((valorContadoTotal - valorBlinkNumeroPreview).toFixed(2))
-      : null;
-
+  // Fichas informadas x fichas do sistema (loja toda ou só a máquina)
   const quantidadeFichasBlinkNumeroPreview =
     quantidadeFichasBlink === "" ? null : Number(quantidadeFichasBlink);
   const diferencaFichasBlinkPreview =
-    registrarTotalLoja &&
     quantidadeFichasSistema !== null &&
     quantidadeFichasBlinkNumeroPreview !== null &&
     Number.isFinite(quantidadeFichasBlinkNumeroPreview)
@@ -290,10 +285,8 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
       fim: `${dataFim}T23:59:59`,
       valorDinheiro: dinheiroNumero,
       valorCartaoPix: cartaoPixNumero,
-      valorBlink: registrarTotalLoja ? blinkNumero : null,
-      quantidadeFichasBlink: registrarTotalLoja
-        ? quantidadeFichasBlinkNumero
-        : null,
+      valorBlink: blinkNumero,
+      quantidadeFichasBlink: quantidadeFichasBlinkNumero,
       observacoes: observacoes === "" ? null : observacoes,
       conferidoPorId: conferidoPorId || null,
       comprovanteUrl: comprovanteUrl.trim() === "" ? null : comprovanteUrl.trim(),
@@ -346,10 +339,6 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
             checked={registrarTotalLoja}
             onChange={(e) => {
               setRegistrarTotalLoja(e.target.checked);
-              if (!e.target.checked) {
-                setValorBlink("");
-                setQuantidadeFichasBlink("");
-              }
             }}
           />
           Registrar valor total da loja (não selecionar máquina)
@@ -485,7 +474,7 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
         <h3 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-emerald-800">
           <span className="text-lg">💰</span> Valores contados
         </h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <label className="mb-1 block text-sm font-bold text-gray-700">
               💵 Dinheiro
@@ -513,31 +502,34 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
               className="input-field"
             />
           </div>
-        </div>
 
-        {registrarTotalLoja && (
+          <div>
+            <label className="mb-1 block text-sm font-bold text-gray-700">
+              ⚡ Blink (R$)
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={valorBlink}
+              onChange={(e) => setValorBlink(e.target.value)}
+              placeholder="Ex: 15,00"
+              className="input-field"
+            />
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-gray-600">
+          ⚡ O <strong>Blink soma no total</strong>: Dinheiro + Cartão/Pix + Blink é o valor contado.
+        </p>
+
+        {(
           <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
             <h4 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-emerald-800">
-              <span className="text-lg">💰</span> Valores contados no Blink
+              <span className="text-lg">🎟️</span> Fichas
             </h4>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-bold text-gray-700">
-                  ⚡ Blink (R$)
-                </label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={valorBlink}
-                  onChange={(e) => setValorBlink(e.target.value)}
-                  placeholder="Ex: 15,00"
-                  className="input-field"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-bold text-gray-700">
-                  🎟️ Fichas (Blink)
+                  🎟️ Fichas (lidas no Blink ou contadas)
                 </label>
                 <input
                   type="text"
@@ -552,36 +544,22 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
                   className="input-field"
                 />
               </div>
+              <div className="rounded-lg bg-slate-50 p-2 text-sm">
+                <span className="block text-xs font-bold text-gray-600">🧮 Sistema no período</span>
+                <strong className="text-lg">{quantidadeFichasSistema ?? "—"}</strong>
+                <span className="block text-xs text-gray-500">
+                  {registrarTotalLoja
+                    ? "Fichas das movimentações da loja (máquinas que geram receita, exceto Cascata)"
+                    : "Fichas das movimentações desta máquina"}
+                </span>
+              </div>
             </div>
 
             <p className="mt-3 text-xs text-gray-600">
-              ⚡ <strong>Blink é só para comparação</strong>: não entra na
-              soma contada, só serve pra conferir se bate com Dinheiro +
-              Cartão/Pix e se a quantidade de fichas bate com o que o sistema
-              registrou nas coletas. Se houver diferença, um alerta é criado
-              automaticamente na página de <strong>Alertas</strong>.
+              Digite as fichas e o sistema mostra na hora a diferença com o que
+              foi registrado nas movimentações. Se houver diferença, um alerta é
+              criado na página de <strong>Alertas</strong>.
             </p>
-
-            {valorBlinkNumeroPreview !== null && (
-              <p
-                className={`mt-2 text-sm font-black ${
-                  Math.abs(diferencaBlinkPreview) < 0.01
-                    ? "text-emerald-700"
-                    : "text-red-700"
-                }`}
-              >
-                {Math.abs(diferencaBlinkPreview) < 0.01
-                  ? "✅ Bate com Dinheiro + Cartão/Pix"
-                  : `⚠️ Diferença de R$ ${diferencaBlinkPreview.toFixed(2)} em relação ao Blink`}
-              </p>
-            )}
-
-            {quantidadeFichasSistema !== null && (
-              <p className="mt-2 text-sm font-semibold text-gray-700">
-                🎟️ Fichas registradas pelo sistema no período (exceto
-                Cascata): <strong>{quantidadeFichasSistema}</strong>
-              </p>
-            )}
 
             {diferencaFichasBlinkPreview !== null && (
               <p
@@ -593,7 +571,9 @@ const RegistrarDinheiro = ({ lojas, maquinas, usuarios, onSubmit }) => {
               >
                 {diferencaFichasBlinkPreview === 0
                   ? "✅ Quantidade de fichas bate com o sistema"
-                  : `⚠️ Diferença de ${diferencaFichasBlinkPreview} ficha(s) em relação ao Blink`}
+                  : diferencaFichasBlinkPreview > 0
+                    ? `⚠️ Faltam ${diferencaFichasBlinkPreview} ficha(s): o sistema tem ${quantidadeFichasSistema} e você informou ${quantidadeFichasBlinkNumeroPreview}`
+                    : `⚠️ Sobram ${Math.abs(diferencaFichasBlinkPreview)} ficha(s): você informou ${quantidadeFichasBlinkNumeroPreview} e o sistema tem ${quantidadeFichasSistema}`}
               </p>
             )}
           </div>
