@@ -22,6 +22,7 @@ export function UsuarioForm() {
     telefone: "",
     role: "FUNCIONARIO",
     lojasPermitidas: [],
+    chefeSetor: false,
   });
 
   // Ajustes de acesso sobre o padrão do perfil (dar/tirar ações)
@@ -65,6 +66,7 @@ export function UsuarioForm() {
         telefone: usuario.telefone || "",
         role: usuario.role,
         lojasPermitidas: usuario.permissoesLojas?.map((p) => p.lojaId) || [],
+        chefeSetor: Boolean(usuario.chefeSetor),
       });
       setAjustesAcesso({
         adicionadas: usuario.acessosPersonalizados?.adicionadas || [],
@@ -136,6 +138,7 @@ export function UsuarioForm() {
         email: formData.email,
         telefone: formData.telefone,
         role: formData.role,
+        chefeSetor: formData.chefeSetor,
         lojasPermitidas: ESCOLHE_LOJAS.includes(formData.role)
           ? formData.lojasPermitidas
           : [],
@@ -322,6 +325,22 @@ export function UsuarioForm() {
                 <p className="mt-2 text-sm text-gray-500">
                   {obterPerfil(formData.role).descricao}
                 </p>
+                {!["ADMIN", "DESENVOLVEDOR"].includes(formData.role) && (
+                  <label className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <input
+                      type="checkbox"
+                      checked={formData.chefeSetor}
+                      onChange={(e) => setFormData({ ...formData, chefeSetor: e.target.checked })}
+                      className="mt-1 h-4 w-4"
+                    />
+                    <span>
+                      <span className="block text-sm font-bold text-gray-900">👑 Chefe do setor ({obterPerfil(formData.role).nome})</span>
+                      <span className="block text-xs text-gray-600">
+                        Manutenção mandada para o setor: ele pode fazer ou escolher quem do setor vai fazer.
+                      </span>
+                    </span>
+                  </label>
+                )}
               </div>
             </div>
 

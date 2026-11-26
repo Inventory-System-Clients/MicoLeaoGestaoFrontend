@@ -14,6 +14,7 @@ import {
   TIPOS_PROBLEMA,
   ACOES_HISTORICO,
   ehParaMim,
+  situacaoCompraPeca,
 } from "../utils/manutencao";
 
 // Manutenção: qualquer um solicita; Cadastro/admin autoriza mandando para um
@@ -21,6 +22,10 @@ import {
 // ela (some pros outros). Quem aceitou conclui, pede serviço de terceiro ou
 // diz que não consegue (vai pro admin reenviar). O admin finaliza lançando o
 // gasto (obrigatório, pode ser R$ 0).
+// Todo mundo acompanha as das lojas dele; Consultor/Gestor de vendas aceitam
+// as das lojas deles; o chefe do setor escolhe quem faz. Dá pra juntar outra
+// ocorrência numa aberta, editar e adicionar peças (checando o estoque; a que
+// falta vira pedido de compra e muda o prazo). O histórico mostra as finalizadas.
 
 const FORM_VAZIO = {
   lojaId: "",
@@ -37,6 +42,14 @@ const FORM_VAZIO = {
 const mensagemDeErro = (erro, padrao) => erro?.response?.data?.error || padrao;
 const dataHora = (valor) =>
   valor ? new Date(valor).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "-";
+const dataCurta = (valor) => (valor ? String(valor).slice(0, 10).split("-").reverse().join("/") : "");
+const somarDias = (data, dias) => {
+  if (!data) return "";
+  const d = new Date(`${data}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + dias);
+  return d.toISOString().slice(0, 10);
+};
+const EM_ANDAMENTO = ["SOLICITADA", "PENDENTE", "ACEITA", "AGUARDANDO"];
 const reais = (valor) => Number(valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function EscolhaDestino({ valor, aoMudar, destinos }) {
@@ -130,6 +143,7 @@ export default function ManutencaoPage() {
   const [detalhesAbertos, setDetalhesAbertos] = useState({});
   const [modal, setModal] = useState(null);
   const [erroModal, setErroModal] = useState("");
+  const [historico, setHistorico] = useState(null);
 
   const regraGestao = ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role);
   const veTodas = pode(usuario, "manutencao.gerenciarTodas", regraGestao);
@@ -166,8 +180,23 @@ export default function ManutencaoPage() {
     if (!authLoading) carregar();
   }, [authLoading, carregar]);
 
+  const carregarHistorico = useCallback(async () => {
+    try {
+      const { data } = await api.get("/manutencoes", { params: { historico: 1 } });
+      setHistorico(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Erro ao carregar o histórico"));
+      setHistorico([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (aba === "HISTORICO" && historico === null) carregarHistorico();
+  }, [aba, historico, carregarHistorico]);
+
   const atualizarTudo = async () => {
     await carregar();
+    if (historico !== null) setHistorico(null);
     atualizarMinhasManutencoesPendentesCount?.();
   };
 
@@ -186,15 +215,24 @@ export default function ManutencaoPage() {
           filtro: (m) => m.status === status,
           destaque: ["SOLICITADA", "AGUARDANDO", "CONCLUIDA"].includes(status),
         })),
-      ].map((a) => ({ ...a, total: conta(a.filtro) }));
+        { chave: "HISTORICO", rotulo: "📜 Histórico", historico: true },
+      ].map((a) => ({ ...a, total: a.historico ? historico?.length ?? "…" : conta(a.filtro) }));
     }
     return [
       { chave: "ABERTAS", rotulo: "Todas", filtro: () => true },
-      { chave: "PARA_MIM", rotulo: "🕐 Para mim", filtro: (m) => m.status === "PENDENTE" && ehParaMim(m, usuario), destaque: true },
+      {
+        chave: "PARA_MIM",
+        rotulo: "🕐 Para mim",
+        filtro: (m) => m.status === "PENDENTE" && ehParaMim(m, usuario),
+        destaque: true,
+      },
       { chave: "COMIGO", rotulo: "🔧 Comigo", filtro: (m) => m.aceitaPorId === usuario?.id && m.status !== "CONCLUIDA" },
+      ...(usuario?.chefeSetor ? [{ chave: "MEU_SETOR", rotulo: "👑 Meu setor", filtro: (m) => m.acoes?.chefe }] : []),
+      { chave: "NAS_LOJAS", rotulo: "🏪 Nas minhas lojas", filtro: (m) => m.lojaId && m.criadoPorId !== usuario?.id && m.aceitaPorId !== usuario?.id && (m.acoes?.acompanhando || (m.acoes?.podeAceitar && !ehParaMim(m, usuario))) },
       { chave: "ABERTAS_POR_MIM", rotulo: "📝 Pedidas por mim", filtro: (m) => m.criadoPorId === usuario?.id },
-    ].map((a) => ({ ...a, total: conta(a.filtro) }));
-  }, [manutencoes, veTodas, usuario]);
+      { chave: "HISTORICO", rotulo: "📜 Histórico", historico: true },
+    ].map((a) => ({ ...a, total: a.historico ? historico?.length ?? "…" : conta(a.filtro) }));
+  }, [manutencoes, veTodas, usuario, historico]);
 
   // Gestão: se tem solicitação esperando, abre direto nessa aba
   useEffect(() => {
@@ -203,19 +241,51 @@ export default function ManutencaoPage() {
 
   const abaAtual = abas.find((a) => a.chave === aba) || abas[0];
   const termo = busca.trim().toLowerCase();
-  const visiveis = manutencoes
-    .filter(abaAtual.filtro)
+  const visiveis = (abaAtual.historico ? historico || [] : manutencoes)
+    .filter(abaAtual.historico ? () => true : abaAtual.filtro)
     .filter((m) => !filtroLoja || m.lojaId === filtroLoja)
     .filter(
       (m) =>
         !termo ||
-        [m.titulo, m.descricao, m.loja?.nome, m.maquina?.codigo, m.maquina?.nome, m.aceitaPor?.nome]
+        [m.titulo, m.descricao, m.loja?.nome, m.maquina?.codigo, m.maquina?.nome, m.aceitaPor?.nome, ...(m.ocorrencias || []).map((o) => o.descricao)]
           .filter(Boolean)
           .some((t) => String(t).toLowerCase().includes(termo)),
     )
-    .sort((a, b) => ORDEM_STATUS.indexOf(a.status) - ORDEM_STATUS.indexOf(b.status) || new Date(b.createdAt) - new Date(a.createdAt));
+    .sort((a, b) =>
+      abaAtual.historico
+        ? new Date(b.finalizadaEm || b.createdAt) - new Date(a.finalizadaEm || a.createdAt)
+        : ORDEM_STATUS.indexOf(a.status) - ORDEM_STATUS.indexOf(b.status) || new Date(b.createdAt) - new Date(a.createdAt),
+    );
 
   const maquinasDaLoja = (destinos.maquinas || []).filter((m) => m.lojaId === form.lojaId);
+  // Já tem manutenção aberta nessa loja? Dá pra juntar o problema nela
+  const abertasNaLoja = form.lojaId
+    ? manutencoes.filter((m) => m.lojaId === form.lojaId && EM_ANDAMENTO.includes(m.status) && m.acoes?.podeOcorrencia)
+    : [];
+
+  const juntarNaAberta = async (manutencao) => {
+    if (form.titulo.trim().length < 3 && form.descricao.trim().length < 3) {
+      setErro("Escreva o que aconteceu antes de juntar.");
+      return;
+    }
+    setErro("");
+    setEnviando(true);
+    try {
+      await api.post(`/manutencoes/${manutencao.id}/ocorrencias`, {
+        descricao: [form.titulo.trim(), form.descricao.trim()].filter(Boolean).join(" — "),
+        maquinaId: form.maquinaId || null,
+        tipoProblema: form.tipoProblema || null,
+      });
+      setForm(FORM_VAZIO);
+      setAbrindo(false);
+      setAviso(`Ocorrência juntada na manutenção "${manutencao.titulo}". ✅`);
+      await atualizarTudo();
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Erro ao juntar a ocorrência"));
+    } finally {
+      setEnviando(false);
+    }
+  };
 
   const abrirManutencao = async (evento) => {
     evento.preventDefault();
@@ -249,11 +319,11 @@ export default function ManutencaoPage() {
     }
   };
 
-  const acao = async (manutencao, caminho, corpo = {}, mensagem) => {
+  const acao = async (manutencao, caminho, corpo = {}, mensagem, metodo = "post") => {
     setErroModal("");
     setEnviando(true);
     try {
-      await api.post(`/manutencoes/${manutencao.id}/${caminho}`, corpo);
+      await api[metodo](caminho ? `/manutencoes/${manutencao.id}/${caminho}` : `/manutencoes/${manutencao.id}`, corpo);
       setModal(null);
       if (mensagem) setAviso(mensagem);
       await atualizarTudo();
@@ -283,6 +353,29 @@ export default function ManutencaoPage() {
       setErroModal(mensagemDeErro(e, "Erro ao registrar a peça"));
     } finally {
       setEnviando(false);
+    }
+  };
+
+  const removerPecaNecessaria = async (manutencao, item) => {
+    if (!window.confirm(`Tirar ${item.quantidade}× ${item.nome} da manutenção?`)) return;
+    try {
+      await api.delete(`/manutencoes/${manutencao.id}/pecas-necessarias/${item.id}`);
+      await atualizarTudo();
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Erro ao tirar a peça"));
+    }
+  };
+
+  // Peças: carrega o estoque (depósito + carrinho de quem vai fazer)
+  const abrirPecas = async (manutencao) => {
+    setErroModal("");
+    setModal({ tipo: "pecas", manutencao, dados: { carregando: true, quantidade: "1", modo: "estoque" } });
+    try {
+      const { data } = await api.get(`/manutencoes/${manutencao.id}/pecas-disponiveis`);
+      setModal((m) => m && m.tipo === "pecas" ? { ...m, dados: { ...m.dados, carregando: false, estoque: data.pecas || [], executor: data.executor } } : m);
+    } catch (e) {
+      setModal((m) => m && { ...m, dados: { ...m.dados, carregando: false, estoque: [] } });
+      setErroModal(mensagemDeErro(e, "Erro ao carregar o estoque de peças"));
     }
   };
 
@@ -354,6 +447,25 @@ export default function ManutencaoPage() {
                 />
               </div>
             </section>
+
+            {abertasNaLoja.length > 0 && (
+              <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
+                <p className="text-sm font-bold text-amber-900">
+                  ⚠️ Essa loja já tem manutenção em aberto. Se for junto, escreva o problema abaixo e toque em "Juntar nesta":
+                </p>
+                {abertasNaLoja.map((m) => (
+                  <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-2 text-sm">
+                    <span>
+                      <b>{m.titulo}</b> · {STATUS_MANUTENCAO[m.status]?.rotulo}
+                      {m.maquina ? ` · 🎰 ${m.maquina.codigo}` : ""}
+                    </span>
+                    <button type="button" disabled={enviando} onClick={() => juntarNaAberta(m)} className="btn-secondary px-3 py-1.5 text-sm">
+                      ➕ Juntar nesta
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <section className="space-y-2">
               <p className="text-sm font-black text-gray-700">2. O que aconteceu?</p>
@@ -481,7 +593,7 @@ export default function ManutencaoPage() {
             placeholder="🔍 Buscar por problema, loja, máquina, pessoa"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
-          {veTodas && (
+          {(destinos.lojas || []).length > 0 && (
             <div className="w-full sm:w-72">
               <SelectBusca
                 opcoes={(destinos.lojas || []).map((l) => ({ valor: l.id, rotulo: l.nome }))}
@@ -507,7 +619,9 @@ export default function ManutencaoPage() {
             const tipo = TIPOS_PROBLEMA.find((t) => t.valor === m.tipoProblema);
             const minha = m.aceitaPorId === usuario?.id;
             const podeTrabalhar = minha || (veTodas && m.status === "ACEITA");
-            const podeAceitar = m.status === "PENDENTE" && !ehAdmin && (ehParaMim(m, usuario) || veTodas);
+            const acoesM = m.acoes || {};
+            const podeAceitar = m.status === "PENDENTE" && !ehAdmin && (acoesM.podeAceitar || ehParaMim(m, usuario) || veTodas);
+            const comprasPendentes = (m.pecasNecessarias || []).filter((p) => p.situacao === "COMPRA_SOLICITADA");
             const aberto = Boolean(detalhesAbertos[m.id]);
             const atrasada = m.prazo && !["CONCLUIDA", "FINALIZADA"].includes(m.status) && m.prazo < new Date().toISOString().slice(0, 10);
             return (
@@ -520,6 +634,19 @@ export default function ManutencaoPage() {
                       </span>
                       {tipo && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">{tipo.icone} {tipo.rotulo}</span>}
                       {atrasada && <span className="rounded-full bg-rose-500 px-2 py-0.5 text-xs font-bold text-white">Atrasada</span>}
+                      {acoesM.acompanhando && (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">👀 Acompanhando (sua loja)</span>
+                      )}
+                      {comprasPendentes.length > 0 && EM_ANDAMENTO.includes(m.status) && (
+                        <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800">
+                          🛒 Esperando peça (chega {dataCurta(comprasPendentes.map((p) => p.previsaoChegada).sort().slice(-1)[0])})
+                        </span>
+                      )}
+                      {(m.ocorrencias || []).length > 0 && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                          +{m.ocorrencias.length} ocorrência{m.ocorrencias.length > 1 ? "s" : ""}
+                        </span>
+                      )}
                       {m.servicoExterno && m.status === "ACEITA" && (
                         <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800">🛠️ {m.servicoExterno} solicitado</span>
                       )}
@@ -533,11 +660,47 @@ export default function ManutencaoPage() {
                   <div className="text-right text-xs text-gray-500">
                     <p>Aberta por <b>{m.criadoPor?.nome || "-"}</b></p>
                     <p>{dataHora(m.createdAt)}</p>
-                    {m.prazo && <p>Prazo {m.prazo.split("-").reverse().join("/")}</p>}
+                    {m.prazo && <p>Prazo {dataCurta(m.prazo)}</p>}
+                    {m.dataPrevista && m.status === "ACEITA" && <p className="font-bold text-sky-700">📅 Vai fazer {dataCurta(m.dataPrevista)}</p>}
                   </div>
                 </div>
 
                 <p className="mt-2 whitespace-pre-line text-sm text-gray-800">{m.descricao}</p>
+
+                {(m.ocorrencias || []).length > 0 && (
+                  <div className="mt-2 space-y-1 rounded-lg border border-amber-200 bg-amber-50/60 p-2">
+                    <p className="text-xs font-black uppercase text-amber-800">Outras ocorrências juntadas</p>
+                    {m.ocorrencias.map((o) => (
+                      <p key={o.id} className="text-sm text-gray-800">
+                        ➕ {o.maquinaCodigo && <b>🎰 {o.maquinaCodigo}: </b>}
+                        {o.descricao}{" "}
+                        <span className="text-xs text-gray-500">({o.usuarioNome} · {dataHora(o.em)})</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {(m.pecasNecessarias || []).length > 0 && (
+                  <div className="mt-2 space-y-1 rounded-lg border border-sky-200 bg-sky-50/60 p-2">
+                    <p className="text-xs font-black uppercase text-sky-800">Peças para a manutenção</p>
+                    {m.pecasNecessarias.map((p) => {
+                      const situacao = p.situacao === "COMPRA_SOLICITADA" ? situacaoCompraPeca(p) : { texto: "Tem no estoque", classe: "bg-emerald-100 text-emerald-800" };
+                      return (
+                        <div key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
+                          <span>🔩 {p.quantidade}× <b>{p.nome}</b></span>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${situacao.classe}`}>{situacao.texto}</span>
+                          {p.previsaoChegada && <span className="text-xs text-gray-600">chega {dataCurta(p.previsaoChegada)}</span>}
+                          {p.observacao && <span className="text-xs text-gray-500">· {p.observacao}</span>}
+                          {acoesM.podePecas && (
+                            <button type="button" onClick={() => removerPecaNecessaria(m, p)} className="text-xs text-gray-400 hover:text-rose-600" aria-label={`Tirar ${p.nome}`}>
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
                   {!["SOLICITADA", "RECUSADA"].includes(m.status) && (
@@ -587,8 +750,13 @@ export default function ManutencaoPage() {
                     </>
                   )}
                   {podeAceitar && (
-                    <button type="button" disabled={enviando} onClick={() => acao(m, "aceitar", {}, "Manutenção aceita: agora ela é sua.")} className="btn-primary px-4 py-2 text-sm">
+                    <button type="button" disabled={enviando} onClick={() => abrirModal("aceitar", m, { dataPrevista: m.prazo && m.prazo >= new Date().toISOString().slice(0, 10) ? m.prazo : "" })} className="btn-primary px-4 py-2 text-sm">
                       ✋ Aceitar
+                    </button>
+                  )}
+                  {acoesM.podeDesignar && (
+                    <button type="button" onClick={() => abrirModal("designar", m, { destinatariosIds: [] })} className="btn-secondary px-3 py-2 text-sm">
+                      👑 Escolher quem faz
                     </button>
                   )}
                   {m.status === "ACEITA" && podeTrabalhar && (
@@ -603,6 +771,23 @@ export default function ManutencaoPage() {
                         <button type="button" onClick={() => abrirModal("pecaQuebrada", m, { quantidade: "1" })} className="btn-secondary px-3 py-2 text-sm">💥 Peça quebrada</button>
                       )}
                     </>
+                  )}
+                  {acoesM.podePecas && (
+                    <button type="button" onClick={() => abrirPecas(m)} className="btn-secondary px-3 py-2 text-sm">🔩 Adicionar peça</button>
+                  )}
+                  {acoesM.podeOcorrencia && (
+                    <button type="button" onClick={() => abrirModal("ocorrencia", m, { descricao: "", maquinaId: "", tipoProblema: "" })} className="btn-secondary px-3 py-2 text-sm">
+                      ➕ Outra ocorrência
+                    </button>
+                  )}
+                  {acoesM.podeEditar && (
+                    <button
+                      type="button"
+                      onClick={() => abrirModal("editar", m, { titulo: m.titulo, descricao: m.descricao, tipoProblema: m.tipoProblema || "", prazo: m.prazo || "" })}
+                      className="btn-secondary px-3 py-2 text-sm"
+                    >
+                      ✏️ Editar
+                    </button>
                   )}
                   {ehAdmin && ["PENDENTE", "ACEITA", "AGUARDANDO"].includes(m.status) && (
                     <button
@@ -675,6 +860,11 @@ export default function ManutencaoPage() {
                 finalizar: "🏁 Finalizar manutenção",
                 pecaUsada: "🔩 Peça usada",
                 pecaQuebrada: "💥 Peça quebrada",
+                aceitar: "✋ Aceitar manutenção",
+                designar: "👑 Escolher quem faz",
+                ocorrencia: "➕ Juntar outra ocorrência",
+                editar: "✏️ Editar manutenção",
+                pecas: "🔩 Adicionar peça",
               }[modal.tipo]
             : ""
         }
@@ -704,6 +894,32 @@ export default function ManutencaoPage() {
                 }, "Manutenção reenviada.");
               if (tipo === "finalizar") acao(m, "finalizar", { custo: dados.custo, gastoDescricao: dados.gastoDescricao }, "Manutenção finalizada. 🏁");
               if (tipo === "pecaUsada" || tipo === "pecaQuebrada") registrarPeca(m, tipo === "pecaUsada" ? "usada" : "quebrada", dados);
+              if (tipo === "aceitar")
+                acao(m, "aceitar", { dataPrevista: dados.dataPrevista || null }, "Manutenção aceita: agora ela é sua.");
+              if (tipo === "designar")
+                acao(m, "designar", { destinatariosIds: dados.destinatariosIds }, "Pronto: a manutenção foi para quem você escolheu.");
+              if (tipo === "ocorrencia")
+                acao(m, "ocorrencias", { descricao: dados.descricao, maquinaId: dados.maquinaId || null, tipoProblema: dados.tipoProblema || null }, "Ocorrência juntada. ✅");
+              if (tipo === "editar")
+                acao(m, "", { titulo: dados.titulo, descricao: dados.descricao, tipoProblema: dados.tipoProblema || null, prazo: dados.prazo || null }, "Manutenção atualizada.", "put");
+              if (tipo === "pecas") {
+                if (dados.modo === "compra")
+                  acao(
+                    m,
+                    "pedir-compra",
+                    {
+                      pecaId: dados.pecaId || null,
+                      nomeItem: dados.pecaId ? null : dados.nomeItem,
+                      quantidade: Number(dados.quantidade),
+                      previsaoChegada: dados.previsaoChegada,
+                      prazo: dados.prazo || null,
+                      observacao: dados.observacao || null,
+                    },
+                    "Pedido de compra enviado. O prazo da manutenção mudou.",
+                  );
+                else
+                  acao(m, "pecas-necessarias", { pecaId: dados.pecaId, quantidade: Number(dados.quantidade), observacao: dados.observacao || null }, "Peça adicionada à manutenção.");
+              }
             }}
           >
             <p className="text-sm text-gray-600">
@@ -774,6 +990,173 @@ export default function ManutencaoPage() {
               </>
             )}
 
+            {modal.tipo === "aceitar" && (() => {
+              const esperaPeca = (modal.manutencao.pecasNecessarias || []).filter((p) => p.situacao === "COMPRA_SOLICITADA");
+              return (
+                <>
+                  {esperaPeca.length > 0 && (
+                    <p className="rounded-lg bg-violet-50 p-2 text-sm text-violet-800">
+                      🛒 Tem peça pedida para compra ({esperaPeca.map((p) => `${p.quantidade}× ${p.nome}, chega ${dataCurta(p.previsaoChegada)}`).join("; ")}). Escolha um dia depois que ela chegar.
+                    </p>
+                  )}
+                  <label className="block text-sm font-semibold text-gray-700">
+                    📅 Que dia você vai fazer?{esperaPeca.length > 0 ? " *" : " (opcional)"}
+                    <input
+                      type="date"
+                      value={modal.dados.dataPrevista || ""}
+                      min={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => mudarModal("dataPrevista", e.target.value)}
+                      className="input-field mt-1 w-full"
+                      required={esperaPeca.length > 0}
+                    />
+                  </label>
+                  {modal.manutencao.prazo && <p className="text-xs text-gray-500">Prazo da manutenção: {dataCurta(modal.manutencao.prazo)}</p>}
+                </>
+              );
+            })()}
+            {modal.tipo === "designar" && (
+              <>
+                <p className="text-sm text-gray-600">Escolha quem do setor vai fazer (pode ser você). Quem aceitar primeiro fica com ela.</p>
+                <SeletorPessoas
+                  opcoes={(destinos.pessoas || []).filter((p) => p.role === modal.manutencao.setor)}
+                  valor={modal.dados.destinatariosIds || []}
+                  aoMudar={(ids) => mudarModal("destinatariosIds", ids)}
+                  placeholder="Adicionar pessoa do setor..."
+                  vazio="Ninguém escolhido ainda"
+                />
+              </>
+            )}
+            {modal.tipo === "ocorrencia" && (
+              <>
+                <p className="text-xs text-gray-500">Outro problema na mesma loja que ainda não foi resolvido: fica junto nesta manutenção.</p>
+                <SelectBusca
+                  opcoes={(destinos.maquinas || [])
+                    .filter((mq) => mq.lojaId === modal.manutencao.lojaId)
+                    .map((mq) => ({ valor: mq.id, rotulo: `${mq.codigo}${mq.tipo ? ` – ${mq.tipo}` : ""}`, detalhe: mq.nome || undefined }))}
+                  valor={modal.dados.maquinaId || ""}
+                  aoMudar={(maquinaId) => mudarModal("maquinaId", maquinaId)}
+                  opcaoVazia="Problema na loja (não numa máquina)"
+                  placeholder="🎰 Máquina (opcional)"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {TIPOS_PROBLEMA.map((t) => (
+                    <button
+                      key={t.valor}
+                      type="button"
+                      onClick={() => mudarModal("tipoProblema", modal.dados.tipoProblema === t.valor ? "" : t.valor)}
+                      className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${modal.dados.tipoProblema === t.valor ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200 bg-white text-gray-700"}`}
+                    >
+                      {t.icone} {t.rotulo}
+                    </button>
+                  ))}
+                </div>
+                <textarea value={modal.dados.descricao || ""} onChange={(e) => mudarModal("descricao", e.target.value)} rows={3} placeholder="O que aconteceu?" className="input-field w-full" required minLength={3} />
+              </>
+            )}
+            {modal.tipo === "editar" && (
+              <>
+                <input value={modal.dados.titulo || ""} onChange={(e) => mudarModal("titulo", e.target.value)} maxLength={150} placeholder="Resumo" className="input-field w-full" required minLength={3} />
+                <textarea value={modal.dados.descricao || ""} onChange={(e) => mudarModal("descricao", e.target.value)} rows={4} placeholder="Detalhes" className="input-field w-full" required minLength={3} />
+                <div className="flex flex-wrap gap-1.5">
+                  {TIPOS_PROBLEMA.map((t) => (
+                    <button
+                      key={t.valor}
+                      type="button"
+                      onClick={() => mudarModal("tipoProblema", modal.dados.tipoProblema === t.valor ? "" : t.valor)}
+                      className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${modal.dados.tipoProblema === t.valor ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200 bg-white text-gray-700"}`}
+                    >
+                      {t.icone} {t.rotulo}
+                    </button>
+                  ))}
+                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                  Prazo
+                  <input type="date" value={modal.dados.prazo || ""} onChange={(e) => mudarModal("prazo", e.target.value)} className="input-field w-auto" />
+                </label>
+              </>
+            )}
+            {modal.tipo === "pecas" && (() => {
+              const d = modal.dados;
+              if (d.carregando) return <p className="text-sm text-gray-500">Carregando o estoque...</p>;
+              const peca = (d.estoque || []).find((p) => p.id === d.pecaId);
+              const quantidade = Number(d.quantidade) || 0;
+              const falta = peca ? quantidade > peca.livre : false;
+              const compra = d.modo === "compra";
+              return (
+                <>
+                  <div className="inline-flex rounded-xl bg-gray-100 p-1">
+                    {[
+                      ["estoque", "📦 Do estoque"],
+                      ["compra", "🛒 Pedir compra"],
+                    ].map(([modo, rotulo]) => (
+                      <button
+                        key={modo}
+                        type="button"
+                        onClick={() => setModal((mm) => ({ ...mm, dados: { ...mm.dados, modo, prazo: mm.dados.prazo } }))}
+                        className={`rounded-lg px-3 py-1.5 text-sm font-bold ${d.modo === modo ? "bg-white text-gray-900 shadow" : "text-gray-500"}`}
+                      >
+                        {rotulo}
+                      </button>
+                    ))}
+                  </div>
+                  <SelectBusca
+                    opcoes={(d.estoque || []).map((p) => ({
+                      valor: p.id,
+                      rotulo: p.nome,
+                      detalhe: `${p.livre} disponível${p.livre === 1 ? "" : "is"} (depósito ${p.central} + carrinho ${p.carrinho}${p.jaSeparada ? ` − ${p.jaSeparada} já nesta` : ""})`,
+                    }))}
+                    valor={d.pecaId || ""}
+                    aoMudar={(pecaId) => mudarModal("pecaId", pecaId)}
+                    opcaoVazia={compra ? "Peça não cadastrada (escrever o nome)" : undefined}
+                    placeholder="Buscar peça"
+                    required={!compra}
+                  />
+                  {compra && !d.pecaId && (
+                    <input value={d.nomeItem || ""} onChange={(e) => mudarModal("nomeItem", e.target.value)} placeholder="Nome da peça" className="input-field w-full" required minLength={2} />
+                  )}
+                  <label className="block text-sm font-semibold text-gray-700">
+                    Quantidade
+                    <input type="number" min="1" step="1" value={d.quantidade} onChange={(e) => mudarModal("quantidade", e.target.value)} className="input-field mt-1 w-full" required />
+                  </label>
+                  {peca && (
+                    <p className={`rounded-lg p-2 text-sm ${falta ? "bg-rose-50 text-rose-800" : "bg-emerald-50 text-emerald-800"}`}>
+                      {falta
+                        ? `⚠️ Só tem ${peca.livre} no estoque (depósito ${peca.central} + carrinho de ${d.executor?.nome || "quem vai fazer"} ${peca.carrinho}). ${compra ? "" : "Peça a compra da que falta."}`
+                        : `✅ Tem no estoque: ${peca.livre} (depósito ${peca.central} + carrinho de ${d.executor?.nome || "quem vai fazer"} ${peca.carrinho}).`}
+                    </p>
+                  )}
+                  {falta && !compra && (
+                    <button type="button" onClick={() => mudarModal("modo", "compra")} className="w-full rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-bold text-violet-800">
+                      🛒 Não tem: pedir compra dessa peça
+                    </button>
+                  )}
+                  {compra && (
+                    <>
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Dia que a peça deve chegar *
+                        <input
+                          type="date"
+                          min={new Date().toISOString().slice(0, 10)}
+                          value={d.previsaoChegada || ""}
+                          onChange={(e) => setModal((mm) => ({ ...mm, dados: { ...mm.dados, previsaoChegada: e.target.value, prazo: somarDias(e.target.value, 1) } }))}
+                          className="input-field mt-1 w-full"
+                          required
+                        />
+                      </label>
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Novo prazo da manutenção
+                        <input type="date" min={d.previsaoChegada || undefined} value={d.prazo || ""} onChange={(e) => mudarModal("prazo", e.target.value)} className="input-field mt-1 w-full" />
+                        <span className="mt-1 block text-xs font-normal text-gray-500">
+                          Já vem 1 dia depois da chegada. {modal.manutencao.aceitaPorId ? `A manutenção volta para ${modal.manutencao.aceitaPor?.nome || "quem estava com ela"} aceitar de novo e dizer o dia que vai fazer.` : ""}
+                        </span>
+                      </label>
+                    </>
+                  )}
+                  <input value={d.observacao || ""} onChange={(e) => mudarModal("observacao", e.target.value)} placeholder="Observação (opcional)" className="input-field w-full" />
+                </>
+              );
+            })()}
+
             {erroModal && <p className="text-sm text-rose-600">{erroModal}</p>}
             <div className="grid grid-cols-2 gap-3">
               <button type="button" onClick={() => setModal(null)} disabled={enviando} className="btn-secondary">Cancelar</button>
@@ -782,11 +1165,19 @@ export default function ManutencaoPage() {
                 disabled={
                   enviando ||
                   (["reenviar", "autorizar"].includes(modal.tipo) &&
-                    (modal.dados.destinoTipo === "setor" ? !modal.dados.setor : !(modal.dados.destinatariosIds || []).length))
+                    (modal.dados.destinoTipo === "setor" ? !modal.dados.setor : !(modal.dados.destinatariosIds || []).length)) ||
+                  (modal.tipo === "designar" && !(modal.dados.destinatariosIds || []).length) ||
+                  (modal.tipo === "pecas" &&
+                    (modal.dados.carregando ||
+                      (modal.dados.modo === "estoque" &&
+                        (() => {
+                          const peca = (modal.dados.estoque || []).find((p) => p.id === modal.dados.pecaId);
+                          return !peca || Number(modal.dados.quantidade) > peca.livre;
+                        })())))
                 }
                 className="btn-primary disabled:opacity-50"
               >
-                {enviando ? "Salvando..." : "Confirmar"}
+                {enviando ? "Salvando..." : modal.tipo === "pecas" && modal.dados.modo === "compra" ? "Enviar pedido de compra" : "Confirmar"}
               </button>
             </div>
           </form>

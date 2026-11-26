@@ -34,11 +34,29 @@ export const ACOES_HISTORICO = {
   CONCLUIDA: "✅ Concluída",
   REENVIADA: "↪️ Reenviada",
   FINALIZADA: "🏁 Finalizada",
+  EDITADA: "✏️ Editada",
+  OCORRENCIA: "➕ Outra ocorrência juntada",
+  DESIGNADA: "👑 Chefe do setor escolheu quem faz",
+  PECA_ADICIONADA: "🔩 Peça adicionada",
+  PECA_REMOVIDA: "🗑️ Peça retirada",
+  COMPRA_PECA: "🛒 Compra de peça pedida",
+};
+
+// Andamento do pedido de compra de uma peça da manutenção
+export const situacaoCompraPeca = (item) => {
+  const compra = item.compra || {};
+  if (compra.compraStatus === "RECEBIDO") return { texto: "Peça chegou", classe: "bg-emerald-100 text-emerald-800" };
+  if (compra.compraStatus === "COMPRADO") return { texto: "Comprada, a caminho", classe: "bg-sky-100 text-sky-800" };
+  if (compra.compraStatus === "PESQUISANDO") return { texto: "Pesquisando preço", classe: "bg-amber-100 text-amber-800" };
+  if (compra.sugestaoStatus === "RECUSADA") return { texto: `Compra recusada${compra.resposta ? `: ${compra.resposta}` : ""}`, classe: "bg-rose-100 text-rose-800" };
+  return { texto: "Pedido de compra enviado", classe: "bg-violet-100 text-violet-800" };
 };
 
 // Pendente enviada pra essa pessoa: direto pra ela, ou pro setor (perfil)
 // dela; nas antigas (sem setor), quem estava na lista
 export const ehParaMim = (m, usuario) => {
+  // Chefe do setor: as do setor dele também são pra ele (aceita ou escolhe quem faz)
+  if (m.acoes?.chefe) return true;
   if (m.destinatarioId) {
     return m.destinatarioId === usuario?.id || (m.destinatariosIds || []).includes(usuario?.id);
   }
