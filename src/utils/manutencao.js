@@ -44,6 +44,7 @@ export const ACOES_HISTORICO = {
 
 // Andamento do pedido de compra de uma peça da manutenção
 export const situacaoCompraPeca = (item) => {
+  if (item.temAgora) return { texto: "✅ Agora tem no estoque", classe: "bg-emerald-100 text-emerald-800" };
   const compra = item.compra || {};
   if (compra.compraStatus === "RECEBIDO") return { texto: "Peça chegou", classe: "bg-emerald-100 text-emerald-800" };
   if (compra.compraStatus === "COMPRADO") return { texto: "Comprada, a caminho", classe: "bg-sky-100 text-sky-800" };

@@ -637,9 +637,12 @@ export default function ManutencaoPage() {
                       {acoesM.acompanhando && (
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-600">👀 Acompanhando (sua loja)</span>
                       )}
-                      {comprasPendentes.length > 0 && EM_ANDAMENTO.includes(m.status) && (
+                      {m.situacaoPecas === "TEM_PECA" && (
+                        <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-bold text-white">✅ Agora tem peça</span>
+                      )}
+                      {m.situacaoPecas === "ESPERANDO_PECA" && comprasPendentes.length > 0 && (
                         <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800">
-                          🛒 Esperando peça (chega {dataCurta(comprasPendentes.map((p) => p.previsaoChegada).sort().slice(-1)[0])})
+                          🛒 Esperando peça (chega {dataCurta(comprasPendentes.filter((p) => !p.temAgora).map((p) => p.previsaoChegada).sort().slice(-1)[0])})
                         </span>
                       )}
                       {(m.ocorrencias || []).length > 0 && (
@@ -994,7 +997,12 @@ export default function ManutencaoPage() {
               const esperaPeca = (modal.manutencao.pecasNecessarias || []).filter((p) => p.situacao === "COMPRA_SOLICITADA");
               return (
                 <>
-                  {esperaPeca.length > 0 && (
+                  {modal.manutencao.situacaoPecas === "TEM_PECA" && (
+                    <p className="rounded-lg bg-emerald-50 p-2 text-sm text-emerald-800">
+                      ✅ Agora tem peça: o que foi pedido para compra já está no estoque. Escolha o dia que você vai fazer.
+                    </p>
+                  )}
+                  {esperaPeca.length > 0 && modal.manutencao.situacaoPecas !== "TEM_PECA" && (
                     <p className="rounded-lg bg-violet-50 p-2 text-sm text-violet-800">
                       🛒 Tem peça pedida para compra ({esperaPeca.map((p) => `${p.quantidade}× ${p.nome}, chega ${dataCurta(p.previsaoChegada)}`).join("; ")}). Escolha um dia depois que ela chegar.
                     </p>
