@@ -1,14 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageLoader } from "../components/Loading";
-import { filtrarLojasOperacionais } from "../utils/lojas";
+import { AlertBox } from "../components/UIComponents";
+import { useAuth } from "../contexts/AuthContext";
+import { filtrarLojasOperacionais, ehDepositoPrincipal } from "../utils/lojas";
+import { confirmar } from "../utils/alerts";
+import { pode } from "../utils/perfis";
 
 const DIAS_SEM_MOVIMENTACAO = 15;
 
 const numero = (valor) => Number(valor || 0);
+const reais = (valor) =>
+  Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const normalizar = (texto) =>
+  String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 
 // Mesma tolerância usada no alerta "Pelúcias fora do esperado" (Alertas):
 // só considera fora do esperado quando a diferença passa de 3 jogadas pra
@@ -211,18 +222,37 @@ const montarPontosAtencao = (item) => {
   return pontos;
 };
 
+// Visão das Lojas: desde 2026-11-26 é a página "Lojas" do menu (a antiga
+// lista /lojas redireciona pra cá) e tem o que só existia lá: nova loja,
+// editar, desativar/excluir, busca por código de máquina, endereço, telefone
+// e valor da ficha. Mostra também o tipo (🎮 máquina avulsa), o shopping e a
+// loja de onde vem o estoque.
 export function VisaoLojas() {
   const navigate = useNavigate();
+  const { usuario } = useAuth();
+  // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
+  const regraCadastro = ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role);
+  const podeCriarLoja = pode(usuario, "lojas.criar", regraCadastro);
+  const podeEditarLoja = pode(usuario, "lojas.editar", regraCadastro);
+  const podeExcluirLoja = pode(usuario, "lojas.excluir", regraCadastro);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [lojasResumo, setLojasResumo] = useState([]);
+  const [deposito, setDeposito] = useState(null);
+  const [nomesLojas, setNomesLojas] = useState({});
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroTipo, setFiltroTipo] = useState("todos");
+  // /visao-lojas?shopping=<id> (vem da Visão dos Shoppings)
+  const [parametros] = useSearchParams();
+  const [filtroShopping, setFiltroShopping] = useState(parametros.get("shopping") || "todos");
+  const [recarga, setRecarga] = useState(0);
 
   useEffect(() => {
     const carregarVisao = async () => {
       try {
-        setLoading(true);
+        if (recarga === 0) setLoading(true);
         setError("");
 
         const [lojasRes, maquinasRes, manutencoesRes] = await Promise.all([
@@ -231,7 +261,10 @@ export function VisaoLojas() {
           api.get("/manutencoes").catch(() => ({ data: [] })),
         ]);
 
-        const lojas = filtrarLojasOperacionais(lojasRes.data || []);
+        const todasLojas = lojasRes.data || [];
+        const lojas = filtrarLojasOperacionais(todasLojas);
+        setDeposito(todasLojas.find(ehDepositoPrincipal) || null);
+        setNomesLojas(Object.fromEntries(todasLojas.map((l) => [l.id, l.nome])));
         const maquinas = maquinasRes.data || [];
         const manutencoes = manutencoesRes.data || [];
 
@@ -379,33 +412,76 @@ export function VisaoLojas() {
     };
 
     carregarVisao();
-  }, []);
+  }, [recarga]);
+
+  // 1º clique desativa; loja já desativada é excluída de vez (com as máquinas)
+  const excluirLoja = async (loja) => {
+    const inativa = loja.ativo === false;
+    const nomeTipo = loja.tipo === "AVULSA" ? "máquina avulsa" : "loja";
+    const confirmado = await confirmar({
+      title: inativa ? `Excluir ${nomeTipo} de vez?` : `Desativar ${nomeTipo}?`,
+      text: inativa
+        ? `"${loja.nome}" será excluída permanentemente, junto com as máquinas cadastradas nela.`
+        : `"${loja.nome}" fica desativada (Pausada). Para excluir de vez, use o botão de novo depois.`,
+      confirmButtonText: inativa ? "Excluir de vez" : "Desativar",
+    });
+    if (!confirmado) return;
+    try {
+      const response = await api.delete(`/lojas/${loja.id}`);
+      setSuccess(response.data?.message || "Pronto.");
+      setRecarga((n) => n + 1);
+    } catch (err) {
+      setError(err.response?.data?.error || "Não foi possível excluir.");
+    }
+  };
 
   const totais = useMemo(
     () =>
       lojasResumo.reduce(
         (acc, item) => ({
           lojas: acc.lojas + 1,
+          ativas: acc.ativas + (item.loja.ativo !== false ? 1 : 0),
+          avulsas: acc.avulsas + (item.loja.tipo === "AVULSA" ? 1 : 0),
           operacao: acc.operacao + (item.status.label === "Em operação" ? 1 : 0),
           pendencias: acc.pendencias + item.pendencias,
           maquinas: acc.maquinas + item.maquinas.length,
           manutencoes: acc.manutencoes + item.manutencoesAbertas.length,
         }),
-        { lojas: 0, operacao: 0, pendencias: 0, maquinas: 0, manutencoes: 0 },
+        { lojas: 0, ativas: 0, avulsas: 0, operacao: 0, pendencias: 0, maquinas: 0, manutencoes: 0 },
       ),
     [lojasResumo],
   );
 
+  const shoppings = useMemo(() => {
+    const mapa = new Map();
+    for (const item of lojasResumo) {
+      if (item.loja.shopping) mapa.set(item.loja.shopping.id, item.loja.shopping.nome);
+    }
+    return [...mapa.entries()].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+  }, [lojasResumo]);
+
+  // Busca pelo nome da loja, do shopping ou pelo código/nome de uma máquina
   const lojasFiltradas = useMemo(() => {
-    const texto = busca.trim().toLowerCase();
+    const texto = normalizar(busca.trim());
     return lojasResumo.filter((item) => {
       const bateBusca =
-        !texto || String(item.loja.nome || "").toLowerCase().includes(texto);
+        !texto ||
+        normalizar(item.loja.nome).includes(texto) ||
+        normalizar(item.loja.shopping?.nome).includes(texto) ||
+        item.maquinas.some(
+          (m) => normalizar(m.codigo).includes(texto) || normalizar(m.nome).includes(texto),
+        );
       const bateStatus =
         filtroStatus === "todos" || item.status.label === filtroStatus;
-      return bateBusca && bateStatus;
+      const bateTipo =
+        filtroTipo === "todos" ||
+        (filtroTipo === "AVULSA" ? item.loja.tipo === "AVULSA" : item.loja.tipo !== "AVULSA");
+      const bateShopping =
+        filtroShopping === "todos" ||
+        (filtroShopping === "sem" ? !item.loja.shoppingId : item.loja.shoppingId === filtroShopping);
+      return bateBusca && bateStatus && bateTipo && bateShopping;
     });
-  }, [busca, filtroStatus, lojasResumo]);
+  }, [busca, filtroStatus, filtroTipo, filtroShopping, lojasResumo]);
 
   if (loading) return <PageLoader message="Carregando visão das lojas..." />;
 
@@ -426,27 +502,43 @@ export function VisaoLojas() {
               Visão das Lojas
             </h1>
             <p className="mt-2 text-gray-600">
-              Operação, estoque, movimentações e pendências por loja.
+              Operação, estoque, movimentações e pendências por loja e máquina avulsa.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate("/lojas/nova")}
-            className="btn-primary"
-          >
-            Nova loja
-          </button>
+          <div className="flex flex-wrap gap-2 lg:max-w-xl lg:justify-end">
+            <button type="button" onClick={() => navigate("/shoppings")} className="btn-secondary">
+              🏬 Shoppings
+            </button>
+            {deposito && podeEditarLoja && (
+              <button
+                type="button"
+                onClick={() => navigate(`/lojas/${deposito.id}/editar`)}
+                className="btn-secondary"
+                title="Gastos fixos e dados do Depósito Principal"
+              >
+                🏭 Depósito Principal
+              </button>
+            )}
+            {podeCriarLoja && (
+              <button type="button" onClick={() => navigate("/lojas/nova?tipo=AVULSA")} className="btn-secondary">
+                🎮 Nova máquina avulsa
+              </button>
+            )}
+            {podeCriarLoja && (
+              <button type="button" onClick={() => navigate("/lojas/nova")} className="btn-primary">
+                Nova loja
+              </button>
+            )}
+          </div>
         </div>
 
-        {error && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-            {error}
-          </div>
-        )}
+        {error && <AlertBox type="error" message={error} onClose={() => setError("")} />}
+        {success && <AlertBox type="success" message={success} onClose={() => setSuccess("")} />}
 
-        <section className="mb-6 grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <section className="mb-6 grid grid-cols-2 lg:grid-cols-6 gap-4">
           {[
             ["Lojas", totais.lojas],
+            ["Ativas", totais.ativas],
             ["Em operação", totais.operacao],
             ["Máquinas", totais.maquinas],
             ["Pendências", totais.pendencias],
@@ -459,13 +551,37 @@ export function VisaoLojas() {
           ))}
         </section>
 
-        <section className="mb-6 flex flex-col gap-3 md:flex-row">
+        <section className="mb-6 flex flex-col flex-wrap gap-3 md:flex-row">
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             className="input-field md:max-w-md"
-            placeholder="Buscar loja..."
+            placeholder="Buscar loja, shopping ou código de máquina..."
           />
+          <select
+            value={filtroTipo}
+            onChange={(e) => setFiltroTipo(e.target.value)}
+            className="select-field md:max-w-[12rem]"
+          >
+            <option value="todos">Lojas e avulsas</option>
+            <option value="LOJA">🏪 Só lojas</option>
+            <option value="AVULSA">🎮 Só máquinas avulsas{totais.avulsas ? ` (${totais.avulsas})` : ""}</option>
+          </select>
+          {shoppings.length > 0 && (
+            <select
+              value={filtroShopping}
+              onChange={(e) => setFiltroShopping(e.target.value)}
+              className="select-field md:max-w-xs"
+            >
+              <option value="todos">🏬 Todos os shoppings</option>
+              {shoppings.map(([id, nome]) => (
+                <option key={id} value={id}>
+                  🏬 {nome}
+                </option>
+              ))}
+              <option value="sem">Fora de shopping</option>
+            </select>
+          )}
           <select
             value={filtroStatus}
             onChange={(e) => setFiltroStatus(e.target.value)}
@@ -493,10 +609,29 @@ export function VisaoLojas() {
               }`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
+                <div className="min-w-0">
                   <h2 className="text-xl font-bold text-gray-900">
+                    {item.loja.tipo === "AVULSA" ? "🎮 " : ""}
                     {item.loja.nome}
                   </h2>
+                  <div className="mt-1 flex flex-wrap gap-1 text-xs">
+                    {item.loja.tipo === "AVULSA" && (
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-800">Máquina avulsa</span>
+                    )}
+                    {item.loja.shopping && (
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700">🏬 {item.loja.shopping.nome}</span>
+                    )}
+                    {item.loja.estoqueLojaId && (
+                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-800">
+                        📦 Usa o estoque de {nomesLojas[item.loja.estoqueLojaId] || "outra loja"}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {[item.loja.endereco, item.loja.cidade].filter(Boolean).join(" · ") || "Sem endereço"}
+                    {item.loja.telefone ? ` · 📞 ${item.loja.telefone}` : ""}
+                    {` · ficha ${reais(item.loja.valorFichaPadrao ?? 2.5)}`}
+                  </p>
                   <p className="text-sm text-gray-500">
                     Última movimentação:{" "}
                     {formatarData(
@@ -525,7 +660,7 @@ export function VisaoLojas() {
                     precisaAtencao ? "text-amber-900" : "text-emerald-800"
                   }`}
                 >
-                  {precisaAtencao ? "Atenção agora" : "Loja em ordem"}
+                  {precisaAtencao ? "Atenção agora" : item.loja.tipo === "AVULSA" ? "Máquina avulsa em ordem" : "Loja em ordem"}
                 </p>
                 {precisaAtencao ? (
                   <ul className="mt-2 space-y-1 text-sm font-semibold text-amber-900">
@@ -543,13 +678,17 @@ export function VisaoLojas() {
               <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="rounded-lg bg-slate-50 p-3">
                   <p className="text-xs font-bold uppercase text-gray-500">
-                    Máquinas nesta loja
+                    {item.loja.tipo === "AVULSA" ? "Máquina" : "Máquinas nesta loja"}
                   </p>
-                  <p className="text-2xl font-bold">{item.maquinas.length}</p>
+                  <p className="text-2xl font-bold">
+                    {item.loja.tipo === "AVULSA"
+                      ? item.maquinas[0]?.codigo || "—"
+                      : item.maquinas.length}
+                  </p>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
                   <p className="text-xs font-bold uppercase text-gray-500">
-                    Estoque atual da loja
+                    {item.loja.estoqueLojaId ? "Estoque (emprestado)" : "Estoque atual"}
                   </p>
                   <p className="text-2xl font-bold">{item.estoqueAtual}</p>
                 </div>
@@ -705,7 +844,7 @@ export function VisaoLojas() {
                   onClick={() => navigate(`/lojas/${item.loja.id}`)}
                   className="btn-secondary text-sm"
                 >
-                  Abrir loja
+                  {item.loja.tipo === "AVULSA" ? "Abrir" : "Abrir loja"}
                 </button>
                 <button
                   type="button"
@@ -721,6 +860,24 @@ export function VisaoLojas() {
                 >
                   Manutenções
                 </button>
+                {podeEditarLoja && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/lojas/${item.loja.id}/editar`)}
+                    className="btn-secondary text-sm"
+                  >
+                    ✏️ Editar
+                  </button>
+                )}
+                {podeExcluirLoja && (
+                  <button
+                    type="button"
+                    onClick={() => excluirLoja(item.loja)}
+                    className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50"
+                  >
+                    {item.loja.ativo === false ? "Excluir de vez" : "Desativar"}
+                  </button>
+                )}
               </div>
             </article>
             );

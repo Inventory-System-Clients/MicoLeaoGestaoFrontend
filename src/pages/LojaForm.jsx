@@ -453,7 +453,7 @@ export const LojaForm = forwardRef(function LojaForm(
       setSuccess(
         isEdit ? "Loja atualizada com sucesso!" : "Loja criada com sucesso!",
       );
-      setTimeout(() => navigate("/lojas"), 1500);
+      setTimeout(() => navigate("/visao-lojas"), 1500);
     } catch (error) {
       setError(
         error.response
@@ -1085,7 +1085,7 @@ export const LojaForm = forwardRef(function LojaForm(
               <div className="flex gap-4 justify-end pt-6 border-t border-gray-200">
                 <button
                   type="button"
-                  onClick={() => navigate("/lojas")}
+                  onClick={() => navigate("/visao-lojas")}
                   className="btn-secondary"
                   disabled={loading}
                 >

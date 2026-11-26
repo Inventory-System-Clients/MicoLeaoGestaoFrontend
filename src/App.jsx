@@ -8,7 +8,6 @@ import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { Usuarios } from "./pages/Usuarios";
 import { UsuarioForm } from "./pages/UsuarioForm";
-import { Lojas } from "./pages/Lojas";
 import { Shoppings } from "./pages/Shoppings";
 import { LojaForm } from "./pages/LojaForm";
 import { ProjetosLoja } from "./pages/ProjetosLoja";
@@ -151,9 +150,8 @@ function App() {
           <Route
             path="/lojas"
             element={
-              <PrivateRoute>
-                <Lojas />
-              </PrivateRoute>
+              // A antiga lista de lojas foi substituída pela Visão das Lojas
+              <Navigate to="/visao-lojas" replace />
             }
           />
           <Route

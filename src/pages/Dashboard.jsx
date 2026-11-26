@@ -3152,7 +3152,7 @@ export function Dashboard() {
             </div>
             {alertasEstoqueLoja.length > 5 && (
               <Link
-                to="/lojas"
+                to="/visao-lojas"
                 className="block mt-6 text-center bg-linear-to-r from-orange-500/10 to-orange-600/10 hover:from-orange-500/20 hover:to-orange-600/20 text-orange-700 font-bold py-3 rounded-xl transition-all duration-200"
               >
                 Ver todos os alertas de lojas ({alertasEstoqueLoja.length})
