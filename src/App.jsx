@@ -22,6 +22,7 @@ import { ProdutoForm } from "./pages/ProdutoForm";
 import { Estoque } from "./pages/Estoque";
 import { Movimentacoes } from "./pages/Movimentacoes";
 import { Roteiros } from "./pages/Roteiros";
+import EstoqueMinhasLojas from "./pages/EstoqueMinhasLojas";
 // import { AuditoriaMaquinas } from "./pages/AuditoriaMaquinas"; // desativada por enquanto
 import { Treinamentos } from "./pages/Treinamentos";
 import { Desenvolvimento } from "./pages/Desenvolvimento";
@@ -297,6 +298,15 @@ function App() {
             element={
               <PrivateRoute roles={["ADMIN", "DESENVOLVEDOR"]}>
                 <ContasPagar />
+              </PrivateRoute>
+            }
+          />
+          {/* Estoque das lojas do usuário (só consulta): perfis que trabalham nas lojas */}
+          <Route
+            path="/estoque-minhas-lojas"
+            element={
+              <PrivateRoute roles={["FUNCIONARIO"]}>
+                <EstoqueMinhasLojas />
               </PrivateRoute>
             }
           />

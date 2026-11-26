@@ -129,6 +129,8 @@ export function Navbar() {
       icon: "📦",
       itens: [
         { to: "/estoque", label: "Estoque", icon: "📦", roles: ESTOQUE_ROLES },
+        // Só consulta, das lojas do cadastro (quem não tem a tela de Estoque)
+        { to: "/estoque-minhas-lojas", label: "Estoque das minhas lojas", icon: "🏪", roles: ["FUNCIONARIO"] },
         { to: "/envios", label: "Envios", icon: "📦", roles: ENVIO_ROLES },
         { to: "/compras", label: "Compras", icon: "🛒", roles: COMPRAS_ROLES },
         {

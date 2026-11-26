@@ -14,6 +14,11 @@ import { pode, obterPerfil } from "../utils/perfis";
 // início e as paradas (lojas). Os envios entram pela tela de Envios. No
 // horário a rota começa sozinha e o veículo fica em uso; o motorista marca
 // as paradas entregues e finaliza (data fim automática, devolve o veículo).
+// Desde 26/11: quem faz rota também cria as dele; em cada loja marca
+// "cheguei" (a movimentação na loja já marca), "feito" e "saí"; pode devolver
+// o carro antes de finalizar (a rota fica em andamento até finalizar) e dizer
+// os períodos em que vai fazer (vão para o calendário). Histórico com os
+// horários de cada loja.
 
 const STATUS_ROTA = {
   AGENDADA: { rotulo: "Agendada", icone: "📅", classe: "bg-sky-100 text-sky-800", borda: "border-l-sky-500" },
@@ -32,10 +37,18 @@ const paraCampoDataHora = (valor) => {
   const data = new Date(valor);
   return new Date(data.getTime() - data.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 };
+const hora = (valor) => (valor ? new Date(valor).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "");
+// Período: "26/11 08:00–12:00" (ou até outro dia)
+const faixaPeriodo = (de, ate) => {
+  const a = new Date(de);
+  const b = new Date(ate);
+  const dia = (d) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  return dia(a) === dia(b) ? `${dia(a)} ${hora(a)}–${hora(b)}` : `${dia(a)} ${hora(a)} até ${dia(b)} ${hora(b)}`;
+};
 const situacaoDaRota = (rota) => (!rota.dataInicio && rota.status === "AGENDADA" ? "SEM_DATA" : rota.status);
 
 // usuariosIds: pessoas da rota (a 1ª é a principal: veículo e início automático)
-const FORM_VAZIO = { nome: "", usuariosIds: [], veiculoId: "", dataInicio: "", paradas: [] };
+const FORM_VAZIO = { nome: "", usuariosIds: [], veiculoId: "", dataInicio: "", previsaoFim: "", paradas: [] };
 
 // Pelúcias que vão para a loja da parada (somadas de todos os lacres dos envios)
 const peluciasDaParada = (envios) => {
@@ -53,7 +66,7 @@ const peluciasDaParada = (envios) => {
   return [...mapa.values()].sort((a, b) => b.quantidade - a.quantidade);
 };
 
-function Paradas({ rota, motorista, aoEntregar, enviando }) {
+function Paradas({ rota, motorista, aoEntregar, aoMarcar, enviando }) {
   const paradas = (rota.itens || []).filter((item) => item.tipo === "LOJA" || item.anotacao);
   if (paradas.length === 0) return <p className="text-sm text-gray-500">Nenhuma parada ainda.</p>;
   return (
@@ -88,17 +101,43 @@ function Paradas({ rota, motorista, aoEntregar, enviando }) {
                   ))}
                 </div>
               )}
-              {item.concluido && item.concluidoEm && <p className="text-xs text-emerald-700">Entregue às {dataHora(item.concluidoEm)}</p>}
+              {(item.chegadaEm || item.concluidoEm || item.saidaEm) && (
+                <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-gray-600">
+                  {item.chegadaEm && (
+                    <span>
+                      📍 Chegou <b>{hora(item.chegadaEm)}</b>
+                      {item.chegadaOrigem === "MOVIMENTACAO" ? " (pela movimentação)" : ""}
+                    </span>
+                  )}
+                  {item.concluido && item.concluidoEm && <span className="text-emerald-700">✅ Feito <b>{hora(item.concluidoEm)}</b></span>}
+                  {item.saidaEm && <span>🚪 Saiu <b>{hora(item.saidaEm)}</b></span>}
+                </p>
+              )}
+              {item.chegadaEm && !item.saidaEm && rota.status === "EM_ANDAMENTO" && (
+                <p className="text-xs font-bold text-sky-700">📍 Está nesta loja agora</p>
+              )}
             </div>
             {motorista && rota.status === "EM_ANDAMENTO" && item.tipo === "LOJA" && (
-              <button
-                type="button"
-                disabled={enviando}
-                onClick={() => aoEntregar(item)}
-                className={item.concluido ? "text-xs font-semibold text-gray-500 underline" : "rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700"}
-              >
-                {item.concluido ? "Desfazer" : "✅ Entregue"}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {!item.chegadaEm && (
+                  <button type="button" disabled={enviando} onClick={() => aoMarcar(item, "chegada")} className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-bold text-white hover:bg-sky-700">
+                    📍 Cheguei
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={enviando}
+                  onClick={() => aoEntregar(item)}
+                  className={item.concluido ? "text-xs font-semibold text-gray-500 underline" : "rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700"}
+                >
+                  {item.concluido ? "Desfazer feito" : "✅ Feito"}
+                </button>
+                {item.chegadaEm && !item.saidaEm && (
+                  <button type="button" disabled={enviando} onClick={() => aoMarcar(item, "saida")} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50">
+                    🚪 Saí
+                  </button>
+                )}
+              </div>
             )}
           </li>
         );
@@ -109,7 +148,12 @@ function Paradas({ rota, motorista, aoEntregar, enviando }) {
 
 export function Roteiros() {
   const { usuario } = useAuth();
-  const ehGestor = pode(usuario, "roteiros.criar", ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"].includes(usuario?.role));
+  // Gestão: vê todas as rotas. Quem só cria (consultora, motorista...) cria
+  // e edita as rotas em que está
+  const ehGestor = pode(usuario, "roteiros.verTodos", ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE", "FUNCIONARIO_CADASTRO"].includes(usuario?.role));
+  const podeCriar = pode(usuario, "roteiros.criar", ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"].includes(usuario?.role));
+  const podeEditarRotas = pode(usuario, "roteiros.editar", ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"].includes(usuario?.role));
+  const podeExcluir = pode(usuario, "roteiros.excluir", ["ADMIN", "DESENVOLVEDOR", "FUNCIONARIO_ESTOQUE"].includes(usuario?.role));
   const podeExecutar = pode(usuario, "roteiros.executar", false);
   const ehMotorista = usuario?.role === "MOTORISTA" || (!ehGestor && podeExecutar);
 
@@ -122,14 +166,17 @@ export function Roteiros() {
   const [form, setForm] = useState(null);
   const [erroForm, setErroForm] = useState("");
   const [enviando, setEnviando] = useState(false);
+  // finalizando.modo: "finalizar" | "devolver" (só o carro)
   const [finalizando, setFinalizando] = useState(null);
   const [lojaParaAdicionar, setLojaParaAdicionar] = useState("");
+  const [historico, setHistorico] = useState(null);
+  const [periodos, setPeriodos] = useState(null);
 
   const carregar = useCallback(async () => {
     try {
       const [lista, opcoesRes] = await Promise.all([
         api.get("/roteiros"),
-        ehGestor ? api.get("/roteiros/opcoes").catch(() => ({ data: null })) : Promise.resolve({ data: null }),
+        podeCriar ? api.get("/roteiros/opcoes").catch(() => ({ data: null })) : Promise.resolve({ data: null }),
       ]);
       setRotas(Array.isArray(lista.data) ? lista.data : []);
       if (opcoesRes.data) setOpcoes(opcoesRes.data);
@@ -139,7 +186,21 @@ export function Roteiros() {
     } finally {
       setCarregando(false);
     }
-  }, [ehGestor]);
+  }, [podeCriar]);
+
+  const carregarHistorico = useCallback(async () => {
+    try {
+      const { data } = await api.get("/roteiros", { params: { historico: 1 } });
+      setHistorico(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Erro ao carregar o histórico"));
+      setHistorico([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (aba === "HISTORICO" && historico === null) carregarHistorico();
+  }, [aba, historico, carregarHistorico]);
 
   useEffect(() => {
     carregar();
@@ -152,17 +213,17 @@ export function Roteiros() {
     const conta = (filtro) => rotas.filter(filtro).length;
     const lista = [
       { chave: "ATIVAS", rotulo: "Em andamento e agendadas", filtro: (r) => ["EM_ANDAMENTO", "AGENDADA"].includes(situacaoDaRota(r)) },
-      { chave: "FINALIZADA", rotulo: "🏁 Finalizadas", filtro: (r) => r.status === "FINALIZADA" },
+      { chave: "HISTORICO", rotulo: "📜 Histórico (finalizadas)", historico: true },
     ];
     if (ehGestor && rotas.some((r) => situacaoDaRota(r) === "SEM_DATA")) {
       lista.push({ chave: "SEM_DATA", rotulo: "🗂️ Sem data (antigos roteiros)", filtro: (r) => situacaoDaRota(r) === "SEM_DATA" });
     }
-    return lista.map((a) => ({ ...a, total: conta(a.filtro) }));
-  }, [rotas, ehGestor]);
+    return lista.map((a) => ({ ...a, total: a.historico ? historico?.length ?? "…" : conta(a.filtro) }));
+  }, [rotas, ehGestor, historico]);
   const abaAtual = abas.find((a) => a.chave === aba) || abas[0];
-  const visiveis = rotas
-    .filter(abaAtual.filtro)
+  const visiveis = (abaAtual.historico ? historico || [] : rotas.filter(abaAtual.filtro))
     .sort((a, b) => {
+      if (abaAtual.historico) return new Date(b.dataFim || 0) - new Date(a.dataFim || 0);
       const ordem = { EM_ANDAMENTO: 0, AGENDADA: 1, FINALIZADA: 2 };
       return (ordem[a.status] ?? 3) - (ordem[b.status] ?? 3) || new Date(a.dataInicio || 0) - new Date(b.dataInicio || 0);
     });
@@ -182,9 +243,11 @@ export function Roteiros() {
             ],
             veiculoId: rota.veiculoId || "",
             dataInicio: paraCampoDataHora(rota.dataInicio),
+            previsaoFim: paraCampoDataHora(rota.previsaoFim),
             itens: rota.itens || [],
           }
-        : { ...FORM_VAZIO },
+        : // Quem não é gestão cria rota em que está: já entra na lista
+          { ...FORM_VAZIO, usuariosIds: ehGestor || !usuario?.id ? [] : [usuario.id] },
     );
   };
 
@@ -198,6 +261,7 @@ export function Roteiros() {
         usuariosIds: form.usuariosIds,
         veiculoId: form.veiculoId || null,
         dataInicio: form.dataInicio ? new Date(form.dataInicio).toISOString() : null,
+        previsaoFim: form.previsaoFim ? new Date(form.previsaoFim).toISOString() : null,
       };
       if (form.id) {
         await api.put(`/roteiros/${form.id}`, corpo);
@@ -305,18 +369,68 @@ export function Roteiros() {
     }
   };
 
-  const finalizar = async (evento) => {
+  const marcarParada = async (item, tipo) => {
+    setEnviando(true);
+    try {
+      await api.patch(`/roteiros/itens/${item.id}/${tipo}`, {});
+      await carregar();
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível marcar"));
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const salvarPeriodo = async (evento) => {
     evento.preventDefault();
     setErroForm("");
     setEnviando(true);
     try {
-      await api.post(`/roteiros/${finalizando.rota.id}/finalizar`, {
-        km: finalizando.km,
+      const { data } = await api.post(`/roteiros/${periodos.rota.id}/periodos`, {
+        inicio: new Date(periodos.inicio).toISOString(),
+        fim: new Date(periodos.fim).toISOString(),
+        observacao: periodos.observacao || null,
+      });
+      setPeriodos((p) => ({ ...p, rota: { ...p.rota, periodos: data.periodos }, inicio: "", fim: "", observacao: "" }));
+      await carregar();
+    } catch (e) {
+      setErroForm(mensagemDeErro(e, "Não foi possível salvar o período"));
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const removerPeriodo = async (periodo) => {
+    try {
+      const { data } = await api.delete(`/roteiros/${periodos.rota.id}/periodos/${periodo.id}`);
+      setPeriodos((p) => ({ ...p, rota: { ...p.rota, periodos: data.periodos } }));
+      await carregar();
+    } catch (e) {
+      setErroForm(mensagemDeErro(e, "Não foi possível tirar o período"));
+    }
+  };
+
+  const finalizar = async (evento) => {
+    evento.preventDefault();
+    setErroForm("");
+    setEnviando(true);
+    const devolverSo = finalizando.modo === "devolver";
+    const comCarro = finalizando.rota.veiculo && !finalizando.rota.veiculoDevolvidoEm && finalizando.rota.status === "EM_ANDAMENTO";
+    try {
+      await api.post(`/roteiros/${finalizando.rota.id}/${devolverSo ? "devolver-veiculo" : "finalizar"}`, {
+        km: comCarro ? finalizando.km : undefined,
         combustivel: finalizando.combustivel || undefined,
         observacao: finalizando.observacao || undefined,
       });
       setFinalizando(null);
-      setAviso("Rota finalizada e veículo devolvido. 🏁");
+      setAviso(
+        devolverSo
+          ? "Carro devolvido. A rota continua em andamento até você finalizar. 🚗"
+          : comCarro
+            ? "Rota finalizada e veículo devolvido. 🏁"
+            : "Rota finalizada. 🏁",
+      );
+      if (historico !== null) setHistorico(null);
       await carregar();
     } catch (e) {
       setErroForm(mensagemDeErro(e, "Não foi possível finalizar"));
@@ -347,7 +461,7 @@ export function Roteiros() {
               : "Comece a rota, marque cada entrega e finalize para devolver o veículo."
           }
           icon="🚚"
-          action={ehGestor ? <button type="button" onClick={() => abrirForm()} className="btn-primary">➕ Nova rota</button> : null}
+          action={podeCriar ? <button type="button" onClick={() => abrirForm()} className="btn-primary">➕ Nova rota</button> : null}
         />
 
         {erro && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{erro}</div>}
@@ -415,12 +529,27 @@ export function Roteiros() {
                   </div>
                   <div className="text-right text-xs text-gray-500">
                     <p>Início: <b className="text-gray-800">{dataHora(rota.dataInicio)}</b></p>
+                    {rota.previsaoFim && !rota.dataFim && <p>Fim previsto: <b className="text-gray-800">{dataHora(rota.previsaoFim)}</b></p>}
                     {rota.iniciadaEm && <p>Começou: {dataHora(rota.iniciadaEm)}</p>}
                     {rota.dataFim && <p>Fim: <b className="text-gray-800">{dataHora(rota.dataFim)}</b></p>}
                     {rota.kmFinal != null && rota.kmInicial != null && <p>{rota.kmFinal - rota.kmInicial} km rodados</p>}
                   </div>
                 </div>
 
+                {rota.veiculoDevolvidoEm && rota.status === "EM_ANDAMENTO" && (
+                  <p className="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-900">
+                    🚗 Carro devolvido às <b>{dataHora(rota.veiculoDevolvidoEm)}</b>. A rota continua em andamento até ser finalizada.
+                  </p>
+                )}
+                {(rota.periodos || []).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {rota.periodos.map((periodo) => (
+                      <span key={periodo.id} className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-800">
+                        📅 {faixaPeriodo(periodo.inicio, periodo.fim)} · {periodo.usuarioNome}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {paradasLoja.length > 0 && (
                   <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100">
                     <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(entregues / paradasLoja.length) * 100}%` }} />
@@ -428,29 +557,53 @@ export function Roteiros() {
                 )}
 
                 <div className="mt-3">
-                  <Paradas rota={rota} motorista={minha} aoEntregar={marcarEntrega} enviando={enviando} />
+                  <Paradas rota={rota} motorista={minha} aoEntregar={marcarEntrega} aoMarcar={marcarParada} enviando={enviando} />
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {minha && rota.status === "AGENDADA" && rota.dataInicio && (
                     <button type="button" disabled={enviando} onClick={() => iniciar(rota)} className="btn-primary px-4 py-2 text-sm">▶️ Iniciar agora</button>
                   )}
+                  {(minha || ehGestor) && rota.status === "EM_ANDAMENTO" && rota.veiculo && !rota.veiculoDevolvidoEm && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErroForm("");
+                        setFinalizando({ modo: "devolver", rota, km: rota.veiculo?.km ?? "", combustivel: "", observacao: "" });
+                      }}
+                      className="btn-secondary px-3 py-2 text-sm"
+                    >
+                      🚗 Devolver carro
+                    </button>
+                  )}
                   {(minha || ehGestor) && rota.status === "EM_ANDAMENTO" && (
                     <button
                       type="button"
                       onClick={() => {
                         setErroForm("");
-                        setFinalizando({ rota, km: rota.veiculo?.km ?? "", combustivel: "", observacao: "" });
+                        setFinalizando({ modo: "finalizar", rota, km: rota.veiculo?.km ?? "", combustivel: "", observacao: "" });
                       }}
                       className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-black"
                     >
-                      🏁 Finalizar rota{rota.veiculo ? " e devolver o veículo" : ""}
+                      🏁 Finalizar rota{rota.veiculo && !rota.veiculoDevolvidoEm ? " e devolver o veículo" : ""}
                     </button>
                   )}
-                  {ehGestor && rota.status !== "FINALIZADA" && (
+                  {(minha || ehGestor) && rota.status !== "FINALIZADA" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErroForm("");
+                        setPeriodos({ rota, inicio: "", fim: "", observacao: "" });
+                      }}
+                      className="btn-secondary px-3 py-2 text-sm"
+                    >
+                      📅 Períodos que vou fazer
+                    </button>
+                  )}
+                  {podeEditarRotas && (ehGestor || rota.podeEditar) && rota.status !== "FINALIZADA" && (
                     <button type="button" onClick={() => abrirForm(rota)} className="btn-secondary px-3 py-2 text-sm">✏️ Editar</button>
                   )}
-                  {ehGestor && rota.status !== "EM_ANDAMENTO" && (
+                  {podeExcluir && ehGestor && rota.status !== "EM_ANDAMENTO" && (
                     <button type="button" onClick={() => excluir(rota)} className="px-3 py-2 text-sm font-semibold text-rose-600 hover:underline">Excluir</button>
                   )}
                 </div>
@@ -478,6 +631,7 @@ export function Roteiros() {
                     placeholder="Adicionar motorista, consultora, gestora..."
                   />
                 </div>
+                {!ehGestor && <span className="mt-1 block text-xs font-normal text-gray-500">Você precisa estar na rota que criar.</span>}
                 {form.usuariosIds.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {form.usuariosIds.map((id, indice) => {
@@ -535,7 +689,18 @@ export function Roteiros() {
                 disabled={form.status === "EM_ANDAMENTO"}
                 required
               />
-              <span className="mt-1 block text-xs font-normal text-gray-500">No horário a rota começa sozinha e o veículo fica indisponível até o motorista finalizar.</span>
+              <span className="mt-1 block text-xs font-normal text-gray-500">No horário a rota começa sozinha e o veículo fica indisponível até devolverem o carro.</span>
+            </label>
+            <label className="block text-sm font-semibold text-gray-700">
+              Fim previsto (opcional)
+              <input
+                type="datetime-local"
+                value={form.previsaoFim || ""}
+                min={form.dataInicio || undefined}
+                onChange={(e) => setForm((f) => ({ ...f, previsaoFim: e.target.value }))}
+                className="input-field mt-1 w-full"
+              />
+              <span className="mt-1 block text-xs font-normal text-gray-500">A rota aparece no calendário do início até aqui.</span>
             </label>
 
             <div className="space-y-2">
@@ -577,13 +742,21 @@ export function Roteiros() {
       </Modal>
 
       {/* Finalizar rota */}
-      <Modal isOpen={Boolean(finalizando)} onClose={() => !enviando && setFinalizando(null)} title="🏁 Finalizar rota" size="sm">
+      <Modal
+        isOpen={Boolean(finalizando)}
+        onClose={() => !enviando && setFinalizando(null)}
+        title={finalizando?.modo === "devolver" ? "🚗 Devolver carro" : "🏁 Finalizar rota"}
+        size="sm"
+      >
         {finalizando && (
           <form onSubmit={finalizar} className="space-y-3">
             <p className="text-sm text-gray-600">
-              <b>{finalizando.rota.nome}</b> — a data de fim é registrada agora.
+              <b>{finalizando.rota.nome}</b> —{" "}
+              {finalizando.modo === "devolver"
+                ? "o carro fica livre agora. A rota continua em andamento (pendente) até você finalizar."
+                : "a data de fim é registrada agora."}
             </p>
-            {finalizando.rota.veiculo && (
+            {finalizando.rota.veiculo && !finalizando.rota.veiculoDevolvidoEm && finalizando.rota.status === "EM_ANDAMENTO" && (
               <>
                 <label className="block text-sm font-semibold text-gray-700">
                   KM do veículo agora *
@@ -615,7 +788,52 @@ export function Roteiros() {
             {erroForm && <p className="text-sm text-rose-600">{erroForm}</p>}
             <div className="grid grid-cols-2 gap-3">
               <button type="button" onClick={() => setFinalizando(null)} disabled={enviando} className="btn-secondary">Cancelar</button>
-              <button type="submit" disabled={enviando} className="btn-primary">{enviando ? "Finalizando..." : "Finalizar"}</button>
+              <button type="submit" disabled={enviando} className="btn-primary">
+                {enviando ? "Salvando..." : finalizando.modo === "devolver" ? "Devolver carro" : "Finalizar"}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Períodos que vou fazer a rota (vão para o calendário) */}
+      <Modal isOpen={Boolean(periodos)} onClose={() => !enviando && setPeriodos(null)} title="📅 Períodos da rota" size="sm">
+        {periodos && (
+          <form onSubmit={salvarPeriodo} className="space-y-3">
+            <p className="text-sm text-gray-600">
+              <b>{periodos.rota.nome}</b> — diga quando você vai fazer a rota. Aparece no calendário.
+            </p>
+            {(periodos.rota.periodos || []).length === 0 && <p className="text-xs text-gray-500">Nenhum período ainda.</p>}
+            <ul className="space-y-1">
+              {(periodos.rota.periodos || []).map((periodo) => (
+                <li key={periodo.id} className="flex items-center justify-between gap-2 rounded-lg bg-indigo-50 px-3 py-2 text-sm">
+                  <span>
+                    📅 <b>{faixaPeriodo(periodo.inicio, periodo.fim)}</b> · {periodo.usuarioNome}
+                    {periodo.observacao ? <span className="text-xs text-gray-500"> · {periodo.observacao}</span> : null}
+                  </span>
+                  {(periodo.usuarioId === usuario?.id || ehGestor) && (
+                    <button type="button" onClick={() => removerPeriodo(periodo)} className="text-xs text-rose-600" aria-label="Tirar período">
+                      ✕
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="text-sm font-semibold text-gray-700">
+                De
+                <input type="datetime-local" value={periodos.inicio} onChange={(e) => setPeriodos((p) => ({ ...p, inicio: e.target.value }))} className="input-field mt-1 w-full" required />
+              </label>
+              <label className="text-sm font-semibold text-gray-700">
+                Até
+                <input type="datetime-local" value={periodos.fim} min={periodos.inicio || undefined} onChange={(e) => setPeriodos((p) => ({ ...p, fim: e.target.value }))} className="input-field mt-1 w-full" required />
+              </label>
+            </div>
+            <input value={periodos.observacao} onChange={(e) => setPeriodos((p) => ({ ...p, observacao: e.target.value }))} placeholder="Observação (opcional)" className="input-field w-full" maxLength={200} />
+            {erroForm && <p className="text-sm text-rose-600">{erroForm}</p>}
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => setPeriodos(null)} disabled={enviando} className="btn-secondary">Fechar</button>
+              <button type="submit" disabled={enviando} className="btn-primary">{enviando ? "Salvando..." : "➕ Adicionar período"}</button>
             </div>
           </form>
         )}
