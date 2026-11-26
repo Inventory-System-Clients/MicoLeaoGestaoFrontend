@@ -7,7 +7,7 @@ import { PageHeader, Modal } from "../components/UIComponents";
 import { SelectBusca } from "../components/SelectBusca";
 import { PontoRapido } from "../components/PontoRapido";
 import { useAuth } from "../contexts/AuthContext";
-import { pode } from "../utils/perfis";
+import { pode, obterPerfil } from "../utils/perfis";
 
 // Rotas do motorista (antigos roteiros): quem monta (Admin, Chefe de
 // Expedição, Gerente de Vendas) escolhe motorista, veículo, data/hora de
@@ -34,7 +34,24 @@ const paraCampoDataHora = (valor) => {
 };
 const situacaoDaRota = (rota) => (!rota.dataInicio && rota.status === "AGENDADA" ? "SEM_DATA" : rota.status);
 
-const FORM_VAZIO = { nome: "", usuarioId: "", veiculoId: "", dataInicio: "", paradas: [] };
+// usuariosIds: pessoas da rota (a 1ª é a principal: veículo e início automático)
+const FORM_VAZIO = { nome: "", usuariosIds: [], veiculoId: "", dataInicio: "", paradas: [] };
+
+// Pelúcias que vão para a loja da parada (somadas de todos os lacres dos envios)
+const peluciasDaParada = (envios) => {
+  const mapa = new Map();
+  for (const envio of envios) {
+    for (const lacre of envio.lacres || []) {
+      for (const item of lacre.itens || []) {
+        const chave = item.produtoId;
+        const atual = mapa.get(chave) || { nome: item.produto?.nome || "Produto", emoji: item.produto?.emoji || "🧸", quantidade: 0 };
+        atual.quantidade += Number(item.quantidade || 0);
+        mapa.set(chave, atual);
+      }
+    }
+  }
+  return [...mapa.values()].sort((a, b) => b.quantidade - a.quantidade);
+};
 
 function Paradas({ rota, motorista, aoEntregar, enviando }) {
   const paradas = (rota.itens || []).filter((item) => item.tipo === "LOJA" || item.anotacao);
@@ -61,6 +78,15 @@ function Paradas({ rota, motorista, aoEntregar, enviando }) {
                 <p className="mt-1 text-xs font-semibold text-violet-700">
                   📦 {envios.length} envio(s) · lacres {lacres.map((l) => l.numero).join(", ")}
                 </p>
+              )}
+              {peluciasDaParada(envios).length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {peluciasDaParada(envios).map((pelucia) => (
+                    <span key={pelucia.nome} className="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-800">
+                      {pelucia.emoji} {pelucia.nome} × {pelucia.quantidade}
+                    </span>
+                  ))}
+                </div>
               )}
               {item.concluido && item.concluidoEm && <p className="text-xs text-emerald-700">Entregue às {dataHora(item.concluidoEm)}</p>}
             </div>
@@ -150,7 +176,10 @@ export function Roteiros() {
             id: rota.id,
             status: rota.status,
             nome: rota.nome,
-            usuarioId: rota.usuarioId,
+            // principal primeiro, depois as outras pessoas
+            usuariosIds: [
+              ...new Set([rota.usuarioId, ...(rota.pessoas || []).map((pessoa) => pessoa.id)].filter(Boolean)),
+            ],
             veiculoId: rota.veiculoId || "",
             dataInicio: paraCampoDataHora(rota.dataInicio),
             itens: rota.itens || [],
@@ -166,7 +195,7 @@ export function Roteiros() {
     try {
       const corpo = {
         nome: form.nome,
-        usuarioId: form.usuarioId,
+        usuariosIds: form.usuariosIds,
         veiculoId: form.veiculoId || null,
         dataInicio: form.dataInicio ? new Date(form.dataInicio).toISOString() : null,
       };
@@ -354,7 +383,14 @@ export function Roteiros() {
             const info = STATUS_ROTA[rota.status] || STATUS_ROTA.AGENDADA;
             const paradasLoja = (rota.itens || []).filter((i) => i.tipo === "LOJA");
             const entregues = paradasLoja.filter((i) => i.concluido).length;
-            const minha = rota.usuarioId === usuario?.id;
+            // Pessoa da rota: faz (inicia, entrega, finaliza). Os outros só acompanham.
+            const minha =
+              rota.usuarioId === usuario?.id || (rota.pessoas || []).some((pessoa) => pessoa.id === usuario?.id);
+            const pessoasDaRota = (rota.pessoas || []).length
+              ? [...rota.pessoas].sort((a, b) => (a.id === rota.usuarioId ? -1 : b.id === rota.usuarioId ? 1 : 0))
+              : rota.funcionario
+                ? [rota.funcionario]
+                : [];
             return (
               <div key={rota.id} className={`rounded-2xl border border-l-4 border-gray-100 bg-white p-4 shadow-sm ${info.borda}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -368,9 +404,11 @@ export function Roteiros() {
                       )}
                     </div>
                     <h3 className="text-xl font-black text-gray-900">{rota.nome}</h3>
+                    {!minha && !ehGestor && (
+                      <p className="text-xs font-semibold text-sky-700">👀 Acompanhando: a rota passa pela sua loja</p>
+                    )}
                     <p className="text-sm text-gray-600">
-                      👤 {rota.funcionario?.nome || "—"}
-                      {rota.funcionario && rota.funcionario.role !== "MOTORISTA" && <span className="text-amber-700"> (não é motorista: edite a rota)</span>}
+                      👤 {pessoasDaRota.length ? pessoasDaRota.map((pessoa) => `${pessoa.nome} (${obterPerfil(pessoa.role).curto})`).join(", ") : "—"}
                       {" · "}
                       {rota.veiculo ? `${rota.veiculo.emoji || "🚗"} ${rota.veiculo.nome}${rota.veiculo.modelo ? ` (${rota.veiculo.modelo})` : ""}` : "sem veículo"}
                     </p>
@@ -428,19 +466,47 @@ export function Roteiros() {
           <form onSubmit={salvar} className="space-y-4">
             <input value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} placeholder="Nome (ex.: Zona Sul — sexta)" className="input-field w-full" required maxLength={120} />
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <label className="text-sm font-semibold text-gray-700">
-                Motorista
+              <div className="text-sm font-semibold text-gray-700 md:col-span-2">
+                Quem faz a rota *
                 <div className="mt-1">
                   <SelectBusca
-                    opcoes={opcoes.motoristas.map((m) => ({ valor: m.id, rotulo: m.nome }))}
-                    valor={form.usuarioId}
-                    aoMudar={(usuarioId) => setForm((f) => ({ ...f, usuarioId }))}
-                    placeholder="Buscar motorista"
-                    disabled={form.status === "EM_ANDAMENTO"}
-                    required
+                    opcoes={(opcoes.pessoas || opcoes.motoristas)
+                      .filter((pessoa) => !form.usuariosIds.includes(pessoa.id))
+                      .map((pessoa) => ({ valor: pessoa.id, rotulo: pessoa.nome, detalhe: pessoa.role ? obterPerfil(pessoa.role).curto : "" }))}
+                    valor=""
+                    aoMudar={(id) => id && setForm((f) => ({ ...f, usuariosIds: [...f.usuariosIds, id] }))}
+                    placeholder="Adicionar motorista, consultora, gestora..."
                   />
                 </div>
-              </label>
+                {form.usuariosIds.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {form.usuariosIds.map((id, indice) => {
+                      const pessoa = (opcoes.pessoas || opcoes.motoristas).find((p) => p.id === id);
+                      const travada = indice === 0 && form.status === "EM_ANDAMENTO";
+                      return (
+                        <span key={id} className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-3 py-1 text-sm font-semibold text-orange-800">
+                          {indice === 0 ? "⭐ " : ""}
+                          {pessoa?.nome || "Pessoa"}
+                          {pessoa?.role ? <span className="text-xs font-normal text-orange-600">({obterPerfil(pessoa.role).curto})</span> : null}
+                          {!travada && (
+                            <button
+                              type="button"
+                              className="ml-1 text-orange-500 hover:text-red-600"
+                              onClick={() => setForm((f) => ({ ...f, usuariosIds: f.usuariosIds.filter((x) => x !== id) }))}
+                              aria-label="Tirar da rota"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <span className="mt-1 block text-xs font-normal text-gray-500">
+                  ⭐ = principal (a 1ª). Todas podem iniciar, marcar entregas e finalizar.
+                </span>
+              </div>
               <label className="text-sm font-semibold text-gray-700">
                 Veículo
                 <div className="mt-1">
