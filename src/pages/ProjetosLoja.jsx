@@ -72,7 +72,10 @@ export function ProjetosLoja() {
       label: "Loja",
       key: "loja",
       render: (projeto) => {
-        if (!projeto.loja) return "—";
+        const shopping = projeto.shopping ? (
+          <span className="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">🏬 {projeto.shopping.nome}</span>
+        ) : null;
+        if (!projeto.loja) return shopping || "—";
         // Loja nova ainda escondida (só vira real ao concluir o projeto)
         const emImplantacao =
           projeto.loja.statusOperacao === "EM_IMPLANTACAO" &&
@@ -81,9 +84,13 @@ export function ProjetosLoja() {
           <span>
             🆕 {projeto.loja.nome}{" "}
             <span className="text-xs text-gray-500">(loja nova)</span>
+            {shopping}
           </span>
         ) : (
-          projeto.loja.nome
+          <span>
+            {projeto.loja.nome}
+            {shopping}
+          </span>
         );
       },
     },

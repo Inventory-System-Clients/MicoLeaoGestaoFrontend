@@ -83,6 +83,15 @@ export function ProjetoLojaForm() {
   // "" = ainda não escolheu | EXISTENTE | NOVA
   const [tipoLoja, setTipoLoja] = useState("");
   const [lojaId, setLojaId] = useState("");
+  // Shopping do projeto (opcional); a loja nova nasce dentro dele
+  const [shoppingId, setShoppingId] = useState("");
+  const [shoppings, setShoppings] = useState([]);
+  useEffect(() => {
+    api
+      .get("/shoppings")
+      .then(({ data }) => setShoppings(Array.isArray(data) ? data : []))
+      .catch(() => setShoppings([]));
+  }, []);
   const [nomeLojaVinculada, setNomeLojaVinculada] = useState("");
   const [status, setStatus] = useState("PLANEJAMENTO");
   const [dataPrevisaoAbertura, setDataPrevisaoAbertura] = useState("");
@@ -159,6 +168,7 @@ export function ProjetoLojaForm() {
         const projeto = response.data;
 
         setNome(projeto.nome || "");
+        setShoppingId(projeto.shoppingId || projeto.loja?.shoppingId || "");
         setLojaId(projeto.lojaId || "");
         setNomeLojaVinculada(projeto.loja?.nome || "");
         setTipoLoja(
@@ -401,6 +411,7 @@ export function ProjetoLojaForm() {
     const payload = {
       nome: nome.trim(),
       lojaId: lojaIdFinal,
+      shoppingId: shoppingId || null,
       status,
       dataPrevisaoAbertura: dataPrevisaoAbertura || null,
       observacoes: observacoes.trim() || null,
@@ -582,6 +593,32 @@ export function ProjetoLojaForm() {
                   </div>
                 )}
 
+                {shoppings.length > 0 && (
+                  <div>
+                    <label className="mb-1 block text-sm font-bold text-gray-700">
+                      🏬 Shopping (opcional)
+                    </label>
+                    <select
+                      className="select-field"
+                      value={shoppingId}
+                      onChange={(e) => setShoppingId(e.target.value)}
+                      disabled={concluido}
+                    >
+                      <option value="">Sem shopping</option>
+                      {shoppings.map((shopping) => (
+                        <option key={shopping.id} value={shopping.id}>
+                          {shopping.nome}
+                        </option>
+                      ))}
+                    </select>
+                    {tipoLoja === "NOVA" && (
+                      <span className="mt-1 block text-xs text-gray-500">
+                        A loja nova já é cadastrada dentro deste shopping.
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <label className="mb-1 block text-sm font-bold text-gray-700">
                     Previsão de abertura (opcional)
@@ -674,6 +711,7 @@ export function ProjetoLojaForm() {
                     ref={lojaNovaRef}
                     embutido
                     lojaIdEmbutido={lojaId || null}
+                    shoppingIdProjeto={shoppingId}
                   />
                 </>
               )}

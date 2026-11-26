@@ -11,7 +11,7 @@ import { DocumentosPdf } from "../components/DocumentosPdf";
 // e botões; o projeto chama ref.salvar() e recebe o id da loja, que nasce
 // escondida (em implantação) até o projeto ser concluído.
 export const LojaForm = forwardRef(function LojaForm(
-  { embutido = false, lojaIdEmbutido = null },
+  { embutido = false, lojaIdEmbutido = null, shoppingIdProjeto },
   ref,
 ) {
   const params = useParams();
@@ -407,7 +407,8 @@ export const LojaForm = forwardRef(function LojaForm(
       statusOperacao: formData.statusOperacao || "ATIVA",
       dataInicio: formData.dataInicio || null,
       observacoes: formData.observacoes?.trim() || null,
-      shoppingId: formData.shoppingId || null,
+      // Loja nova do projeto: o shopping é o escolhido em "Dados do projeto"
+      shoppingId: (embutido && shoppingIdProjeto !== undefined ? shoppingIdProjeto : formData.shoppingId) || null,
       tipo: embutido ? "LOJA" : formData.tipo || "LOJA",
       estoqueLojaId: formData.semEstoque ? formData.estoqueLojaId || null : null,
       dataFimContrato: formData.dataFimContrato || null,
@@ -771,6 +772,7 @@ export const LojaForm = forwardRef(function LojaForm(
                   />
                 </div>
 
+                {!(embutido && shoppingIdProjeto !== undefined) && (
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Shopping{avulsa ? " *" : ""}
@@ -790,6 +792,7 @@ export const LojaForm = forwardRef(function LojaForm(
                     ))}
                   </select>
                 </div>
+                )}
 
                 <div className="md:col-span-2">
                   <p className="block text-sm font-semibold text-gray-700 mb-2">
