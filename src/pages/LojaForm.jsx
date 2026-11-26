@@ -5,6 +5,7 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageHeader, AlertBox } from "../components/UIComponents";
 import { PageLoader } from "../components/Loading";
+import { DocumentosPdf } from "../components/DocumentosPdf";
 
 // embutido: usado dentro do Projeto Loja (loja nova). Sem navbar, cabeçalho
 // e botões; o projeto chama ref.salvar() e recebe o id da loja, que nasce
@@ -1079,6 +1080,21 @@ export const LojaForm = forwardRef(function LojaForm(
                 </div>
               </div>
             </div>
+
+            {/* Documentos em PDF (contratos) */}
+            {!embutido &&
+              (isEdit ? (
+                <div className="mt-6">
+                  <DocumentosPdf
+                    base={`/lojas/${id}`}
+                    titulo={avulsa ? "📄 Contratos e documentos (PDF) da máquina avulsa" : "📄 Contratos e documentos (PDF)"}
+                  />
+                </div>
+              ) : (
+                <p className="mt-6 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                  📄 Depois de salvar, abra Editar para anexar o PDF do contrato.
+                </p>
+              ))}
 
             {/* Botões */}
             {!embutido && (

@@ -10,6 +10,7 @@ import { enviarImagemParaCloudinary } from "../utils/cloudinary";
 import { confirmar } from "../utils/alerts";
 import { LojaForm } from "./LojaForm";
 import { SelectBusca } from "../components/SelectBusca";
+import { DocumentosPdf } from "../components/DocumentosPdf";
 
 const CATEGORIAS_SUGERIDAS = [
   "Totem / Terminais de Pagamento",
@@ -677,6 +678,15 @@ export function ProjetoLojaForm() {
                 </>
               )}
             </div>
+
+            {/* Documentos em PDF do projeto */}
+            {isEdit ? (
+              <DocumentosPdf base={`/projetos-loja/${id}`} titulo="📄 Documentos do projeto (PDF)" sugestao="Ex.: Planta, Orçamento, Contrato" />
+            ) : (
+              <p className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                📄 Depois de criar o projeto, abra Editar para anexar PDFs.
+              </p>
+            )}
 
             {/* Fotos */}
             <div className="card space-y-4">

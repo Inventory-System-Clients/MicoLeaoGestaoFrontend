@@ -5,6 +5,9 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageHeader, Badge, AlertBox } from "../components/UIComponents";
 import { PageLoader, EmptyState } from "../components/Loading";
+import { DocumentosPdf } from "../components/DocumentosPdf";
+import { useAuth } from "../contexts/AuthContext";
+import { pode } from "../utils/perfis";
 
 const obterStatusLoja = (loja) => {
   const status = loja.statusOperacao || loja.status_operacao;
@@ -43,6 +46,13 @@ const dataDiasAtras = (dias) => {
 };
 
 export function LojaDetalhes() {
+  const { usuario } = useAuth();
+  // PDFs da loja: Admin e Cadastro (ou quem tiver "lojas.documentos")
+  const podeDocumentos = pode(
+    usuario,
+    "lojas.documentos",
+    ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role),
+  );
   const { id } = useParams();
   const navigate = useNavigate();
   const [loja, setLoja] = useState(null);
@@ -400,6 +410,13 @@ export function LojaDetalhes() {
             </div>
           </div>
         </div>
+
+        {/* Contratos e documentos em PDF */}
+        {podeDocumentos && (
+          <div className="mb-6">
+            <DocumentosPdf base={`/lojas/${loja.id}`} titulo="📄 Contratos e documentos (PDF)" />
+          </div>
+        )}
 
         {/* Lista de Máquinas */}
         <div className="card-gradient">
