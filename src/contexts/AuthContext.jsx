@@ -7,7 +7,7 @@ import {
 } from "react";
 import api from "../services/api";
 import { acessoATela } from "../utils/perfis";
-import { contarParaFazer } from "../utils/manutencao";
+import { contarParaFazer, pecasChegaramParaMim } from "../utils/manutencao";
 
 export const AuthContext = createContext({});
 
@@ -17,6 +17,8 @@ export function AuthProvider({ children }) {
   const [alertasManutencaoCount, setAlertasManutencaoCount] = useState(0);
   const [minhasManutencoesPendentesCount, setMinhasManutencoesPendentesCount] =
     useState(0);
+  // Manutenções minhas em que a peça pedida chegou (aviso no topo)
+  const [avisosPecaChegou, setAvisosPecaChegou] = useState([]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -95,6 +97,7 @@ export function AuthProvider({ children }) {
       const response = await api.get("/manutencoes");
       const dados = response.data;
       setMinhasManutencoesPendentesCount(contarParaFazer(dados, usuario));
+      setAvisosPecaChegou(pecasChegaramParaMim(dados, usuario));
     } catch {
       // Silencioso: não bloqueia a navegação por falha ao buscar manutenções.
     }
@@ -113,6 +116,7 @@ export function AuthProvider({ children }) {
         const response = await api.get("/manutencoes");
         const dados = response.data;
         setMinhasManutencoesPendentesCount(contarParaFazer(dados, usuario));
+        setAvisosPecaChegou(pecasChegaramParaMim(dados, usuario));
       } catch {
         // Silencioso: não bloqueia a navegação por falha ao buscar manutenções.
       }
@@ -203,6 +207,7 @@ export function AuthProvider({ children }) {
             ? minhasManutencoesPendentesCount
             : 0,
         atualizarMinhasManutencoesPendentesCount,
+        avisosPecaChegou: usuario ? avisosPecaChegou : [],
       }}
     >
       {children}

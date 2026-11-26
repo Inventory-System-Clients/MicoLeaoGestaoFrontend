@@ -68,6 +68,15 @@ export const ehParaMim = (m, usuario) => {
   );
 };
 
+// Manutenções de quem vai fazer em que a peça pedida para compra chegou
+// (aceitas por ela, ou pendentes esperando ela aceitar)
+export const pecasChegaramParaMim = (lista, usuario) =>
+  (Array.isArray(lista) ? lista : []).filter(
+    (m) =>
+      m.situacaoPecas === "TEM_PECA" &&
+      (m.aceitaPorId === usuario?.id || (m.status === "PENDENTE" && !m.aceitaPorId && ehParaMim(m, usuario))),
+  );
+
 // O que a pessoa tem pra fazer: pendentes que chegaram pra ela e as que ela
 // aceitou e ainda não concluiu
 export const contarParaFazer = (lista, usuario) =>

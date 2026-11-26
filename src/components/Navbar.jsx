@@ -3,6 +3,7 @@ import { obterPerfil, acessoATela } from "../utils/perfis";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useAlertas } from "../contexts/AlertasContext";
+import { AvisoPecaChegou } from "./AvisoPecaChegou";
 
 export function Navbar() {
   const {
@@ -238,6 +239,7 @@ export function Navbar() {
     setGruposAbertos((prev) => ({ ...prev, [id]: !prev[id] }));
 
   return (
+    <>
     <nav className="bg-linear-to-r from-black via-neutral-900 to-red-950 text-white shadow-2xl border-b-4 border-primary">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between gap-3">
@@ -467,5 +469,7 @@ export function Navbar() {
         </div>
       )}
     </nav>
+    <AvisoPecaChegou />
+    </>
   );
 }
