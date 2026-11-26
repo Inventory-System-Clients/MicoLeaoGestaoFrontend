@@ -30,6 +30,7 @@ import {
 const ABAS = [
   { chave: "agora", rotulo: "Agora", icone: "🟢" },
   { chave: "horas", rotulo: "Horas e extras", icone: "📊" },
+  { chave: "extras", rotulo: "Extras a pagar", icone: "💰" },
   { chave: "espelho", rotulo: "Espelho de ponto", icone: "📋" },
   { chave: "batidas", rotulo: "Batidas", icone: "🕒" },
   { chave: "locais", rotulo: "Locais", icone: "📍" },
@@ -42,6 +43,13 @@ const COR_STATUS = {
   ENCERROU: "#9ca3af",
   INCOMPLETO: "#f43f5e",
   NAO_BATEU: "#cbd5e1",
+};
+
+const reais = (valor) => Number(valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+// Folga e feriado no espelho e nas extras
+const TIPO_DIA = {
+  FOLGA: { rotulo: "Folga", classe: "bg-slate-200 text-slate-700" },
+  FERIADO: { rotulo: "Feriado", classe: "bg-fuchsia-100 text-fuchsia-800" },
 };
 
 const mensagemDeErro = (erro, padrao) => erro?.response?.data?.error || erro?.message || padrao;
@@ -163,6 +171,8 @@ function AbaAgora({ abrirEspelho }) {
   if (!dados) return <Carregando />;
 
   const contagem = dados.funcionarios.reduce((soma, f) => ({ ...soma, [f.status]: (soma[f.status] || 0) + 1 }), {});
+  // Quem está trabalhando e já passou da jornada (ou trabalha na folga/feriado)
+  const passaram = dados.funcionarios.filter((f) => f.status !== "ENCERROU" && (f.dia?.passouDaJornadaMinutos || 0) > 0);
   const foraHoje = dados.funcionarios.reduce((soma, f) => soma + (f.dia?.foraDoLocal || 0), 0);
   const termo = busca.trim().toLowerCase();
   const lista = dados.funcionarios.filter(
@@ -183,6 +193,21 @@ function AbaAgora({ abrirEspelho }) {
 
   return (
     <div className="space-y-5">
+      {passaram.length > 0 && (
+        <div className="rounded-xl border border-rose-300 bg-rose-50 p-3">
+          <p className="text-sm font-black text-rose-800">⚠️ Passaram do ponto agora</p>
+          <ul className="mt-1 space-y-0.5 text-sm text-rose-900">
+            {passaram.map((f) => (
+              <li key={f.usuario.id}>
+                <b>{f.usuario.nome}</b>:{" "}
+                {f.dia.tipoDia === "TRABALHO"
+                  ? `${formatarMinutos(f.dia.passouDaJornadaMinutos)} além da jornada (${formatarMinutos(f.dia.trabalhadoMinutos)} de ${formatarMinutos(f.dia.jornadaMinutos)})`
+                  : `trabalhando na ${f.dia.tipoDia === "FERIADO" ? "feriado" : "folga"} há ${formatarMinutos(f.dia.trabalhadoMinutos)}`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {["TRABALHANDO", "INTERVALO", "ENCERROU", "NAO_BATEU"].map((status) => (
           <Cartao
@@ -238,8 +263,16 @@ function AbaAgora({ abrirEspelho }) {
                 </span>
                 {f.dia?.batidas?.length > 0 && (
                   <p className="mt-1 text-xs font-semibold text-gray-600">
-                    {formatarMinutos(f.dia.trabalhadoMinutos)} de {formatarMinutos(f.usuario.jornadaDiariaMinutos)}
+                    {formatarMinutos(f.dia.trabalhadoMinutos)} de {formatarMinutos(f.dia.jornadaMinutos ?? f.usuario.jornadaDiariaMinutos)}
                   </p>
+                )}
+                {TIPO_DIA[f.dia?.tipoDia] && (
+                  <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold ${TIPO_DIA[f.dia.tipoDia].classe}`}>
+                    {TIPO_DIA[f.dia.tipoDia].rotulo}
+                  </span>
+                )}
+                {(f.dia?.passouDaJornadaMinutos || 0) > 0 && f.status !== "ENCERROU" && (
+                  <p className="mt-1 text-xs font-black text-rose-600">⚠️ +{formatarMinutos(f.dia.passouDaJornadaMinutos)}</p>
                 )}
               </div>
             </button>
@@ -295,10 +328,12 @@ function AbaHoras({ periodo, setPeriodo, abrirEspelho }) {
     (soma, l) => ({
       trabalhado: soma.trabalhado + l.totais.trabalhadoMinutos,
       extra: soma.extra + l.totais.extraMinutos,
+      extra50: soma.extra50 + (l.totais.extra50Minutos || 0),
+      extra100: soma.extra100 + (l.totais.extra100Minutos || 0),
       debito: soma.debito + l.totais.debitoMinutos,
       incompletos: soma.incompletos + l.totais.diasIncompletos,
     }),
-    { trabalhado: 0, extra: 0, debito: 0, incompletos: 0 },
+    { trabalhado: 0, extra: 0, extra50: 0, extra100: 0, debito: 0, incompletos: 0 },
   );
 
   const ordenar = (campo) => setOrdem((atual) => ({ campo, desc: atual.campo === campo ? !atual.desc : campo !== "nome" }));
@@ -339,7 +374,7 @@ function AbaHoras({ periodo, setPeriodo, abrirEspelho }) {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Cartao titulo="Trabalhado (equipe)" valor={formatarMinutos(total.trabalhado)} />
-        <Cartao titulo="Horas extras" valor={formatarMinutos(total.extra)} cor="text-emerald-600" />
+        <Cartao titulo="Horas extras" valor={formatarMinutos(total.extra)} cor="text-emerald-600" detalhe={`50%: ${formatarMinutos(total.extra50)} · 100%: ${formatarMinutos(total.extra100)}`} />
         <Cartao titulo="Horas a menos" valor={formatarMinutos(total.debito)} cor="text-rose-600" />
         <Cartao titulo="Dias incompletos" valor={total.incompletos} cor={total.incompletos ? "text-rose-600" : "text-gray-900"} detalhe="Faltou alguma batida" />
       </div>
@@ -372,7 +407,12 @@ function AbaHoras({ periodo, setPeriodo, abrirEspelho }) {
                   </td>
                   <td className="px-3 py-2.5 text-right">{l.totais.diasTrabalhados}</td>
                   <td className="px-3 py-2.5 text-right font-semibold">{formatarMinutos(l.totais.trabalhadoMinutos)}</td>
-                  <td className="px-3 py-2.5 text-right font-semibold text-emerald-600">{formatarMinutos(l.totais.extraMinutos)}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold text-emerald-600">
+                    {formatarMinutos(l.totais.extraMinutos)}
+                    {(l.totais.extra100Minutos || 0) > 0 && (
+                      <span className="block text-xs font-normal text-gray-500">100%: {formatarMinutos(l.totais.extra100Minutos)}</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2.5 text-right font-semibold text-rose-600">{formatarMinutos(l.totais.debitoMinutos)}</td>
                   <td className={`px-3 py-2.5 text-right font-black ${l.totais.saldoMinutos >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
                     {formatarMinutos(l.totais.saldoMinutos, { sinal: true })}
@@ -391,8 +431,213 @@ function AbaHoras({ periodo, setPeriodo, abrirEspelho }) {
         </div>
       )}
       <p className="text-xs text-gray-500">
-        Hora extra conta o que passar da jornada do dia, com tolerância de 10 min por dia (CLT art. 58 §1º). Clique numa linha para ver o dia a dia.
+        Hora extra conta o que passar da jornada do dia, com tolerância de 10 min por dia (CLT art. 58 §1º): 50% nos dias normais e 100% em domingo e feriado.
+        Almoço não feito não conta como extra. Na folga, todas as horas são extra. Clique numa linha para ver o dia a dia.
       </p>
+    </div>
+  );
+}
+
+// ---------------- Extras a pagar ----------------
+// Por funcionário, os dias com hora extra (50% / 100%) e o valor. Cada dia
+// pode ser pago como diária no lugar da hora extra.
+function AbaExtras({ periodo, setPeriodo, abrirEspelho }) {
+  const chave = JSON.stringify(periodo);
+  const [resultado, setResultado] = useState({ chave: null, dados: null, erro: "" });
+  const [recarregar, setRecarregar] = useState(0);
+  const [diaria, setDiaria] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+  const [erroModal, setErroModal] = useState("");
+  const dados = resultado.chave === `${chave}${recarregar}` ? resultado.dados : null;
+  const erro = resultado.chave === `${chave}${recarregar}` ? resultado.erro : "";
+
+  useEffect(() => {
+    const chaveAtual = `${chave}${recarregar}`;
+    api
+      .get("/ponto/admin/extras", { params: periodo })
+      .then(({ data }) => setResultado({ chave: chaveAtual, dados: data, erro: "" }))
+      .catch((e) => setResultado({ chave: chaveAtual, dados: null, erro: mensagemDeErro(e, "Erro ao carregar") }));
+  }, [periodo, chave, recarregar]);
+
+  const salvarDia = async (corpo) => {
+    setSalvando(true);
+    setErroModal("");
+    try {
+      await api.post("/ponto/admin/extras/dia", corpo);
+      setDiaria(null);
+      setRecarregar((n) => n + 1);
+    } catch (e) {
+      setErroModal(mensagemDeErro(e, "Erro ao salvar"));
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const linhas = dados?.funcionarios || [];
+  const total = linhas.reduce(
+    (soma, l) => ({
+      extra50: soma.extra50 + l.totais.extra50Minutos,
+      extra100: soma.extra100 + l.totais.extra100Minutos,
+      horaExtra: soma.horaExtra + l.totais.valorHoraExtra,
+      diarias: soma.diarias + l.totais.valorDiarias,
+    }),
+    { extra50: 0, extra100: 0, horaExtra: 0, diarias: 0 },
+  );
+
+  const exportar = () =>
+    baixarCsv(`extras_${periodo.inicio}_a_${periodo.fim}.csv`, [
+      ["Funcionário", "Dia", "Tipo do dia", "Trabalhado", "Extra 50%", "Extra 100%", "Pago como", "Valor (R$)", "Observação"],
+      ...linhas.flatMap((l) =>
+        l.dias.map((d) => [
+          l.usuario.nome,
+          formatarDia(d.dia),
+          d.tipoDia === "TRABALHO" ? "Trabalho" : TIPO_DIA[d.tipoDia]?.rotulo,
+          formatarMinutos(d.trabalhadoMinutos),
+          formatarMinutos(d.extra50Minutos),
+          formatarMinutos(d.extra100Minutos),
+          d.forma === "DIARIA" ? "Diária" : "Hora extra",
+          String(d.valor.toFixed(2)).replace(".", ","),
+          d.observacao || "",
+        ]),
+      ),
+    ]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <FiltroPeriodo periodo={periodo} aoMudar={setPeriodo} />
+        <button type="button" onClick={exportar} disabled={!linhas.length} className="btn-secondary text-sm">
+          ⬇️ Planilha
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Cartao titulo="Extra 50%" valor={formatarMinutos(total.extra50)} cor="text-emerald-600" detalhe="Dias normais" />
+        <Cartao titulo="Extra 100%" valor={formatarMinutos(total.extra100)} cor="text-emerald-700" detalhe="Domingo e feriado" />
+        <Cartao titulo="Hora extra a pagar" valor={reais(total.horaExtra)} />
+        <Cartao titulo="Diárias a pagar" valor={reais(total.diarias)} />
+      </div>
+      {erro && <Vazio>{erro}</Vazio>}
+      {!dados && !erro && <Carregando />}
+      {dados && linhas.length === 0 && <Vazio>Ninguém fez hora extra nesse período.</Vazio>}
+      {linhas.map((l) => (
+        <div key={l.usuario.id} className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3">
+            <button type="button" onClick={() => abrirEspelho(l.usuario.id)} className="text-left">
+              <p className="font-black text-gray-900">{l.usuario.nome}</p>
+              <p className="text-xs text-gray-500">
+                {obterPerfil(l.usuario.role).nome} · {l.usuario.escala === "12X36" ? "12x36" : "Diária"} ·{" "}
+                {l.usuario.salario ? `salário ${reais(l.usuario.salario)} · hora ${reais(l.usuario.valorHora)}` : "⚠️ sem salário no cadastro"}
+              </p>
+            </button>
+            <p className="text-right text-sm">
+              <span className="block text-xs text-gray-500">A pagar</span>
+              <b className="text-lg">{reais(l.totais.valor)}</b>
+            </p>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs font-bold uppercase text-gray-500">
+              <tr>
+                <th className="px-3 py-2">Dia</th>
+                <th className="px-3 py-2 text-right">Trabalhado</th>
+                <th className="px-3 py-2 text-right">Extra 50%</th>
+                <th className="px-3 py-2 text-right">Extra 100%</th>
+                <th className="px-3 py-2 text-right">Valor</th>
+                <th className="px-3 py-2 text-right">Pagar como</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {l.dias.map((d) => (
+                <tr key={d.dia}>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <b>{formatarDia(d.dia)}</b> <span className="text-xs text-gray-500">{DIAS_SEMANA[d.diaDaSemana]}</span>
+                    {TIPO_DIA[d.tipoDia] && (
+                      <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${TIPO_DIA[d.tipoDia].classe}`} title={d.feriadoNome || ""}>
+                        {TIPO_DIA[d.tipoDia].rotulo}
+                      </span>
+                    )}
+                    {d.intervaloDescontadoMinutos > 0 && (
+                      <span className="block text-[11px] text-gray-400">{d.intervaloDescontadoMinutos} min de almoço não feito ficaram fora</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right">{formatarMinutos(d.trabalhadoMinutos)}</td>
+                  <td className="px-3 py-2 text-right">{d.extra50Minutos ? formatarMinutos(d.extra50Minutos) : "—"}</td>
+                  <td className="px-3 py-2 text-right">{d.extra100Minutos ? formatarMinutos(d.extra100Minutos) : "—"}</td>
+                  <td className="px-3 py-2 text-right font-bold">
+                    {reais(d.valor)}
+                    {d.forma === "DIARIA" && d.observacao && <span className="block text-[11px] font-normal text-gray-500">{d.observacao}</span>}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="inline-flex rounded-lg bg-gray-100 p-0.5 text-xs font-bold">
+                      <button
+                        type="button"
+                        disabled={salvando}
+                        onClick={() => d.forma !== "HORA_EXTRA" && salvarDia({ usuarioId: l.usuario.id, dia: d.dia, forma: "HORA_EXTRA" })}
+                        className={`rounded-md px-2 py-1 ${d.forma === "HORA_EXTRA" ? "bg-white text-gray-900 shadow" : "text-gray-500"}`}
+                      >
+                        Hora extra
+                      </button>
+                      <button
+                        type="button"
+                        disabled={salvando}
+                        onClick={() => {
+                          setErroModal("");
+                          setDiaria({ usuario: l.usuario, dia: d, valor: String(d.forma === "DIARIA" ? d.valor : l.usuario.valorDiaria || 0).replace(".", ","), observacao: d.observacao || "" });
+                        }}
+                        className={`rounded-md px-2 py-1 ${d.forma === "DIARIA" ? "bg-white text-gray-900 shadow" : "text-gray-500"}`}
+                      >
+                        Diária
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+      <p className="text-xs text-gray-500">
+        Valor da hora = salário ÷ 220 (escala diária) ou ÷ 180 (12x36). Extra 50%: hora × 1,5; extra 100% (domingo e feriado): hora × 2.
+        Diária: a do cadastro do usuário (ou salário ÷ 30). Salário e diária ficam no cadastro de cada usuário.
+      </p>
+
+      <Modal isOpen={Boolean(diaria)} onClose={() => !salvando && setDiaria(null)} title="💵 Pagar como diária" size="sm">
+        {diaria && (
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              salvarDia({ usuarioId: diaria.usuario.id, dia: diaria.dia.dia, forma: "DIARIA", valor: diaria.valor, observacao: diaria.observacao });
+            }}
+          >
+            <p className="text-sm text-gray-600">
+              <b>{diaria.usuario.nome}</b> · {formatarDia(diaria.dia.dia)} — em vez da hora extra ({reais(diaria.dia.valorHoraExtra)}), paga uma diária.
+            </p>
+            <label className="block text-sm font-semibold text-gray-700">
+              Valor da diária (R$)
+              <input
+                type="text"
+                inputMode="decimal"
+                value={diaria.valor}
+                onChange={(e) => setDiaria((d) => ({ ...d, valor: e.target.value }))}
+                className="input-field mt-1 w-full"
+                required
+              />
+            </label>
+            <input
+              value={diaria.observacao}
+              onChange={(e) => setDiaria((d) => ({ ...d, observacao: e.target.value }))}
+              placeholder="Observação (opcional)"
+              className="input-field w-full"
+              maxLength={255}
+            />
+            {erroModal && <p className="text-sm text-rose-600">{erroModal}</p>}
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => setDiaria(null)} disabled={salvando} className="btn-secondary">Cancelar</button>
+              <button type="submit" disabled={salvando} className="btn-primary">{salvando ? "Salvando..." : "Pagar diária"}</button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 }
@@ -555,6 +800,11 @@ function AbaEspelho({ funcionarios, usuarioId, setUsuarioId, periodo, setPeriodo
                     <td className="whitespace-nowrap px-3 py-2.5">
                       <span className="font-bold text-gray-900">{formatarDia(dia.dia)}</span>{" "}
                       <span className="text-xs text-gray-500">{DIAS_SEMANA[dia.diaDaSemana]}</span>
+                      {TIPO_DIA[dia.tipoDia] && (
+                        <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${TIPO_DIA[dia.tipoDia].classe}`} title={dia.feriadoNome || ""}>
+                          {TIPO_DIA[dia.tipoDia].rotulo}
+                        </span>
+                      )}
                     </td>
                     {["ENTRADA", "SAIDA_INTERVALO", "VOLTA_INTERVALO", "SAIDA"].map((tipo) => (
                       <td key={tipo} className="px-3 py-2.5">
@@ -1010,6 +1260,7 @@ function AbaJornadas({ funcionarios, recarregarFuncionarios }) {
     <div className="space-y-3">
       <p className="text-sm text-gray-600">
         Horas de trabalho esperadas por dia (sem contar o intervalo). Padrão: 8h. O que passar disso — com tolerância de 10 min — conta como hora extra.
+        A escala (diária ou 12x36), os dias de folga, o salário e a diária ficam no cadastro de cada usuário.
       </p>
       {erro && <p className="text-sm text-rose-600">{erro}</p>}
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
@@ -1089,6 +1340,7 @@ export function ControlePonto() {
 
         {aba === "agora" && <AbaAgora abrirEspelho={abrirEspelho} />}
         {aba === "horas" && <AbaHoras periodo={periodo} setPeriodo={setPeriodo} abrirEspelho={abrirEspelho} />}
+        {aba === "extras" && <AbaExtras periodo={periodo} setPeriodo={setPeriodo} abrirEspelho={abrirEspelho} />}
         {aba === "espelho" && (
           <AbaEspelho funcionarios={funcionarios} usuarioId={usuarioEspelho} setUsuarioId={setUsuarioEspelho} periodo={periodo} setPeriodo={setPeriodo} />
         )}

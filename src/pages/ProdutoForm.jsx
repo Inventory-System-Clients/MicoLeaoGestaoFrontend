@@ -74,6 +74,14 @@ export function ProdutoForm() {
     custoUnitario: "",
   });
   const [historicoCustos, setHistoricoCustos] = useState([]);
+  const [categoriasCadastradas, setCategoriasCadastradas] = useState([]);
+
+  useEffect(() => {
+    api
+      .get("/produtos/categorias")
+      .then(({ data }) => setCategoriasCadastradas(Array.isArray(data) ? data : []))
+      .catch(() => setCategoriasCadastradas([]));
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(isEdit);
@@ -273,13 +281,11 @@ export function ProdutoForm() {
                     list="categorias"
                     required
                   />
+                  {/* Categorias cadastradas (botão "Categorias" na tela de Produtos) */}
                   <datalist id="categorias">
-                    <option value="Ursos" />
-                    <option value="Coelhos" />
-                    <option value="Unicórnios" />
-                    <option value="Cachorros" />
-                    <option value="Gatos" />
-                    <option value="Outros" />
+                    {categoriasCadastradas.map((nome) => (
+                      <option key={nome} value={nome} />
+                    ))}
                   </datalist>
                 </div>
 

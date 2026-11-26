@@ -4,6 +4,8 @@ import { PERFIS, obterPerfil } from "../utils/perfis";
 import { Navbar } from "../components/Navbar";
 import { AcessosUsuario } from "../components/AcessosUsuario";
 import api from "../services/api";
+import { CamposPontoUsuario } from "../components/CamposPontoUsuario";
+import { PONTO_VAZIO, pontoDoUsuario, pontoParaApi } from "../utils/pontoUsuario";
 import { filtrarLojasOperacionais } from "../utils/lojas";
 
 // Perfis que trabalham só nas lojas marcadas aqui
@@ -24,6 +26,9 @@ export function UsuarioForm() {
     lojasPermitidas: [],
     chefeSetor: false,
   });
+
+  // Ponto: escala, jornada, salário e diária
+  const [ponto, setPonto] = useState(PONTO_VAZIO);
 
   // Ajustes de acesso sobre o padrão do perfil (dar/tirar ações)
   const [ajustesAcesso, setAjustesAcesso] = useState({
@@ -68,6 +73,7 @@ export function UsuarioForm() {
         lojasPermitidas: usuario.permissoesLojas?.map((p) => p.lojaId) || [],
         chefeSetor: Boolean(usuario.chefeSetor),
       });
+      setPonto(pontoDoUsuario(usuario));
       setAjustesAcesso({
         adicionadas: usuario.acessosPersonalizados?.adicionadas || [],
         removidas: usuario.acessosPersonalizados?.removidas || [],
@@ -139,6 +145,8 @@ export function UsuarioForm() {
         telefone: formData.telefone,
         role: formData.role,
         chefeSetor: formData.chefeSetor,
+        // Admin e Desenvolvedor não batem ponto
+        ...(["ADMIN", "DESENVOLVEDOR"].includes(formData.role) ? {} : pontoParaApi(ponto)),
         lojasPermitidas: ESCOLHE_LOJAS.includes(formData.role)
           ? formData.lojasPermitidas
           : [],
@@ -343,6 +351,13 @@ export function UsuarioForm() {
                 )}
               </div>
             </div>
+
+            {!["ADMIN", "DESENVOLVEDOR"].includes(formData.role) && (
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">⏱️ Ponto e salário</h2>
+                <CamposPontoUsuario valor={ponto} aoMudar={setPonto} />
+              </div>
+            )}
 
             {formData.role === "FUNCIONARIO_ESTOQUE" && (
               <div>

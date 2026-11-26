@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
+import { CalendarioEscala } from "../components/CalendarioEscala";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { PageHeader, Modal } from "../components/UIComponents";
@@ -64,6 +65,8 @@ export function MeuPonto() {
   const [erro, setErro] = useState("");
   const [periodo, setPeriodo] = useState(() => PERIODOS_RAPIDOS[2].calcular(hojeEmBrasilia()));
   const [periodoRapido, setPeriodoRapido] = useState("mes");
+  // Mês do calendário da escala (AAAA-MM)
+  const [mesEscala, setMesEscala] = useState(() => hojeEmBrasilia().slice(0, 7));
 
   const [posicao, setPosicao] = useState(null);
   const [lendoGps, setLendoGps] = useState(false);
@@ -78,7 +81,7 @@ export function MeuPonto() {
 
   const carregar = useCallback(async () => {
     try {
-      const { data } = await api.get("/ponto/meu", { params: periodo });
+      const { data } = await api.get("/ponto/meu", { params: { ...periodo, mes: mesEscala } });
       setDados(data);
       setErro("");
     } catch (e) {
@@ -86,7 +89,7 @@ export function MeuPonto() {
     } finally {
       setCarregando(false);
     }
-  }, [periodo]);
+  }, [periodo, mesEscala]);
 
   useEffect(() => {
     carregar();
@@ -201,6 +204,13 @@ export function MeuPonto() {
             <div className="card space-y-5 lg:col-span-3">
               <Relogio />
               <div className={`rounded-xl px-4 py-3 text-center text-sm font-bold ${status.cor}`}>{status.texto}</div>
+              {(hoje?.passouDaJornadaMinutos || 0) > 0 && hoje?.situacao === "EM_ANDAMENTO" && (
+                <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-center text-sm font-bold text-rose-800">
+                  {hoje.tipoDia === "TRABALHO"
+                    ? `⚠️ Você já passou ${formatarMinutos(hoje.passouDaJornadaMinutos)} da sua jornada de hoje.`
+                    : `⚠️ Hoje é ${hoje.tipoDia === "FERIADO" ? "feriado" : "sua folga"}: todo o tempo trabalhado conta como hora extra.`}
+                </div>
+              )}
 
               {/* Localização */}
               <div
@@ -382,6 +392,8 @@ export function MeuPonto() {
                 />
               </div>
             </div>
+
+            <CalendarioEscala calendario={dados?.calendario} escala={dados?.usuario?.escala} hoje={hojeEmBrasilia()} aoMudarMes={setMesEscala} />
 
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <CartaoTotal titulo="Trabalhado" valor={formatarMinutos(dados?.totais?.trabalhadoMinutos)} detalhe={`${dados?.totais?.diasTrabalhados || 0} dia(s)`} />

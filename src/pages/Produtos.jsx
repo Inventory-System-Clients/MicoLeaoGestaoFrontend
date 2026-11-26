@@ -14,6 +14,7 @@ import {
 import { PageLoader, EmptyState } from "../components/Loading";
 import { useAuth } from "../contexts/AuthContext";
 import { pode } from "../utils/perfis";
+import { CategoriasProduto } from "../components/CategoriasProduto";
 
 export function Produtos() {
   const navigate = useNavigate();
@@ -21,6 +22,8 @@ export function Produtos() {
   // Acessos (permissoes): sem ajuste vale a regra de perfil de antes
   const regraCadastro = ["ADMIN", "FUNCIONARIO_CADASTRO"].includes(usuario?.role);
   const podeCriarProduto = pode(usuario, "produtos.criar", regraCadastro);
+  const podeCategorias = pode(usuario, "produtos.categorias", regraCadastro);
+  const [vendoCategorias, setVendoCategorias] = useState(false);
   const podeEditarProduto = pode(usuario, "produtos.editar", regraCadastro);
   const podeExcluirProduto = pode(usuario, "produtos.excluir", regraCadastro);
   const [produtos, setProdutos] = useState([]);
@@ -178,14 +181,23 @@ export function Produtos() {
           subtitle="Gerencie os produtos (pelúcias) disponíveis no sistema"
           icon="🧸"
           action={
-            podeCriarProduto
-              ? {
-                  label: "Novo Produto",
-                  onClick: () => navigate("/produtos/novo"),
-                }
-              : undefined
+            podeCriarProduto || podeCategorias ? (
+              <div className="flex flex-wrap gap-2">
+                {podeCategorias && (
+                  <button type="button" onClick={() => setVendoCategorias(true)} className="btn-secondary">
+                    🏷️ Categorias
+                  </button>
+                )}
+                {podeCriarProduto && (
+                  <button type="button" onClick={() => navigate("/produtos/novo")} className="btn-primary">
+                    ➕ Novo Produto
+                  </button>
+                )}
+              </div>
+            ) : undefined
           }
         />
+        {vendoCategorias && <CategoriasProduto onFechar={() => setVendoCategorias(false)} onMudou={carregarProdutos} />}
 
         {error && (
           <AlertBox type="error" message={error} onClose={() => setError("")} />

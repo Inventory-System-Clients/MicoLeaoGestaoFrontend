@@ -59,7 +59,7 @@ const lerFiltros = () => {
   return new Set(Object.keys(CATEGORIAS_CALENDARIO));
 };
 
-const PERIODO_VAZIO = { titulo: "", descricao: "", dataInicio: "", dataFim: "", cor: "vermelho" };
+const PERIODO_VAZIO = { titulo: "", descricao: "", dataInicio: "", dataFim: "", cor: "vermelho", feriado: false };
 
 function ModalPeriodo({ periodo, onFechar, onSalvo }) {
   const [form, setForm] = useState(periodo);
@@ -125,6 +125,13 @@ function ModalPeriodo({ periodo, onFechar, onSalvo }) {
             ))}
           </div>
         </div>
+        <label className="flex items-start gap-2 rounded-lg border border-fuchsia-200 bg-fuchsia-50 p-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={Boolean(form.feriado)} onChange={(e) => mudar("feriado", e.target.checked)} />
+          <span>
+            <b>É feriado</b>
+            <span className="block text-xs text-gray-600">No ponto: dia de folga e quem trabalhar ganha hora extra 100%. (Os feriados nacionais já entram sozinhos.)</span>
+          </span>
+        </label>
         <label className="block text-sm font-semibold text-gray-700">
           Observação
           <textarea rows={2} className="input-field mt-1" value={form.descricao || ""} onChange={(e) => mudar("descricao", e.target.value)} />
@@ -274,11 +281,12 @@ export function Calendario() {
   const abrirPeriodo = (evento) =>
     setPeriodo({
       id: evento.periodoId,
-      titulo: evento.titulo,
+      titulo: evento.nomePeriodo || evento.titulo,
       descricao: evento.detalhe || "",
       dataInicio: evento.data,
       dataFim: evento.dataFim,
       cor: evento.cor,
+      feriado: Boolean(evento.feriado),
     });
 
   return (
