@@ -200,9 +200,9 @@ function AbaAgora({ abrirEspelho }) {
             {passaram.map((f) => (
               <li key={f.usuario.id}>
                 <b>{f.usuario.nome}</b>:{" "}
-                {f.dia.tipoDia === "TRABALHO"
-                  ? `${formatarMinutos(f.dia.passouDaJornadaMinutos)} além da jornada (${formatarMinutos(f.dia.trabalhadoMinutos)} de ${formatarMinutos(f.dia.jornadaMinutos)})`
-                  : `trabalhando na ${f.dia.tipoDia === "FERIADO" ? "feriado" : "folga"} há ${formatarMinutos(f.dia.trabalhadoMinutos)}`}
+                {f.dia.jornadaMinutos > 0
+                  ? `${formatarMinutos(f.dia.passouDaJornadaMinutos)} além da jornada (${formatarMinutos(f.dia.trabalhadoMinutos)} de ${formatarMinutos(f.dia.jornadaMinutos)})${f.dia.tipoDia === "FERIADO" || f.dia.diaDaSemana === 0 ? " — extra 100%" : ""}`
+                  : `trabalhando na folga há ${formatarMinutos(f.dia.trabalhadoMinutos)}`}
               </li>
             ))}
           </ul>
@@ -432,7 +432,7 @@ function AbaHoras({ periodo, setPeriodo, abrirEspelho }) {
       )}
       <p className="text-xs text-gray-500">
         Hora extra conta o que passar da jornada do dia, com tolerância de 10 min por dia (CLT art. 58 §1º): 50% nos dias normais e 100% em domingo e feriado.
-        Almoço não feito não conta como extra. Na folga, todas as horas são extra. Clique numa linha para ver o dia a dia.
+        Almoço não feito não conta como extra. Na folga, todas as horas são extra. Domingo e feriado: a extra vale 100%. Clique numa linha para ver o dia a dia.
       </p>
     </div>
   );

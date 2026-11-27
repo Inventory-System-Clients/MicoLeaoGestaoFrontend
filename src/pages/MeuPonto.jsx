@@ -206,9 +206,9 @@ export function MeuPonto() {
               <div className={`rounded-xl px-4 py-3 text-center text-sm font-bold ${status.cor}`}>{status.texto}</div>
               {(hoje?.passouDaJornadaMinutos || 0) > 0 && hoje?.situacao === "EM_ANDAMENTO" && (
                 <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-center text-sm font-bold text-rose-800">
-                  {hoje.tipoDia === "TRABALHO"
-                    ? `⚠️ Você já passou ${formatarMinutos(hoje.passouDaJornadaMinutos)} da sua jornada de hoje.`
-                    : `⚠️ Hoje é ${hoje.tipoDia === "FERIADO" ? "feriado" : "sua folga"}: todo o tempo trabalhado conta como hora extra.`}
+                  {hoje.jornadaMinutos > 0
+                    ? `⚠️ Você já passou ${formatarMinutos(hoje.passouDaJornadaMinutos)} da sua jornada de hoje.${hoje.tipoDia === "FERIADO" || hoje.diaDaSemana === 0 ? " A hora extra de hoje vale 100%." : ""}`
+                    : "⚠️ Hoje é sua folga: todo o tempo trabalhado conta como hora extra."}
                 </div>
               )}
 

@@ -20,7 +20,7 @@ export function CalendarioEscala({ calendario, escala, hoje, aoMudarMes }) {
   const [ano, mes] = calendario.mes.split("-").map(Number);
   const primeiroDiaSemana = new Date(Date.UTC(ano, mes - 1, 1)).getUTCDay();
   const vazios = Array.from({ length: primeiroDiaSemana });
-  const trabalho = calendario.dias.filter((d) => d.tipo === "TRABALHO").length;
+  const trabalho = calendario.dias.filter((d) => d.trabalhoPelaEscala).length;
   const folgas = calendario.dias.length - trabalho;
 
   return (
@@ -62,7 +62,7 @@ export function CalendarioEscala({ calendario, escala, hoje, aoMudarMes }) {
         ))}
       </div>
       <p className="text-xs text-gray-500">
-        {trabalho} dia(s) de trabalho e {folgas} de folga/feriado neste mês. Trabalhar na folga conta tudo como hora extra; domingo e feriado valem 100%.
+        {trabalho} dia(s) de trabalho e {folgas} de folga neste mês. Trabalhar na folga conta tudo como hora extra. Em domingo e feriado a hora extra vale 100%.
       </p>
     </div>
   );

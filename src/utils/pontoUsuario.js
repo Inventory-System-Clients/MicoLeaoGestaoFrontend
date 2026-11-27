@@ -1,7 +1,7 @@
 // Campos do ponto no cadastro do usuário (components/CamposPontoUsuario.jsx)
 export const PONTO_VAZIO = {
   escala: "DIARIA",
-  diasTrabalho: [1, 2, 3, 4, 5, 6],
+  diasTrabalho: [0, 1, 2, 3, 4, 5, 6],
   escalaInicio: "",
   jornada: "08:00",
   salario: "",
@@ -14,7 +14,7 @@ const paraHoras = (minutos) =>
 // Usuário da API -> campos do formulário
 export const pontoDoUsuario = (usuario) => ({
   escala: usuario?.escala || "DIARIA",
-  diasTrabalho: Array.isArray(usuario?.diasTrabalho) && usuario.diasTrabalho.length ? usuario.diasTrabalho : [1, 2, 3, 4, 5, 6],
+  diasTrabalho: Array.isArray(usuario?.diasTrabalho) && usuario.diasTrabalho.length ? usuario.diasTrabalho : [0, 1, 2, 3, 4, 5, 6],
   escalaInicio: usuario?.escalaInicio || "",
   jornada: paraHoras(usuario?.jornadaDiariaMinutos),
   salario: usuario?.salario != null ? String(usuario.salario).replace(".", ",") : "",

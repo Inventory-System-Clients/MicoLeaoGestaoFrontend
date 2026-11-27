@@ -43,7 +43,7 @@ export function CamposPontoUsuario({ valor, aoMudar }) {
 
       {valor.escala === "DIARIA" ? (
         <div>
-          <p className="mb-2 text-sm font-medium text-gray-700">Dias de trabalho (os outros são folga)</p>
+          <p className="mb-2 text-sm font-medium text-gray-700">Dias de trabalho (os desmarcados são folga)</p>
           <div className="flex flex-wrap gap-2">
             {DIAS.map(([numero, rotulo]) => {
               const marcado = valor.diasTrabalho.includes(numero);

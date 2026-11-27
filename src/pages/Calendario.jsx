@@ -129,7 +129,7 @@ function ModalPeriodo({ periodo, onFechar, onSalvo }) {
           <input type="checkbox" className="mt-1" checked={Boolean(form.feriado)} onChange={(e) => mudar("feriado", e.target.checked)} />
           <span>
             <b>É feriado</b>
-            <span className="block text-xs text-gray-600">No ponto: dia de folga e quem trabalhar ganha hora extra 100%. (Os feriados nacionais já entram sozinhos.)</span>
+            <span className="block text-xs text-gray-600">No ponto: a hora extra desse dia vale 100% (a jornada continua a da escala). Os feriados nacionais já entram sozinhos.</span>
           </span>
         </label>
         <label className="block text-sm font-semibold text-gray-700">
