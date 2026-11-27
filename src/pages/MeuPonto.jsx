@@ -395,8 +395,7 @@ export function MeuPonto() {
 
             <CalendarioEscala calendario={dados?.calendario} escala={dados?.usuario?.escala} hoje={hojeEmBrasilia()} aoMudarMes={setMesEscala} />
 
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <CartaoTotal titulo="Trabalhado" valor={formatarMinutos(dados?.totais?.trabalhadoMinutos)} detalhe={`${dados?.totais?.diasTrabalhados || 0} dia(s)`} />
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               <CartaoTotal titulo="Horas extras" valor={formatarMinutos(dados?.totais?.extraMinutos)} destaque="text-emerald-600" />
               <CartaoTotal titulo="Horas a menos" valor={formatarMinutos(dados?.totais?.debitoMinutos)} destaque="text-rose-600" />
               <CartaoTotal

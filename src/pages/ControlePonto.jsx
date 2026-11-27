@@ -326,14 +326,13 @@ function AbaHoras({ periodo, setPeriodo, abrirEspelho }) {
 
   const total = linhas.reduce(
     (soma, l) => ({
-      trabalhado: soma.trabalhado + l.totais.trabalhadoMinutos,
       extra: soma.extra + l.totais.extraMinutos,
       extra50: soma.extra50 + (l.totais.extra50Minutos || 0),
       extra100: soma.extra100 + (l.totais.extra100Minutos || 0),
       debito: soma.debito + l.totais.debitoMinutos,
       incompletos: soma.incompletos + l.totais.diasIncompletos,
     }),
-    { trabalhado: 0, extra: 0, extra50: 0, extra100: 0, debito: 0, incompletos: 0 },
+    { extra: 0, extra50: 0, extra100: 0, debito: 0, incompletos: 0 },
   );
 
   const ordenar = (campo) => setOrdem((atual) => ({ campo, desc: atual.campo === campo ? !atual.desc : campo !== "nome" }));
@@ -372,8 +371,7 @@ function AbaHoras({ periodo, setPeriodo, abrirEspelho }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Cartao titulo="Trabalhado (equipe)" valor={formatarMinutos(total.trabalhado)} />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <Cartao titulo="Horas extras" valor={formatarMinutos(total.extra)} cor="text-emerald-600" detalhe={`50%: ${formatarMinutos(total.extra50)} · 100%: ${formatarMinutos(total.extra100)}`} />
         <Cartao titulo="Horas a menos" valor={formatarMinutos(total.debito)} cor="text-rose-600" />
         <Cartao titulo="Dias incompletos" valor={total.incompletos} cor={total.incompletos ? "text-rose-600" : "text-gray-900"} detalhe="Faltou alguma batida" />
@@ -756,8 +754,7 @@ function AbaEspelho({ funcionarios, usuarioId, setUsuarioId, periodo, setPeriodo
       {usuarioId && !dados && !erro && <Carregando />}
       {dados && (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            <Cartao titulo="Trabalhado" valor={formatarMinutos(dados.totais.trabalhadoMinutos)} detalhe={`${dados.totais.diasTrabalhados} dia(s) · jornada ${formatarMinutos(dados.usuario.jornadaDiariaMinutos)}`} />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Cartao titulo="Horas extras" valor={formatarMinutos(dados.totais.extraMinutos)} cor="text-emerald-600" />
             <Cartao titulo="Horas a menos" valor={formatarMinutos(dados.totais.debitoMinutos)} cor="text-rose-600" />
             <Cartao titulo="Saldo" valor={formatarMinutos(dados.totais.saldoMinutos, { sinal: true })} cor={dados.totais.saldoMinutos >= 0 ? "text-emerald-600" : "text-rose-600"} />
